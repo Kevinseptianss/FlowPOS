@@ -1,3 +1,4 @@
+import 'package:flow_pos/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 
 void main() {
@@ -13,7 +14,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'FlowPOS',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(colorScheme: .fromSeed(seedColor: Colors.deepPurple)),
+      theme: AppTheme.lightThemeMode,
       home: const MyHomePage(title: 'FlowPOS Home Page'),
     );
   }
