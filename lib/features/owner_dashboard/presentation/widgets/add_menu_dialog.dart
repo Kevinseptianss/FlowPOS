@@ -13,7 +13,17 @@ class _AddMenuDialogState extends State<AddMenuDialog> {
   late final TextEditingController _nameController;
   late final TextEditingController _priceController;
   late final TextEditingController _categoryController;
+  late final TextEditingController _categoryNameController;
   final _formKey = GlobalKey<FormState>();
+  String _formType = 'menu';
+  String _selectedCategory = 'Beverage';
+
+  static const List<String> _categoryOptions = [
+    'Beverage',
+    'Food',
+    'Pastry',
+    'Snack',
+  ];
 
   @override
   void initState() {
@@ -21,6 +31,7 @@ class _AddMenuDialogState extends State<AddMenuDialog> {
     _nameController = TextEditingController();
     _priceController = TextEditingController();
     _categoryController = TextEditingController();
+    _categoryNameController = TextEditingController();
   }
 
   @override
@@ -28,6 +39,7 @@ class _AddMenuDialogState extends State<AddMenuDialog> {
     _nameController.dispose();
     _priceController.dispose();
     _categoryController.dispose();
+    _categoryNameController.dispose();
     super.dispose();
   }
 
@@ -83,24 +95,75 @@ class _AddMenuDialogState extends State<AddMenuDialog> {
                     child: Form(
                       key: _formKey,
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          MenuField(
-                            label: "Nama Menu",
-                            hintText: "Ex: John Doe",
-                            controller: _nameController,
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              _SelectionBadge(
+                                label: 'Menu Baru',
+                                isSelected: _formType == 'menu',
+                                onTap: () {
+                                  setState(() {
+                                    _formType = 'menu';
+                                  });
+                                },
+                              ),
+                              _SelectionBadge(
+                                label: 'Kategori Baru',
+                                isSelected: _formType == 'category',
+                                onTap: () {
+                                  setState(() {
+                                    _formType = 'category';
+                                  });
+                                },
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 12),
-                          MenuField(
-                            label: "Harga",
-                            hintText: "Ex: 25000",
-                            controller: _priceController,
-                          ),
-                          const SizedBox(height: 12),
-                          MenuField(
-                            label: "Kategori",
-                            hintText: "Ex: Makanan",
-                            controller: _categoryController,
-                          ),
+                          const SizedBox(height: 16),
+                          if (_formType == 'menu') ...[
+                            MenuField(
+                              label: "Nama Menu",
+                              hintText: "Ex: John Doe",
+                              controller: _nameController,
+                            ),
+                            const SizedBox(height: 12),
+                            MenuField(
+                              label: "Harga",
+                              hintText: "Ex: 25000",
+                              controller: _priceController,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Kategori',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: _categoryOptions
+                                  .map(
+                                    (category) => _SelectionBadge(
+                                      label: category,
+                                      isSelected: _selectedCategory == category,
+                                      onTap: () {
+                                        setState(() {
+                                          _selectedCategory = category;
+                                        });
+                                      },
+                                    ),
+                                  )
+                                  .toList(),
+                            ),
+                          ] else ...[
+                            MenuField(
+                              label: "Nama Kategori",
+                              hintText: "Ex: Makanan",
+                              controller: _categoryNameController,
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -119,7 +182,11 @@ class _AddMenuDialogState extends State<AddMenuDialog> {
                       ElevatedButton(
                         onPressed: () {
                           if (_formKey.currentState!.validate()) {
-                            print('submit');
+                            if (_formType == 'menu') {
+                              print('submit_menu');
+                            } else {
+                              print('submit_category');
+                            }
                             Navigator.pop(context);
                           }
                         },
@@ -135,6 +202,42 @@ class _AddMenuDialogState extends State<AddMenuDialog> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SelectionBadge extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _SelectionBadge({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? AppPallete.primary : AppPallete.background,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: isSelected ? AppPallete.primary : AppPallete.background,
+          ),
+        ),
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: isSelected ? AppPallete.onPrimary : AppPallete.textPrimary,
+          ),
         ),
       ),
     );
