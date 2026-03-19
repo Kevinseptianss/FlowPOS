@@ -1,4 +1,6 @@
 import 'package:flow_pos/core/theme/app_pallete.dart';
+import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/qty_button.dart';
+import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/summary_row.dart';
 import 'package:flutter/material.dart';
 
 class ListOrderSection extends StatelessWidget {
@@ -52,13 +54,13 @@ class ListOrderSection extends StatelessWidget {
           const SizedBox(height: 12),
           const Divider(color: AppPallete.divider),
           const SizedBox(height: 8),
-          _SummaryRow(label: 'Subtotal', value: subtotal),
+          SummaryRow(label: 'Subtotal', value: subtotal),
           const SizedBox(height: 6),
-          _SummaryRow(label: 'Tax ($taxRate%)', value: tax),
+          SummaryRow(label: 'Tax ($taxRate%)', value: tax),
           const SizedBox(height: 8),
           const Divider(color: AppPallete.divider),
           const SizedBox(height: 8),
-          _SummaryRow(label: 'Total', value: total, isTotal: true),
+          SummaryRow(label: 'Total', value: total, isTotal: true),
           const SizedBox(height: 16),
           Row(
             children: [
@@ -150,7 +152,7 @@ class _OrderItemTile extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _QtyButton(icon: Icons.remove, onTap: () {}),
+                    QtyButton(icon: Icons.remove, onTap: () {}),
                     const SizedBox(width: 8),
                     Text(
                       '$qty',
@@ -159,7 +161,7 @@ class _OrderItemTile extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    _QtyButton(icon: Icons.add, onTap: () {}),
+                    QtyButton(icon: Icons.add, onTap: () {}),
                   ],
                 ),
               ),
@@ -177,62 +179,6 @@ class _OrderItemTile extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _QtyButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _QtyButton({required this.icon, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        width: 28,
-        height: 28,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: AppPallete.background,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppPallete.divider),
-        ),
-        child: Icon(icon, size: 16, color: AppPallete.textPrimary),
-      ),
-    );
-  }
-}
-
-class _SummaryRow extends StatelessWidget {
-  final String label;
-  final int value;
-  final bool isTotal;
-
-  const _SummaryRow({
-    required this.label,
-    required this.value,
-    this.isTotal = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final textStyle = isTotal
-        ? Theme.of(context).textTheme.titleMedium
-        : Theme.of(context).textTheme.bodyMedium;
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: textStyle?.copyWith(color: AppPallete.textPrimary)),
-        Text(
-          'Rp $value',
-          style: textStyle?.copyWith(color: AppPallete.textPrimary),
-        ),
-      ],
     );
   }
 }
