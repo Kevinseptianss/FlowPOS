@@ -19,7 +19,12 @@ class MenuField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          label,
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(color: Colors.black),
+        ),
         const SizedBox(height: 12),
         TextFormField(
           controller: controller,
@@ -27,7 +32,7 @@ class MenuField extends StatelessWidget {
             hintText: hintText,
             hintStyle: const TextStyle(fontSize: 14),
           ),
-          style: const TextStyle(fontSize: 14),
+          style: const TextStyle(fontSize: 14, color: Colors.black),
           obscureText: isObscureText,
           validator: (value) {
             if (value!.isEmpty) {

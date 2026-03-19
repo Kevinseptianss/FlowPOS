@@ -49,9 +49,8 @@ class OrderCard extends StatelessWidget {
                   ),
                   child: Text(
                     paymentType,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: AppPallete.onPrimary,
                     ),
                   ),
                 ),
@@ -63,7 +62,9 @@ class OrderCard extends StatelessWidget {
               children: [
                 Text(
                   '$datetime - $totalItems items',
-                  style: Theme.of(context).textTheme.bodyMedium,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: AppPallete.primary),
                 ),
                 Text(
                   totalPayment,

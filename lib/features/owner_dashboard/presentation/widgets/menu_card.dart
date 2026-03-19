@@ -64,7 +64,12 @@ class _MenuCardState extends State<MenuCard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(_title, style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                    _title,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: AppPallete.primary,
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     "Rp ${_price.toString()}",

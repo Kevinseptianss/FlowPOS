@@ -1,5 +1,5 @@
 import 'package:flow_pos/core/theme/app_theme.dart';
-import 'package:flow_pos/features/cashier_dashboard/presentation/pages/cashier_page.dart';
+import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_dashboard_page.dart';
 import 'package:flutter/material.dart';
 
 void main() {
@@ -16,7 +16,7 @@ class MyApp extends StatelessWidget {
       title: 'FlowPOS',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightThemeMode,
-      home: const CashierPage(),
+      home: const OwnerDashboardPage(),
     );
   }
 }

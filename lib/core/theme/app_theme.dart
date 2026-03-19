@@ -16,7 +16,7 @@ class AppTheme {
       foregroundColor: AppPallete.onPrimary,
     ),
     inputDecorationTheme: InputDecorationTheme(
-      contentPadding: const EdgeInsets.all(27),
+      contentPadding: const EdgeInsets.all(15),
       border: _border(),
       enabledBorder: _border(),
       focusedBorder: _border(AppPallete.primary),
