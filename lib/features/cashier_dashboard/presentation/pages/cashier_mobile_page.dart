@@ -2,7 +2,9 @@ import 'package:flow_pos/core/theme/app_pallete.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/list_order_section.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/menu_item_card.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/modifier_dialog.dart';
+import 'package:flow_pos/features/category/presentation/bloc/category_bloc.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 class CashierMobilePage extends StatefulWidget {
   const CashierMobilePage({super.key});
@@ -13,14 +15,6 @@ class CashierMobilePage extends StatefulWidget {
 
 class _CashierMobilePageState extends State<CashierMobilePage> {
   static const String _cashierName = 'Jason';
-
-  static const List<String> _categories = [
-    'All',
-    'Beverage',
-    'Food',
-    'Pastry',
-    'Snack',
-  ];
 
   static const List<Map<String, dynamic>> _menuItems = [
     {'name': 'Iced Americano', 'price': 15000, 'category': 'Beverage'},
@@ -59,11 +53,17 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
     {'name': 'French Fries', 'qty': 2, 'price': 20000},
   ];
 
-  String _selectedCategory = 'All';
+  String _selectedCategory = 'all';
+
+  @override
+  void initState() {
+    super.initState();
+    context.read<CategoryBloc>().add(GetAllCategoriesEvent());
+  }
 
   @override
   Widget build(BuildContext context) {
-    final filteredItems = _selectedCategory == 'All'
+    final filteredItems = _selectedCategory == 'all'
         ? _menuItems
         : _menuItems
               .where((item) => item['category'] == _selectedCategory)
@@ -110,26 +110,39 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
                     width: double.infinity,
                     color: AppPallete.primary,
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: _categories
-                            .map(
-                              (category) => Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: _CategoryBadge(
-                                  label: category,
-                                  isSelected: _selectedCategory == category,
-                                  onTap: () {
-                                    setState(() {
-                                      _selectedCategory = category;
-                                    });
-                                  },
-                                ),
-                              ),
-                            )
-                            .toList(),
-                      ),
+                    child: BlocBuilder<CategoryBloc, CategoryState>(
+                      builder: (context, state) {
+                        if (state is CategoryLoading) {
+                          return const Text('Loading categories...');
+                        } else if (state is CategoryFailure) {
+                          return Text('Error: ${state.message}');
+                        } else if (state is CategoryLoaded) {
+                          return SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: state.categories
+                                  .map(
+                                    (category) => Padding(
+                                      padding: const EdgeInsets.only(right: 8),
+                                      child: _CategoryBadge(
+                                        label: category.name,
+                                        isSelected:
+                                            _selectedCategory == category.id,
+                                        onTap: () {
+                                          setState(() {
+                                            _selectedCategory = category.id;
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                            ),
+                          );
+                        } else {
+                          return const SizedBox();
+                        }
+                      },
                     ),
                   ),
                   Expanded(
