@@ -12,6 +12,11 @@ import 'package:flow_pos/features/category/data/repositories/category_repository
 import 'package:flow_pos/features/category/domain/repositories/category_repository.dart';
 import 'package:flow_pos/features/category/domain/usecases/get_all_categories.dart';
 import 'package:flow_pos/features/category/presentation/bloc/category_bloc.dart';
+import 'package:flow_pos/features/menu_item/data/datasources/menu_item_remote_data_source.dart';
+import 'package:flow_pos/features/menu_item/data/repositories/menu_item_repository_impl.dart';
+import 'package:flow_pos/features/menu_item/domain/repositories/menu_item_repository.dart';
+import 'package:flow_pos/features/menu_item/domain/usecases/get_all_menu_items.dart';
+import 'package:flow_pos/features/menu_item/presentation/bloc/menu_item_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -21,6 +26,7 @@ Future<void> initDependencies() async {
   _initUser();
   _initAuth();
   _initCategory();
+  _initMenuItem();
 
   final supabase = await Supabase.initialize(
     url: AppSecrets.supabaseURL,
@@ -28,6 +34,24 @@ Future<void> initDependencies() async {
   );
 
   serviceLocator.registerLazySingleton(() => supabase.client);
+}
+
+void _initMenuItem() {
+  serviceLocator
+    // Datasources
+    ..registerFactory<MenuItemRemoteDataSource>(
+      () => MenuItemRemoteDataSourceImpl(serviceLocator()),
+    )
+    // Repositories
+    ..registerFactory<MenuItemRepository>(
+      () => MenuItemRepositoryImpl(serviceLocator()),
+    )
+    // Usecases
+    ..registerFactory(() => GetAllMenuItems(serviceLocator()))
+    // Bloc
+    ..registerLazySingleton(
+      () => MenuItemBloc(getAllMenuItems: serviceLocator()),
+    );
 }
 
 void _initCategory() {

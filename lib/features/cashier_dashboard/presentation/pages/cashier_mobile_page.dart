@@ -1,8 +1,10 @@
 import 'package:flow_pos/core/theme/app_pallete.dart';
+import 'package:flow_pos/core/utils/show_snackbar.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/list_order_section.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/menu_item_card.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/modifier_dialog.dart';
 import 'package:flow_pos/features/category/presentation/bloc/category_bloc.dart';
+import 'package:flow_pos/features/menu_item/presentation/bloc/menu_item_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -15,17 +17,6 @@ class CashierMobilePage extends StatefulWidget {
 
 class _CashierMobilePageState extends State<CashierMobilePage> {
   static const String _cashierName = 'Jason';
-
-  static const List<Map<String, dynamic>> _menuItems = [
-    {'name': 'Iced Americano', 'price': 15000, 'category': 'Beverage'},
-    {'name': 'Cappuccino', 'price': 22000, 'category': 'Beverage'},
-    {'name': 'Chicken Sandwich', 'price': 28000, 'category': 'Food'},
-    {'name': 'Chocolate Croissant', 'price': 18000, 'category': 'Pastry'},
-    {'name': 'Matcha Latte', 'price': 25000, 'category': 'Beverage'},
-    {'name': 'French Fries', 'price': 20000, 'category': 'Snack'},
-    {'name': 'Blueberry Muffin', 'price': 20000, 'category': 'Pastry'},
-    {'name': 'Grilled Cheese Sandwich', 'price': 30000, 'category': 'Food'},
-  ];
 
   static const List<Map<String, dynamic>> _modifierGroups = [
     {
@@ -59,16 +50,11 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
   void initState() {
     super.initState();
     context.read<CategoryBloc>().add(GetAllCategoriesEvent());
+    context.read<MenuItemBloc>().add(GetAllMenuItemsEvent());
   }
 
   @override
   Widget build(BuildContext context) {
-    final filteredItems = _selectedCategory == 'all'
-        ? _menuItems
-        : _menuItems
-              .where((item) => item['category'] == _selectedCategory)
-              .toList();
-
     return Scaffold(
       backgroundColor: AppPallete.background,
       appBar: AppBar(
@@ -148,32 +134,61 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.all(16),
-                      child: GridView.builder(
-                        itemCount: filteredItems.length,
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              mainAxisSpacing: 12,
-                              crossAxisSpacing: 12,
-                              childAspectRatio: 0.78,
-                            ),
-                        itemBuilder: (context, index) {
-                          final item = filteredItems[index];
+                      child: BlocConsumer<MenuItemBloc, MenuItemState>(
+                        listener: (context, state) {
+                          if (state is MenuItemFailure) {
+                            showSnackbar(context, state.message);
+                          }
+                        },
+                        builder: (context, state) {
+                          if (state is MenuItemLoading) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          } else if (state is MenuItemLoaded) {
+                            final filteredItems = _selectedCategory == 'all'
+                                ? state.menuItems
+                                : state.menuItems
+                                      .where(
+                                        (item) =>
+                                            item.categoryId ==
+                                            _selectedCategory,
+                                      )
+                                      .toList();
 
-                          return MenuItemCard(
-                            name: item['name'] as String,
-                            price: item['price'] as int,
-                            onAdd: () {
-                              showDialog(
-                                context: context,
-                                builder: (context) => ModifierDialog(
-                                  itemName: item['name'] as String,
-                                  price: item['price'] as int,
-                                  modifierGroups: _modifierGroups,
-                                ),
-                              );
-                            },
-                          );
+                            return GridView.builder(
+                              itemCount: filteredItems.length,
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 2,
+                                    mainAxisSpacing: 12,
+                                    crossAxisSpacing: 12,
+                                    childAspectRatio: 0.78,
+                                  ),
+                              itemBuilder: (context, index) {
+                                final item = filteredItems[index];
+
+                                return MenuItemCard(
+                                  name: item.name,
+                                  price: item.price,
+                                  onAdd: () {
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) => ModifierDialog(
+                                        itemName: item.name,
+                                        price: item.price,
+                                        modifierGroups: _modifierGroups,
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
+                            );
+                          } else {
+                            return const Center(
+                              child: Text("No Menu Items Available"),
+                            );
+                          }
                         },
                       ),
                     ),

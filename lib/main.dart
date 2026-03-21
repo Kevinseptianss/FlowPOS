@@ -4,6 +4,7 @@ import 'package:flow_pos/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:flow_pos/features/auth/presentation/pages/sign_in_page.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/pages/cashier_page.dart';
 import 'package:flow_pos/features/category/presentation/bloc/category_bloc.dart';
+import 'package:flow_pos/features/menu_item/presentation/bloc/menu_item_bloc.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_dashboard_page.dart';
 import 'package:flow_pos/init_dependencies.dart';
 import 'package:flutter/material.dart';
@@ -18,6 +19,7 @@ Future<void> main() async {
         BlocProvider(create: (_) => serviceLocator<UserBloc>()),
         BlocProvider(create: (_) => serviceLocator<AuthBloc>()),
         BlocProvider(create: (_) => serviceLocator<CategoryBloc>()),
+        BlocProvider(create: (_) => serviceLocator<MenuItemBloc>()),
       ],
       child: const MyApp(),
     ),
