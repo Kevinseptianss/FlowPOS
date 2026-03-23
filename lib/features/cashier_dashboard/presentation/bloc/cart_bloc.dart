@@ -37,10 +37,9 @@ class CartBloc extends Bloc<CartEvent, CartState> {
       // Update quantity of existing item
       final existingItem = currentItems[existingIndex];
       final newQuantity = existingItem.quantity + event.quantity;
+      final modifiersUnitPrice = _modifiersUnitPrice(existingItem);
       final newTotalPrice =
-          (existingItem.basePrice +
-              _calculateModifiersPrice(event.selectedModifiers, currentItems)) *
-          newQuantity;
+          (existingItem.basePrice + modifiersUnitPrice) * newQuantity;
 
       currentItems[existingIndex] = existingItem.copyWith(
         quantity: newQuantity,
@@ -100,10 +99,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
       if (event.newQuantity <= 0) {
         currentItems.removeAt(itemIndex);
       } else {
-        final modifiersPrice = _calculateModifiersPrice(
-          item.selectedModifiers,
-          currentItems,
-        );
+        final modifiersPrice = _modifiersUnitPrice(item);
         final newTotalPrice =
             (item.basePrice + modifiersPrice) * event.newQuantity;
         currentItems[itemIndex] = item.copyWith(
@@ -128,7 +124,10 @@ class CartBloc extends Bloc<CartEvent, CartState> {
     emit(const CartEmpty());
   }
 
-  bool _modifiersEqual(Map<String, SelectedModifier?> a, Map<String, SelectedModifier?> b) {
+  bool _modifiersEqual(
+    Map<String, SelectedModifier?> a,
+    Map<String, SelectedModifier?> b,
+  ) {
     if (a.length != b.length) return false;
     for (final key in a.keys) {
       final aModifier = a[key];
@@ -138,13 +137,12 @@ class CartBloc extends Bloc<CartEvent, CartState> {
     return true;
   }
 
-  int _calculateModifiersPrice(
-    Map<String, SelectedModifier?> modifiers,
-    List<Cart> items,
-  ) {
-    // This is a simplified calculation. In a real app, you'd need to look up modifier prices
-    // For now, we'll assume the totalPrice already includes modifier prices
-    // This method would need to be implemented properly with modifier data
-    return 0; // Placeholder
+  int _modifiersUnitPrice(Cart item) {
+    if (item.quantity <= 0) return 0;
+
+    final perUnitPrice = item.totalPrice ~/ item.quantity;
+    final modifiersUnitPrice = perUnitPrice - item.basePrice;
+
+    return modifiersUnitPrice < 0 ? 0 : modifiersUnitPrice;
   }
 }
