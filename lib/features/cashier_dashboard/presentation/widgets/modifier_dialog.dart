@@ -1,4 +1,5 @@
 import 'package:flow_pos/core/theme/app_pallete.dart';
+import 'package:flow_pos/features/cashier_dashboard/domain/entities/cart.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/modifier_option_row.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/qty_button.dart';
 import 'package:flow_pos/features/modifier_option/domain/entities/modifier_option.dart';
@@ -25,11 +26,12 @@ class ModifierDialog extends StatefulWidget {
 class _ModifierDialogState extends State<ModifierDialog> {
   int quantity = 1;
   static const double _fixedSectionsHeight = 250;
-  final Map<String, String?> selectedModifierByGroup = {};
+  final Map<String, SelectedModifier?> selectedModifierByGroup = {};
 
   int _selectedModifiersPrice(List<ModifierOption> options) {
     final selectedOptionIds = selectedModifierByGroup.values
-        .whereType<String>()
+        .whereType<SelectedModifier>()
+        .map((modifier) => modifier.id)
         .toSet();
 
     return options
@@ -180,7 +182,8 @@ class _ModifierDialogState extends State<ModifierDialog> {
                                       const SizedBox(height: 8),
                                       ...options.map((modifier) {
                                         final isSelected =
-                                            selectedModifierByGroup[groupId] ==
+                                            selectedModifierByGroup[groupId]
+                                                ?.id ==
                                             modifier.id;
 
                                         return ModifierOptionRow(
@@ -191,7 +194,10 @@ class _ModifierDialogState extends State<ModifierDialog> {
                                           onTap: () {
                                             setState(() {
                                               selectedModifierByGroup[groupId] =
-                                                  modifier.id;
+                                                  SelectedModifier(
+                                                    id: modifier.id,
+                                                    name: modifier.name,
+                                                  );
                                             });
                                           },
                                         );
@@ -255,7 +261,10 @@ class _ModifierDialogState extends State<ModifierDialog> {
                               ElevatedButton(
                                 onPressed: () => Navigator.pop(context, {
                                   'totalPrice': totalPrice,
-                                  'selectedModifiers': selectedModifierByGroup,
+                                  'selectedModifiers':
+                                      Map<String, SelectedModifier?>.from(
+                                        selectedModifierByGroup,
+                                      ),
                                   'quantity': quantity,
                                 }),
                                 style: ElevatedButton.styleFrom(

@@ -1,10 +1,13 @@
 import 'package:flow_pos/core/theme/app_pallete.dart';
 import 'package:flow_pos/core/utils/show_snackbar.dart';
+import 'package:flow_pos/features/cashier_dashboard/domain/entities/cart.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/list_order_section.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/menu_item_card.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/modifier_dialog.dart';
 import 'package:flow_pos/features/category/presentation/bloc/category_bloc.dart';
+import 'package:flow_pos/features/cashier_dashboard/presentation/bloc/cart_bloc.dart';
 import 'package:flow_pos/features/menu_item/presentation/bloc/menu_item_bloc.dart';
+import 'package:flow_pos/features/modifier_option/presentation/bloc/modifier_option_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -17,14 +20,6 @@ class CashierMobilePage extends StatefulWidget {
 
 class _CashierMobilePageState extends State<CashierMobilePage> {
   static const String _cashierName = 'Jason';
-
-  static const List<Map<String, dynamic>> _orderItems = [
-    {'name': 'Iced Americano', 'qty': 2, 'price': 15000},
-    {'name': 'Chicken Sandwich', 'qty': 1, 'price': 28000},
-    {'name': 'Chocolate Croissant', 'qty': 1, 'price': 18000},
-    {'name': 'Matcha Latte', 'qty': 3, 'price': 25000},
-    {'name': 'French Fries', 'qty': 2, 'price': 20000},
-  ];
 
   String _selectedCategory = 'all';
 
@@ -153,15 +148,40 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
                                 return MenuItemCard(
                                   name: item.name,
                                   price: item.price,
-                                  onAdd: () {
-                                    showDialog(
-                                      context: context,
-                                      builder: (context) => ModifierDialog(
-                                        itemName: item.name,
-                                        price: item.price,
-                                        menuId: item.id,
-                                      ),
-                                    );
+                                  onAdd: () async {
+                                    // Capture bloc references before async operation to avoid context warnings
+                                    final cartBloc = context.read<CartBloc>();
+                                    final modifierBloc = context
+                                        .read<ModifierOptionBloc>();
+
+                                    final result =
+                                        await showDialog<Map<String, dynamic>>(
+                                          context: context,
+                                          builder: (_) => BlocProvider.value(
+                                            value: modifierBloc,
+                                            child: ModifierDialog(
+                                              menuId: item.id,
+                                              itemName: item.name,
+                                              price: item.price,
+                                            ),
+                                          ),
+                                        );
+
+                                    if (result != null) {
+                                      cartBloc.add(
+                                        AddToCartEvent(
+                                          menuItemId: item.id,
+                                          name: item.name,
+                                          basePrice: item.price,
+                                          quantity: result['quantity'] as int,
+                                          selectedModifiers:
+                                              result['selectedModifiers']
+                                                  as Map<String, SelectedModifier?>,
+                                          totalPrice:
+                                              result['totalPrice'] as int,
+                                        ),
+                                      );
+                                    }
                                   },
                                 );
                               },
@@ -182,56 +202,73 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
               left: 0,
               right: 0,
               bottom: 0,
-              child: Container(
-                color: AppPallete.surface,
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                child: SafeArea(
-                  top: false,
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        showModalBottomSheet(
-                          context: context,
-                          isScrollControlled:
-                              true, // WAJIB jika memiliki child yang bisa di-scroll
-                          backgroundColor: Colors.transparent,
-                          builder: (context) {
-                            return Container(
-                              height: MediaQuery.of(context).size.height * 0.78,
-                              decoration: const BoxDecoration(
-                                color: AppPallete.surface,
-                                borderRadius: BorderRadius.vertical(
-                                  top: Radius.circular(20),
+              child: BlocBuilder<CartBloc, CartState>(
+                builder: (context, cartState) {
+                  final itemCount = cartState is CartLoaded
+                      ? cartState.items.length
+                      : 0;
+                  final totalAmount = cartState is CartLoaded
+                      ? cartState.totalAmount
+                      : 0;
+
+                  return Container(
+                    color: AppPallete.surface,
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                    child: SafeArea(
+                      top: false,
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: itemCount > 0
+                              ? () {
+                                  showModalBottomSheet(
+                                    context: context,
+                                    isScrollControlled:
+                                        true, // WAJIB jika memiliki child yang bisa di-scroll
+                                    backgroundColor: Colors.transparent,
+                                    builder: (context) {
+                                      return Container(
+                                        height:
+                                            MediaQuery.of(context).size.height *
+                                            0.78,
+                                        decoration: const BoxDecoration(
+                                          color: AppPallete.surface,
+                                          borderRadius: BorderRadius.vertical(
+                                            top: Radius.circular(20),
+                                          ),
+                                        ),
+                                        child: const Padding(
+                                          padding: EdgeInsets.only(top: 8),
+                                          child: ListOrderSection(),
+                                        ),
+                                      );
+                                    },
+                                  );
+                                }
+                              : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppPallete.primary,
+                            foregroundColor: AppPallete.onPrimary,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            itemCount > 0
+                                ? 'View Cart ($itemCount) - Rp $totalAmount'
+                                : 'Cart is Empty',
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
+                                  color: AppPallete.onPrimary,
+                                  fontWeight: FontWeight.w700,
                                 ),
-                              ),
-                              child: const Padding(
-                                padding: EdgeInsets.only(top: 8),
-                                child: ListOrderSection(),
-                              ),
-                            );
-                          },
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppPallete.primary,
-                        foregroundColor: AppPallete.onPrimary,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                       ),
-                      child: Text(
-                        'View Cart (${_orderItems.length})',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(
-                              color: AppPallete.onPrimary,
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
             ),
           ],
