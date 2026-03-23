@@ -15,24 +15,6 @@ class ListMenuSection extends StatefulWidget {
 }
 
 class _ListMenuSectionState extends State<ListMenuSection> {
-  static const List<Map<String, dynamic>> _modifierGroups = [
-    {
-      'groupName': 'Ice',
-      'options': [
-        {'name': 'Less Ice', 'additionalPrice': 0},
-        {'name': 'Normal Ice', 'additionalPrice': 0},
-      ],
-    },
-    {
-      'groupName': 'Add-ons',
-      'options': [
-        {'name': 'Extra Shot', 'additionalPrice': 5000},
-        {'name': 'Less Sugar', 'additionalPrice': 0},
-        {'name': 'No Dairy', 'additionalPrice': 3000},
-      ],
-    },
-  ];
-
   String _selectedCategory = 'all';
 
   @override
@@ -126,7 +108,7 @@ class _ListMenuSectionState extends State<ListMenuSection> {
                           builder: (context) => ModifierDialog(
                             itemName: item.name,
                             price: item.price,
-                            modifierGroups: _modifierGroups,
+                            menuId: item.id,
                           ),
                         ),
                       );

@@ -17,6 +17,11 @@ import 'package:flow_pos/features/menu_item/data/repositories/menu_item_reposito
 import 'package:flow_pos/features/menu_item/domain/repositories/menu_item_repository.dart';
 import 'package:flow_pos/features/menu_item/domain/usecases/get_all_menu_items.dart';
 import 'package:flow_pos/features/menu_item/presentation/bloc/menu_item_bloc.dart';
+import 'package:flow_pos/features/modifier_option/data/datasources/modifier_option_remote_data_source.dart';
+import 'package:flow_pos/features/modifier_option/data/repositories/modifier_option_repository_impl.dart';
+import 'package:flow_pos/features/modifier_option/domain/repositories/modifier_option_repository.dart';
+import 'package:flow_pos/features/modifier_option/domain/usecases/get_all_modifier_options.dart';
+import 'package:flow_pos/features/modifier_option/presentation/bloc/modifier_option_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -27,6 +32,7 @@ Future<void> initDependencies() async {
   _initAuth();
   _initCategory();
   _initMenuItem();
+  _initModifierOption();
 
   final supabase = await Supabase.initialize(
     url: AppSecrets.supabaseURL,
@@ -34,6 +40,24 @@ Future<void> initDependencies() async {
   );
 
   serviceLocator.registerLazySingleton(() => supabase.client);
+}
+
+void _initModifierOption() {
+  serviceLocator
+    // Datasources
+    ..registerFactory<ModifierOptionRemoteDataSource>(
+      () => ModifierOptionRemoteDataSourceImpl(serviceLocator()),
+    )
+    // Repositories
+    ..registerFactory<ModifierOptionRepository>(
+      () => ModifierOptionRepositoryImpl(serviceLocator()),
+    )
+    // Usecases
+    ..registerFactory(() => GetAllModifierOptions(serviceLocator()))
+    // Bloc
+    ..registerLazySingleton(
+      () => ModifierOptionBloc(getAllModifierOptions: serviceLocator()),
+    );
 }
 
 void _initMenuItem() {

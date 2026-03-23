@@ -18,24 +18,6 @@ class CashierMobilePage extends StatefulWidget {
 class _CashierMobilePageState extends State<CashierMobilePage> {
   static const String _cashierName = 'Jason';
 
-  static const List<Map<String, dynamic>> _modifierGroups = [
-    {
-      'groupName': 'Ice',
-      'options': [
-        {'name': 'Less Ice', 'additionalPrice': 0},
-        {'name': 'Normal Ice', 'additionalPrice': 0},
-      ],
-    },
-    {
-      'groupName': 'Add-ons',
-      'options': [
-        {'name': 'Extra Shot', 'additionalPrice': 5000},
-        {'name': 'Less Sugar', 'additionalPrice': 0},
-        {'name': 'No Dairy', 'additionalPrice': 3000},
-      ],
-    },
-  ];
-
   static const List<Map<String, dynamic>> _orderItems = [
     {'name': 'Iced Americano', 'qty': 2, 'price': 15000},
     {'name': 'Chicken Sandwich', 'qty': 1, 'price': 28000},
@@ -177,7 +159,7 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
                                       builder: (context) => ModifierDialog(
                                         itemName: item.name,
                                         price: item.price,
-                                        modifierGroups: _modifierGroups,
+                                        menuId: item.id,
                                       ),
                                     );
                                   },
