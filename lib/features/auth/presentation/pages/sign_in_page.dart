@@ -162,10 +162,7 @@ class _SignInPageState extends State<SignInPage> {
                                 ),
                                 TextButton(
                                   onPressed: () {
-                                    Navigator.pushReplacement(
-                                      context,
-                                      SignUpPage.route(),
-                                    );
+                                    Navigator.push(context, SignUpPage.route());
                                   },
                                   style: TextButton.styleFrom(
                                     foregroundColor: AppPallete.secondary,

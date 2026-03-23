@@ -1,7 +1,6 @@
 import 'package:flow_pos/core/theme/app_pallete.dart';
 import 'package:flow_pos/core/utils/show_snackbar.dart';
 import 'package:flow_pos/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:flow_pos/features/auth/presentation/pages/sign_in_page.dart';
 import 'package:flow_pos/features/auth/presentation/widgets/auth_text_field.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -173,10 +172,7 @@ class _SignUpPageState extends State<SignUpPage> {
                                 ),
                                 TextButton(
                                   onPressed: () {
-                                    Navigator.pushReplacement(
-                                      context,
-                                      SignInPage.route(),
-                                    );
+                                    Navigator.pop(context);
                                   },
                                   style: TextButton.styleFrom(
                                     foregroundColor: AppPallete.secondary,
