@@ -1,5 +1,5 @@
 import 'package:flow_pos/core/theme/app_pallete.dart';
-import 'package:flow_pos/features/cashier_dashboard/domain/entities/cart.dart';
+import 'package:flow_pos/features/cashier_dashboard/domain/entities/selected_modifier.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/modifier_option_row.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/qty_button.dart';
 import 'package:flow_pos/features/modifier_option/domain/entities/modifier_option.dart';

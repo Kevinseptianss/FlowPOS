@@ -1,6 +1,6 @@
 import 'package:flow_pos/core/theme/app_pallete.dart';
 import 'package:flow_pos/core/utils/show_snackbar.dart';
-import 'package:flow_pos/features/cashier_dashboard/domain/entities/cart.dart';
+import 'package:flow_pos/features/cashier_dashboard/domain/entities/selected_modifier.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/list_order_section.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/menu_item_card.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/modifier_dialog.dart';
@@ -176,7 +176,10 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
                                           quantity: result['quantity'] as int,
                                           selectedModifiers:
                                               result['selectedModifiers']
-                                                  as Map<String, SelectedModifier?>,
+                                                  as Map<
+                                                    String,
+                                                    SelectedModifier?
+                                                  >,
                                           totalPrice:
                                               result['totalPrice'] as int,
                                         ),

@@ -1,4 +1,5 @@
 import 'package:flow_pos/features/cashier_dashboard/domain/entities/cart.dart';
+import 'package:flow_pos/features/cashier_dashboard/domain/entities/selected_modifier.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:uuid/uuid.dart';

@@ -1,14 +1,5 @@
 import 'package:equatable/equatable.dart';
-
-class SelectedModifier extends Equatable {
-  final String id;
-  final String name;
-
-  const SelectedModifier({required this.id, required this.name});
-
-  @override
-  List<Object?> get props => [id, name];
-}
+import 'package:flow_pos/features/cashier_dashboard/domain/entities/selected_modifier.dart';
 
 class Cart extends Equatable {
   final String id;
