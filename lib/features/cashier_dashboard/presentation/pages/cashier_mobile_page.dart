@@ -1,6 +1,8 @@
 import 'package:flow_pos/core/theme/app_pallete.dart';
 import 'package:flow_pos/core/utils/show_snackbar.dart';
 import 'package:flow_pos/features/cashier_dashboard/domain/entities/selected_modifier.dart';
+import 'package:flow_pos/features/cashier_dashboard/presentation/bloc/table_bloc.dart';
+import 'package:flow_pos/features/cashier_dashboard/presentation/pages/select_table_mobile_page.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/list_order_section.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/menu_item_card.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/modifier_dialog.dart';
@@ -60,6 +62,40 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
             ),
           ],
         ),
+        actions: [
+          BlocBuilder<TableBloc, TableState>(
+            builder: (context, tableState) {
+              return Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: FilledButton.tonal(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppPallete.surface,
+                    foregroundColor: AppPallete.primary,
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const SelectTableMobilePage(),
+                      ),
+                    );
+                  },
+                  child: Text(
+                    'Table T${tableState.selectedTableNumber}',
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: AppPallete.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: SafeArea(
         top: false,

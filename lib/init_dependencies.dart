@@ -18,6 +18,7 @@ import 'package:flow_pos/features/menu_item/domain/repositories/menu_item_reposi
 import 'package:flow_pos/features/menu_item/domain/usecases/get_all_menu_items.dart';
 import 'package:flow_pos/features/menu_item/presentation/bloc/menu_item_bloc.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/bloc/cart_bloc.dart';
+import 'package:flow_pos/features/cashier_dashboard/presentation/bloc/table_bloc.dart';
 import 'package:flow_pos/features/modifier_option/data/datasources/modifier_option_remote_data_source.dart';
 import 'package:flow_pos/features/modifier_option/data/repositories/modifier_option_repository_impl.dart';
 import 'package:flow_pos/features/modifier_option/domain/repositories/modifier_option_repository.dart';
@@ -35,6 +36,7 @@ Future<void> initDependencies() async {
   _initMenuItem();
   _initModifierOption();
   _initCart();
+  _initTable();
 
   final supabase = await Supabase.initialize(
     url: AppSecrets.supabaseURL,
@@ -104,6 +106,10 @@ void _initCategory() {
 
 void _initCart() {
   serviceLocator.registerLazySingleton(() => CartBloc());
+}
+
+void _initTable() {
+  serviceLocator.registerLazySingleton(() => TableBloc());
 }
 
 void _initAuth() {
