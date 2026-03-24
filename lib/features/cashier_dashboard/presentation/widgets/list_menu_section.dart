@@ -91,56 +91,65 @@ class _ListMenuSectionState extends State<ListMenuSection> {
                             )
                             .toList();
 
-                  return GridView.builder(
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          mainAxisSpacing: 12,
-                          crossAxisSpacing: 12,
-                          childAspectRatio: 0.9,
-                        ),
-                    itemCount: filteredItems.length,
-                    itemBuilder: (context, index) {
-                      final item = filteredItems[index];
+                  return RefreshIndicator(
+                    onRefresh: () async {
+                      context.read<MenuItemBloc>().add(GetAllMenuItemsEvent());
 
-                      return MenuItemCard(
-                        name: item.name,
-                        price: item.price,
-                        onAdd: () async {
-                          // Capture bloc references before async operation to avoid context warnings
-                          final cartBloc = context.read<CartBloc>();
-                          final modifierBloc = context
-                              .read<ModifierOptionBloc>();
-
-                          final result = await showDialog<Map<String, dynamic>>(
-                            context: context,
-                            builder: (_) => BlocProvider.value(
-                              value: modifierBloc,
-                              child: ModifierDialog(
-                                menuId: item.id,
-                                itemName: item.name,
-                                price: item.price,
-                              ),
-                            ),
-                          );
-
-                          if (result != null) {
-                            cartBloc.add(
-                              AddToCartEvent(
-                                menuItemId: item.id,
-                                name: item.name,
-                                basePrice: item.price,
-                                quantity: result['quantity'] as int,
-                                selectedModifiers:
-                                    result['selectedModifiers']
-                                        as Map<String, SelectedModifier?>,
-                                totalPrice: result['totalPrice'] as int,
-                              ),
-                            );
-                          }
-                        },
-                      );
+                      await Future.delayed(const Duration(seconds: 1));
                     },
+                    child: GridView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            mainAxisSpacing: 12,
+                            crossAxisSpacing: 12,
+                            childAspectRatio: 0.9,
+                          ),
+                      itemCount: filteredItems.length,
+                      itemBuilder: (context, index) {
+                        final item = filteredItems[index];
+
+                        return MenuItemCard(
+                          name: item.name,
+                          price: item.price,
+                          onAdd: () async {
+                            // Capture bloc references before async operation to avoid context warnings
+                            final cartBloc = context.read<CartBloc>();
+                            final modifierBloc = context
+                                .read<ModifierOptionBloc>();
+
+                            final result =
+                                await showDialog<Map<String, dynamic>>(
+                                  context: context,
+                                  builder: (_) => BlocProvider.value(
+                                    value: modifierBloc,
+                                    child: ModifierDialog(
+                                      menuId: item.id,
+                                      itemName: item.name,
+                                      price: item.price,
+                                    ),
+                                  ),
+                                );
+
+                            if (result != null) {
+                              cartBloc.add(
+                                AddToCartEvent(
+                                  menuItemId: item.id,
+                                  name: item.name,
+                                  basePrice: item.price,
+                                  quantity: result['quantity'] as int,
+                                  selectedModifiers:
+                                      result['selectedModifiers']
+                                          as Map<String, SelectedModifier?>,
+                                  totalPrice: result['totalPrice'] as int,
+                                ),
+                              );
+                            }
+                          },
+                        );
+                      },
+                    ),
                   );
                 } else {
                   return const Center(child: Text("No Menu Items Available"));
