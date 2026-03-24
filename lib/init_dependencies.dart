@@ -4,6 +4,7 @@ import 'package:flow_pos/features/auth/data/datasources/auth_remote_data_source.
 import 'package:flow_pos/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:flow_pos/features/auth/domain/repositories/auth_repository.dart';
 import 'package:flow_pos/features/auth/domain/usecases/current_user.dart';
+import 'package:flow_pos/features/auth/domain/usecases/logout.dart';
 import 'package:flow_pos/features/auth/domain/usecases/sign_in.dart';
 import 'package:flow_pos/features/auth/domain/usecases/sign_up.dart';
 import 'package:flow_pos/features/auth/presentation/bloc/auth_bloc.dart';
@@ -148,12 +149,14 @@ void _initAuth() {
     ..registerFactory(() => SignUp(serviceLocator()))
     ..registerFactory(() => SignIn(serviceLocator()))
     ..registerFactory(() => CurrentUser(serviceLocator()))
+    ..registerFactory(() => Logout(serviceLocator()))
     // Bloc
     ..registerLazySingleton(
       () => AuthBloc(
         signUp: serviceLocator(),
         signIn: serviceLocator(),
         currentUser: serviceLocator(),
+        logout: serviceLocator(),
         userBloc: serviceLocator(),
       ),
     );

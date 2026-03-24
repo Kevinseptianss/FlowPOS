@@ -13,4 +13,5 @@ abstract interface class AuthRepository {
     String password,
   );
   Future<Either<Failure, User>> getCurrentUserData();
+  Future<Either<Failure, void>> signOut();
 }
