@@ -125,7 +125,7 @@ class ListOrderSection extends StatelessWidget {
                           Expanded(
                             child: ElevatedButton(
                               onPressed: () =>
-                                  _createOrder(context, 'CASH', total),
+                                  _showCashPaymentDialog(context, total),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppPallete.secondary,
                                 foregroundColor: AppPallete.onPrimary,
@@ -154,7 +154,26 @@ class ListOrderSection extends StatelessWidget {
     );
   }
 
-  void _createOrder(BuildContext context, String method, int total) {
+  void _showCashPaymentDialog(BuildContext context, int total) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return CashPaymentDialog(
+          total: total,
+          onConfirmPayment: (int amountPaid) {
+            _createOrder(context, 'CASH', total, amountPaid: amountPaid);
+          },
+        );
+      },
+    );
+  }
+
+  void _createOrder(
+    BuildContext context,
+    String method,
+    int total, {
+    int? amountPaid,
+  }) {
     final cartBloc = context.read<CartBloc>();
     final orderBloc = context.read<OrderBloc>();
     final tableBloc = context.read<TableBloc>();
@@ -197,9 +216,8 @@ class ListOrderSection extends StatelessWidget {
     const int serviceChargeRate = 5;
     final int subtotal = cartState.totalAmount;
 
-    // For QRIS, amount paid equals total
-    // For CASH, we'll assume exact payment for now (could be made configurable later)
-    final int amountPaid = method == 'QRIS' ? total : total;
+    // Use provided amountPaid or default to total for QRIS
+    final int finalAmountPaid = amountPaid ?? total;
 
     orderBloc.add(
       CreateOrderEvent(
@@ -211,7 +229,7 @@ class ListOrderSection extends StatelessWidget {
         serviceCharge: serviceChargeRate.toDouble(),
         total: total,
         method: method,
-        amountPaid: amountPaid,
+        amountPaid: finalAmountPaid,
         items: orderItems,
       ),
     );
@@ -338,6 +356,146 @@ class _OrderItemTile extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class CashPaymentDialog extends StatefulWidget {
+  final int total;
+  final Function(int) onConfirmPayment;
+
+  const CashPaymentDialog({
+    super.key,
+    required this.total,
+    required this.onConfirmPayment,
+  });
+
+  @override
+  State<CashPaymentDialog> createState() => _CashPaymentDialogState();
+}
+
+class _CashPaymentDialogState extends State<CashPaymentDialog> {
+  late final TextEditingController amountController;
+  int change = 0;
+  String formattedAmount = '';
+
+  @override
+  void initState() {
+    super.initState();
+    amountController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    amountController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(
+        'Cash Payment',
+        style: Theme.of(
+          context,
+        ).textTheme.titleLarge?.copyWith(color: AppPallete.textPrimary),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Total: Rp ${_formatCurrency(widget.total)}',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: AppPallete.primary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: amountController,
+            keyboardType: TextInputType.number,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: AppPallete.textPrimary),
+            decoration: InputDecoration(
+              labelText: 'Amount Paid',
+              border: const OutlineInputBorder(),
+              prefixText: 'Rp ',
+              hintText: formattedAmount.isNotEmpty ? formattedAmount : '0',
+              labelStyle: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppPallete.textPrimary),
+            ),
+            onChanged: (value) {
+              // Remove any existing formatting and parse
+              final cleanValue = value
+                  .replaceAll('.', '')
+                  .replaceAll('Rp ', '');
+              final amount = int.tryParse(cleanValue) ?? 0;
+
+              setState(() {
+                change = amount - widget.total;
+                formattedAmount = _formatCurrency(amount);
+              });
+
+              // Update controller text with formatted value
+              if (cleanValue != value) {
+                amountController.text = formattedAmount;
+                amountController.selection = TextSelection.fromPosition(
+                  TextPosition(offset: formattedAmount.length),
+                );
+              }
+            },
+          ),
+          const SizedBox(height: 16),
+          if (change >= 0)
+            Text(
+              'Change: Rp ${_formatCurrency(change)}',
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: AppPallete.success,
+                fontWeight: FontWeight.bold,
+              ),
+            )
+          else
+            Text(
+              'Insufficient amount: Rp ${_formatCurrency(change.abs())} short',
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: AppPallete.error,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: change >= 0 && amountController.text.isNotEmpty
+              ? () {
+                  final cleanValue = amountController.text
+                      .replaceAll('.', '')
+                      .replaceAll('Rp ', '');
+                  final amount = int.tryParse(cleanValue) ?? 0;
+                  Navigator.of(context).pop();
+                  widget.onConfirmPayment(amount);
+                }
+              : null,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppPallete.secondary,
+            foregroundColor: AppPallete.onPrimary,
+          ),
+          child: const Text('Confirm Payment'),
+        ),
+      ],
+    );
+  }
+
+  String _formatCurrency(int amount) {
+    return amount.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]}.',
     );
   }
 }
