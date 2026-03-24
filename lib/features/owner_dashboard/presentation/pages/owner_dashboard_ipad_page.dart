@@ -57,7 +57,7 @@ class OwnerDashboardIpadPage extends StatelessWidget {
             flex: 3,
             child: Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: AppPallete.background),
+              decoration: const BoxDecoration(color: AppPallete.background),
               child: const Column(
                 children: [
                   AnalyticSection(),

@@ -1,7 +1,9 @@
 import 'package:equatable/equatable.dart';
+import 'package:flow_pos/features/order/domain/entities/monthly_revenue.dart';
 import 'package:flow_pos/features/order/domain/entities/order_entity.dart';
 import 'package:flow_pos/features/order/domain/entities/order_item.dart';
 import 'package:flow_pos/features/order/domain/usecases/create_order.dart';
+import 'package:flow_pos/features/order/domain/usecases/get_monthly_revenue.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 part 'order_event.dart';
@@ -9,11 +11,16 @@ part 'order_state.dart';
 
 class OrderBloc extends Bloc<OrderEvent, OrderState> {
   final CreateOrder _createOrder;
+  final GetMonthlyRevenue _getMonthlyRevenue;
 
-  OrderBloc({required CreateOrder createOrder})
-    : _createOrder = createOrder,
-      super(OrderInitial()) {
+  OrderBloc({
+    required CreateOrder createOrder,
+    required GetMonthlyRevenue getMonthlyRevenue,
+  }) : _createOrder = createOrder,
+       _getMonthlyRevenue = getMonthlyRevenue,
+       super(OrderInitial()) {
     on<CreateOrderEvent>(_onCreateOrder);
+    on<GetMonthlyRevenueEvent>(_onGetMonthlyRevenue);
   }
 
   void _onCreateOrder(CreateOrderEvent event, Emitter<OrderState> emit) async {
@@ -37,6 +44,22 @@ class OrderBloc extends Bloc<OrderEvent, OrderState> {
     result.fold(
       (l) => emit(OrderFailure(l.message)),
       (r) => emit(OrderCreated(r)),
+    );
+  }
+
+  void _onGetMonthlyRevenue(
+    GetMonthlyRevenueEvent event,
+    Emitter<OrderState> emit,
+  ) async {
+    emit(OrderRevenueLoading());
+
+    final result = await _getMonthlyRevenue(
+      GetMonthlyRevenueParams(month: event.month),
+    );
+
+    result.fold(
+      (l) => emit(OrderFailure(l.message)),
+      (r) => emit(OrderRevenueLoaded(r)),
     );
   }
 }

@@ -46,3 +46,12 @@ final class CreateOrderEvent extends OrderEvent {
     items,
   ];
 }
+
+final class GetMonthlyRevenueEvent extends OrderEvent {
+  final DateTime month;
+
+  const GetMonthlyRevenueEvent({required this.month});
+
+  @override
+  List<Object> get props => [month];
+}

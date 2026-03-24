@@ -1,9 +1,12 @@
 import 'package:flow_pos/core/theme/app_pallete.dart';
 import 'package:flow_pos/core/utils/datetime_formatter.dart';
+import 'package:flow_pos/core/utils/show_snackbar.dart';
+import 'package:flow_pos/features/order/presentation/bloc/order_bloc.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/widgets/add_menu_dialog.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/widgets/menu_card.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/widgets/order_card.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 class OwnerDashboardMobilePage extends StatefulWidget {
   const OwnerDashboardMobilePage({super.key});
@@ -16,10 +19,10 @@ class OwnerDashboardMobilePage extends StatefulWidget {
 class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
   bool _isOrderHistorySelected = true;
 
-  static const int _totalRevenue = 1500000;
-  static const int _qrisRevenue = 1000000;
-  static const int _cashRevenue = 500000;
-  static final int _totalOrders = _orders.length;
+  int _totalRevenue = 0;
+  int _qrisRevenue = 0;
+  int _cashRevenue = 0;
+  int _totalOrders = 0;
 
   static const List<Map<String, dynamic>> _orders = [
     {
@@ -120,9 +123,28 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    context.read<OrderBloc>().add(GetMonthlyRevenueEvent(month: DateTime.now()));
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
+    return BlocListener<OrderBloc, OrderState>(
+      listener: (context, state) {
+        if (state is OrderRevenueLoaded) {
+          setState(() {
+            _totalRevenue = state.revenue.totalRevenue;
+            _qrisRevenue = state.revenue.totalQrisRevenue;
+            _cashRevenue = state.revenue.totalCashRevenue;
+            _totalOrders = state.revenue.totalOrders;
+          });
+        } else if (state is OrderFailure) {
+          showSnackbar(context, state.message);
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
         centerTitle: false,
         backgroundColor: AppPallete.primary,
         elevation: 0,
@@ -155,7 +177,7 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
           ),
         ],
       ),
-      body: Column(
+        body: Column(
         children: [
           Container(
             width: double.infinity,
@@ -194,12 +216,25 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    _formatRupiah(_totalRevenue),
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: AppPallete.primary,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  BlocBuilder<OrderBloc, OrderState>(
+                    builder: (context, state) {
+                      if (state is OrderRevenueLoading) {
+                        return const SizedBox(
+                          height: 28,
+                          width: 28,
+                          child: CircularProgressIndicator(strokeWidth: 2.5),
+                        );
+                      }
+
+                      return Text(
+                        _formatRupiah(_totalRevenue),
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(
+                              color: AppPallete.primary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 10),
                   Row(
@@ -335,6 +370,7 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
             ),
           ),
         ],
+        ),
       ),
     );
   }

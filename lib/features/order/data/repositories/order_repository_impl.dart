@@ -1,6 +1,7 @@
 import 'package:flow_pos/core/error/failure.dart';
 import 'package:flow_pos/core/error/server_exception.dart';
 import 'package:flow_pos/features/order/data/datasources/order_remote_data_source.dart';
+import 'package:flow_pos/features/order/domain/entities/monthly_revenue.dart';
 import 'package:flow_pos/features/order/domain/entities/order_entity.dart';
 import 'package:flow_pos/features/order/domain/entities/order_item.dart';
 import 'package:flow_pos/features/order/domain/repositories/order_repository.dart';
@@ -39,6 +40,21 @@ class OrderRepositoryImpl implements OrderRepository {
       );
 
       return right(createdOrder);
+    } on ServerException catch (e) {
+      return left(Failure(e.message));
+    }
+  }
+
+  @override
+  Future<Either<Failure, MonthlyRevenue>> getMonthlyRevenue({
+    required DateTime month,
+  }) async {
+    try {
+      final revenue = await orderRemoteDataSource.getMonthlyRevenue(
+        month: month,
+      );
+
+      return right(revenue);
     } on ServerException catch (e) {
       return left(Failure(e.message));
     }

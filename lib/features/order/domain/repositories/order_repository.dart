@@ -1,4 +1,5 @@
 import 'package:flow_pos/core/error/failure.dart';
+import 'package:flow_pos/features/order/domain/entities/monthly_revenue.dart';
 import 'package:flow_pos/features/order/domain/entities/order_entity.dart';
 import 'package:flow_pos/features/order/domain/entities/order_item.dart';
 import 'package:fpdart/fpdart.dart';
@@ -15,5 +16,9 @@ abstract interface class OrderRepository {
     required String method,
     required int amountPaid,
     required List<OrderItem> items,
+  });
+
+  Future<Either<Failure, MonthlyRevenue>> getMonthlyRevenue({
+    required DateTime month,
   });
 }
