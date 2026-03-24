@@ -24,6 +24,11 @@ import 'package:flow_pos/features/modifier_option/data/repositories/modifier_opt
 import 'package:flow_pos/features/modifier_option/domain/repositories/modifier_option_repository.dart';
 import 'package:flow_pos/features/modifier_option/domain/usecases/get_all_modifier_options.dart';
 import 'package:flow_pos/features/modifier_option/presentation/bloc/modifier_option_bloc.dart';
+import 'package:flow_pos/features/order/data/datasources/order_remote_data_source.dart';
+import 'package:flow_pos/features/order/data/repositories/order_repository_impl.dart';
+import 'package:flow_pos/features/order/domain/repositories/order_repository.dart';
+import 'package:flow_pos/features/order/domain/usecases/create_order.dart';
+import 'package:flow_pos/features/order/presentation/bloc/order_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -37,6 +42,7 @@ Future<void> initDependencies() async {
   _initModifierOption();
   _initCart();
   _initTable();
+  _initOrder();
 
   final supabase = await Supabase.initialize(
     url: AppSecrets.supabaseURL,
@@ -110,6 +116,22 @@ void _initCart() {
 
 void _initTable() {
   serviceLocator.registerLazySingleton(() => TableBloc());
+}
+
+void _initOrder() {
+  serviceLocator
+    // Datasources
+    ..registerFactory<OrderRemoteDataSource>(
+      () => OrderRemoteDataSourceImpl(serviceLocator()),
+    )
+    // Repositories
+    ..registerFactory<OrderRepository>(
+      () => OrderRepositoryImpl(serviceLocator()),
+    )
+    // Usecases
+    ..registerFactory(() => CreateOrder(serviceLocator()))
+    // Bloc
+    ..registerLazySingleton(() => OrderBloc(createOrder: serviceLocator()));
 }
 
 void _initAuth() {

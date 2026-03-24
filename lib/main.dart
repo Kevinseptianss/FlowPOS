@@ -8,6 +8,7 @@ import 'package:flow_pos/features/menu_item/presentation/bloc/menu_item_bloc.dar
 import 'package:flow_pos/features/cashier_dashboard/presentation/bloc/cart_bloc.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/bloc/table_bloc.dart';
 import 'package:flow_pos/features/modifier_option/presentation/bloc/modifier_option_bloc.dart';
+import 'package:flow_pos/features/order/presentation/bloc/order_bloc.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_dashboard_page.dart';
 import 'package:flow_pos/init_dependencies.dart';
 import 'package:flutter/material.dart';
@@ -26,6 +27,7 @@ Future<void> main() async {
         BlocProvider(create: (_) => serviceLocator<ModifierOptionBloc>()),
         BlocProvider(create: (_) => serviceLocator<CartBloc>()),
         BlocProvider(create: (_) => serviceLocator<TableBloc>()),
+        BlocProvider(create: (_) => serviceLocator<OrderBloc>()),
       ],
       child: const MyApp(),
     ),
