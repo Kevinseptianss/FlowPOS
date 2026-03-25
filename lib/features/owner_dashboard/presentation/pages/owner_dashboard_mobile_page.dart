@@ -4,6 +4,7 @@ import 'package:flow_pos/core/utils/show_snackbar.dart';
 import 'package:flow_pos/features/menu_item/presentation/bloc/menu_item_bloc.dart';
 import 'package:flow_pos/features/order/domain/entities/order_entity.dart';
 import 'package:flow_pos/features/order/presentation/bloc/order_bloc.dart';
+import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_settings_page.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/widgets/add_menu_dialog.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/widgets/menu_card.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/widgets/order_card.dart';
@@ -100,7 +101,9 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
           ),
           actions: [
             IconButton(
-              onPressed: () {},
+              onPressed: () {
+                Navigator.push(context, OwnerSettingsPage.route());
+              },
               icon: const Icon(Icons.settings_outlined),
               color: AppPallete.onPrimary,
             ),
