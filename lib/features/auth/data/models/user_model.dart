@@ -9,11 +9,13 @@ class UserModel extends User {
   });
 
   factory UserModel.fromJson(Map<String, dynamic> map) {
+    final metadata = map['user_metadata'] as Map<String, dynamic>?;
+
     return UserModel(
       id: map['id'] ?? '',
       email: map['email'] ?? '',
-      name: map['name'] ?? '',
-      role: map['role'] ?? '',
+      name: (map['name'] ?? metadata?['name'] ?? '').toString(),
+      role: (map['role'] ?? metadata?['role'] ?? '').toString(),
     );
   }
 

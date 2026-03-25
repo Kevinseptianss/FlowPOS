@@ -38,7 +38,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         throw const ServerException('User is null');
       }
 
-      return UserModel.fromJson(response.user!.toJson());
+      return _resolveUserData(response.user!);
     } on AuthException catch (e) {
       throw ServerException(e.message);
     } catch (e) {
@@ -61,12 +61,40 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         throw const ServerException('User is null');
       }
 
-      return UserModel.fromJson(response.user!.toJson());
+      return _resolveUserData(response.user!);
     } on AuthException catch (e) {
       throw ServerException(e.message);
     } catch (e) {
       throw ServerException(e.toString());
     }
+  }
+
+  Future<UserModel> _resolveUserData(User authUser) async {
+    final metadata = authUser.userMetadata ?? const <String, dynamic>{};
+
+    try {
+      final profile = await supabaseClient
+          .from('profiles')
+          .select()
+          .eq('id', authUser.id)
+          .maybeSingle();
+
+      if (profile != null) {
+        return UserModel.fromJson(profile).copyWith(
+          email: authUser.email,
+          name: profile['name']?.toString() ?? metadata['name']?.toString(),
+          role: profile['role']?.toString() ?? metadata['role']?.toString(),
+        );
+      }
+    } catch (_) {
+      // Fallback to auth payload when profile is not yet available.
+    }
+
+    return UserModel.fromJson(authUser.toJson()).copyWith(
+      email: authUser.email,
+      name: metadata['name']?.toString(),
+      role: metadata['role']?.toString(),
+    );
   }
 
   @override
