@@ -281,7 +281,9 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
                                 return OrderCard(
                                   orderId: order.orderNumber,
                                   paymentType: order.payment.method,
-                                  datetime: DatetimeFormatter.formatDateTime(order.createdAt),
+                                  datetime: DatetimeFormatter.formatDateTime(
+                                    order.createdAt,
+                                  ),
                                   totalItems: order.items.length,
                                   totalPayment: _formatRupiah(order.total),
                                 );
@@ -327,7 +329,7 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
                                   category: menuItem.category.name,
                                   enabled: menuItem.enabled,
                                   image: Image.asset(
-                                    'assets/images/default_food.jpg',
+                                    'assets/images/default-food.jpg',
                                   ),
                                 );
                               },
