@@ -182,7 +182,7 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
                                   : state.menuItems
                                         .where(
                                           (item) =>
-                                              item.categoryId ==
+                                              item.category.id ==
                                               _selectedCategory,
                                         )
                                         .toList();

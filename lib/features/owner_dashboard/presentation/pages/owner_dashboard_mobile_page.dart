@@ -1,6 +1,7 @@
 import 'package:flow_pos/core/theme/app_pallete.dart';
 import 'package:flow_pos/core/utils/datetime_formatter.dart';
 import 'package:flow_pos/core/utils/show_snackbar.dart';
+import 'package:flow_pos/features/menu_item/presentation/bloc/menu_item_bloc.dart';
 import 'package:flow_pos/features/order/presentation/bloc/order_bloc.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/widgets/add_menu_dialog.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/widgets/menu_card.dart';
@@ -69,44 +70,6 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
     },
   ];
 
-  static const List<Map<String, dynamic>> _menuItems = [
-    {
-      'name': 'Iced Americano',
-      'price': 15000,
-      'category': 'Beverage',
-      'enabled': true,
-      'image': 'assets/images/default-food.jpg',
-    },
-    {
-      'name': 'Cappuccino',
-      'price': 22000,
-      'category': 'Beverage',
-      'enabled': true,
-      'image': 'assets/images/default-food.jpg',
-    },
-    {
-      'name': 'Chocolate Croissant',
-      'price': 18000,
-      'category': 'Pastry',
-      'enabled': true,
-      'image': 'assets/images/default-food.jpg',
-    },
-    {
-      'name': 'Chicken Sandwich',
-      'price': 28000,
-      'category': 'Food',
-      'enabled': false,
-      'image': 'assets/images/default-food.jpg',
-    },
-    {
-      'name': 'Matcha Latte',
-      'price': 25000,
-      'category': 'Beverage',
-      'enabled': true,
-      'image': 'assets/images/default-food.jpg',
-    },
-  ];
-
   String _formatRupiah(int value) {
     final digits = value.toString();
     final buffer = StringBuffer();
@@ -125,7 +88,10 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
   @override
   void initState() {
     super.initState();
-    context.read<OrderBloc>().add(GetMonthlyRevenueEvent(month: DateTime.now()));
+    context.read<OrderBloc>().add(
+      GetMonthlyRevenueEvent(month: DateTime.now()),
+    );
+    context.read<MenuItemBloc>().add(GetAllMenuItemsEvent());
   }
 
   @override
@@ -145,231 +111,254 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
       },
       child: Scaffold(
         appBar: AppBar(
-        centerTitle: false,
-        backgroundColor: AppPallete.primary,
-        elevation: 0,
-        toolbarHeight: 84,
-        titleSpacing: 16,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              'Owner Dashboard',
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(color: AppPallete.onPrimary),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              DatetimeFormatter.formatDateYear(),
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: AppPallete.onPrimary.withAlpha(220),
+          centerTitle: false,
+          backgroundColor: AppPallete.primary,
+          elevation: 0,
+          toolbarHeight: 84,
+          titleSpacing: 16,
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'Owner Dashboard',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(color: AppPallete.onPrimary),
               ),
+              const SizedBox(height: 2),
+              Text(
+                DatetimeFormatter.formatDateYear(),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: AppPallete.onPrimary.withAlpha(220),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            IconButton(
+              onPressed: () {},
+              icon: const Icon(Icons.settings_outlined),
+              color: AppPallete.onPrimary,
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.settings_outlined),
-            color: AppPallete.onPrimary,
-          ),
-        ],
-      ),
         body: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            color: AppPallete.primary,
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Container(
+          children: [
+            Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppPallete.surface,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withAlpha(18),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.trending_up,
-                        color: AppPallete.success,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Total Revenue',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(color: AppPallete.textPrimary),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  BlocBuilder<OrderBloc, OrderState>(
-                    builder: (context, state) {
-                      if (state is OrderRevenueLoading) {
-                        return const SizedBox(
-                          height: 28,
-                          width: 28,
-                          child: CircularProgressIndicator(strokeWidth: 2.5),
-                        );
-                      }
-
-                      return Text(
-                        _formatRupiah(_totalRevenue),
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(
-                              color: AppPallete.primary,
-                              fontWeight: FontWeight.w700,
-                            ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.qr_code,
-                              color: AppPallete.primary,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: Text(
-                                _formatRupiah(_qrisRevenue),
-                                style: Theme.of(context).textTheme.titleMedium
-                                    ?.copyWith(color: AppPallete.primary),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.money,
-                              color: AppPallete.primary,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: Text(
-                                _formatRupiah(_cashRevenue),
-                                style: Theme.of(context).textTheme.titleMedium
-                                    ?.copyWith(color: AppPallete.primary),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    '$_totalOrders orders in this month',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppPallete.primary,
+              color: AppPallete.primary,
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppPallete.surface,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(18),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Container(
-            color: AppPallete.surface,
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _OwnerTabButton(
-                    label: 'Order History',
-                    selected: _isOrderHistorySelected,
-                    onTap: () {
-                      setState(() {
-                        _isOrderHistorySelected = true;
-                      });
-                    },
-                  ),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _OwnerTabButton(
-                    label: 'Menu Settings',
-                    selected: !_isOrderHistorySelected,
-                    onTap: () {
-                      setState(() {
-                        _isOrderHistorySelected = false;
-                      });
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              color: AppPallete.surface,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _isOrderHistorySelected
-                  ? ListView.builder(
-                      itemCount: _orders.length,
-                      itemBuilder: (context, index) {
-                        final order = _orders[index];
-                        return OrderCard(
-                          orderId: order['orderId'] as String,
-                          paymentType: order['paymentType'] as String,
-                          datetime: order['datetime'] as String,
-                          totalItems: order['totalItems'] as int,
-                          totalPayment: order['totalPayment'] as String,
-                        );
-                      },
-                    )
-                  : ListView.builder(
-                      itemCount: _menuItems.length + 1,
-                      itemBuilder: (context, index) {
-                        if (index == 0) {
-                          return _AddMenuOrCategoryCard(
-                            onTap: () {
-                              showDialog(
-                                context: context,
-                                builder: (context) => const AddMenuDialog(),
-                              );
-                            },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.trending_up,
+                          color: AppPallete.success,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Total Revenue',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(color: AppPallete.textPrimary),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    BlocBuilder<OrderBloc, OrderState>(
+                      builder: (context, state) {
+                        if (state is OrderRevenueLoading) {
+                          return const SizedBox(
+                            height: 28,
+                            width: 28,
+                            child: CircularProgressIndicator(strokeWidth: 2.5),
                           );
                         }
 
-                        final menuItem = _menuItems[index - 1];
-                        return MenuCard(
-                          title: menuItem['name'] as String,
-                          price: menuItem['price'] as int,
-                          category: menuItem['category'] as String,
-                          enabled: menuItem['enabled'] as bool,
-                          image: Image.asset(menuItem['image'] as String),
+                        return Text(
+                          _formatRupiah(_totalRevenue),
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(
+                                color: AppPallete.primary,
+                                fontWeight: FontWeight.w700,
+                              ),
                         );
                       },
                     ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.qr_code,
+                                color: AppPallete.primary,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  _formatRupiah(_qrisRevenue),
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(color: AppPallete.primary),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.money,
+                                color: AppPallete.primary,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  _formatRupiah(_cashRevenue),
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(color: AppPallete.primary),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      '$_totalOrders orders in this month',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: AppPallete.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
-        ],
+            Container(
+              color: AppPallete.surface,
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _OwnerTabButton(
+                      label: 'Order History',
+                      selected: _isOrderHistorySelected,
+                      onTap: () {
+                        setState(() {
+                          _isOrderHistorySelected = true;
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _OwnerTabButton(
+                      label: 'Menu Settings',
+                      selected: !_isOrderHistorySelected,
+                      onTap: () {
+                        setState(() {
+                          _isOrderHistorySelected = false;
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Container(
+                width: double.infinity,
+                color: AppPallete.surface,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _isOrderHistorySelected
+                    ? ListView.builder(
+                        itemCount: _orders.length,
+                        itemBuilder: (context, index) {
+                          final order = _orders[index];
+                          return OrderCard(
+                            orderId: order['orderId'] as String,
+                            paymentType: order['paymentType'] as String,
+                            datetime: order['datetime'] as String,
+                            totalItems: order['totalItems'] as int,
+                            totalPayment: order['totalPayment'] as String,
+                          );
+                        },
+                      )
+                    : BlocBuilder<MenuItemBloc, MenuItemState>(
+                        builder: (context, state) {
+                          if (state is MenuItemLoading) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          } else if (state is MenuItemFailure) {
+                            return Center(
+                              child: Text(
+                                'Failed to load menu items',
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(color: AppPallete.error),
+                              ),
+                            );
+                          } else if (state is MenuItemLoaded) {
+                            return ListView.builder(
+                              itemCount: state.menuItems.length + 1,
+                              itemBuilder: (context, index) {
+                                if (index == 0) {
+                                  return _AddMenuOrCategoryCard(
+                                    onTap: () {
+                                      showDialog(
+                                        context: context,
+                                        builder: (context) =>
+                                            const AddMenuDialog(),
+                                      );
+                                    },
+                                  );
+                                }
+
+                                final menuItem = state.menuItems[index - 1];
+                                return MenuCard(
+                                  title: menuItem.name,
+                                  price: menuItem.price,
+                                  category: menuItem.category.name,
+                                  enabled: menuItem.enabled,
+                                  image: Image.asset(
+                                    'assets/images/default_food.jpg',
+                                  ),
+                                );
+                              },
+                            );
+                          }
+
+                          return const SizedBox();
+                        },
+                      ),
+              ),
+            ),
+          ],
         ),
       ),
     );

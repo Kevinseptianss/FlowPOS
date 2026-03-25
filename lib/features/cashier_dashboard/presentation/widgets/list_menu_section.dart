@@ -87,7 +87,7 @@ class _ListMenuSectionState extends State<ListMenuSection> {
                       ? state.menuItems
                       : state.menuItems
                             .where(
-                              (item) => item.categoryId == _selectedCategory,
+                              (item) => item.category.id == _selectedCategory,
                             )
                             .toList();
 

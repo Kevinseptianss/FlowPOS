@@ -1,11 +1,12 @@
 import 'package:flow_pos/features/menu_item/domain/entities/menu_item.dart';
+import 'package:flow_pos/features/category/data/models/category_model.dart';
 
 class MenuItemModel extends MenuItem {
   const MenuItemModel({
     required super.id,
     required super.name,
     required super.price,
-    required super.categoryId,
+    required super.category,
     required super.enabled,
   });
 
@@ -14,7 +15,7 @@ class MenuItemModel extends MenuItem {
       id: map['id'] ?? '',
       name: map['name'] ?? '',
       price: map['price'] ?? 0,
-      categoryId: map['category_id'] ?? '',
+      category: CategoryModel.fromJson(map['categories'] ?? {}),
       enabled: map['is_available'] ?? true,
     );
   }

@@ -1,69 +1,23 @@
 import 'package:flow_pos/core/theme/app_pallete.dart';
+import 'package:flow_pos/features/menu_item/presentation/bloc/menu_item_bloc.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/widgets/add_menu_dialog.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/widgets/menu_card.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-class ManageMenuSection extends StatelessWidget {
+class ManageMenuSection extends StatefulWidget {
   const ManageMenuSection({super.key});
 
-  static const List<Map<String, dynamic>> mockMenuData = [
-    {
-      'id': 'menu-001',
-      'name': 'Iced Americano',
-      'price': 15000,
-      'category': 'Beverage',
-      'enabled': true,
-    },
-    {
-      'id': 'menu-002',
-      'name': 'Cappuccino',
-      'price': 22000,
-      'category': 'Beverage',
-      'enabled': true,
-    },
-    {
-      'id': 'menu-003',
-      'name': 'Chocolate Croissant',
-      'price': 18000,
-      'category': 'Pastry',
-      'enabled': true,
-    },
-    {
-      'id': 'menu-004',
-      'name': 'Chicken Sandwich',
-      'price': 28000,
-      'category': 'Food',
-      'enabled': false,
-    },
-    {
-      'id': 'menu-005',
-      'name': 'Matcha Latte',
-      'price': 25000,
-      'category': 'Beverage',
-      'enabled': true,
-    },
-    {
-      'id': 'menu-006',
-      'name': 'Blueberry Muffin',
-      'price': 20000,
-      'category': 'Pastry',
-      'enabled': true,
-    },
-    {
-      'id': 'menu-007',
-      'name': 'Grilled Cheese Sandwich',
-      'price': 30000,
-      'category': 'Food',
-      'enabled': false,
-    },
-    {
-      'id': 'menu-008',
-      'name': 'Espresso',
-      'price': 12000,
-      'category': 'Beverage',
-      'enabled': true,
-    },
-  ];
+  @override
+  State<ManageMenuSection> createState() => _ManageMenuSectionState();
+}
+
+class _ManageMenuSectionState extends State<ManageMenuSection> {
+  @override
+  void initState() {
+    super.initState();
+    context.read<MenuItemBloc>().add(GetAllMenuItemsEvent());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -107,19 +61,34 @@ class ManageMenuSection extends StatelessWidget {
         Expanded(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12),
-            child: ListView.builder(
-              itemCount: mockMenuData.length,
-              itemBuilder: (context, index) {
-                final menuItem = mockMenuData[index];
-                return MenuCard(
-                  title: menuItem['name'],
-                  price: menuItem['price'],
-                  category: menuItem['category'],
-                  enabled: menuItem['enabled'],
-                  image: menuItem['images'] == null
-                      ? Image.asset('assets/images/default-food.jpg')
-                      : Image.asset(menuItem['images']),
-                );
+            child: BlocBuilder<MenuItemBloc, MenuItemState>(
+              builder: (context, state) {
+                if (state is MenuItemLoading) {
+                  return Center(child: CircularProgressIndicator());
+                } else if (state is MenuItemFailure) {
+                  return Center(
+                    child: Text(
+                      'Failed to load menu items',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  );
+                } else if (state is MenuItemLoaded) {
+                  return ListView.builder(
+                    itemCount: state.menuItems.length,
+                    itemBuilder: (context, index) {
+                      final menuItem = state.menuItems[index];
+                      return MenuCard(
+                        title: menuItem.name,
+                        price: menuItem.price,
+                        category: menuItem.category.name,
+                        enabled: menuItem.enabled,
+                        image: Image.asset('assets/images/default-food.jpg'),
+                      );
+                    },
+                  );
+                }
+
+                return const SizedBox();
               },
             ),
           ),

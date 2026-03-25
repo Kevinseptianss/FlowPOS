@@ -16,7 +16,7 @@ class MenuItemRemoteDataSourceImpl implements MenuItemRemoteDataSource {
     try {
       final response = await supabaseClient
           .from('menu_items')
-          .select()
+          .select("*, categories!category_id(id, name)")
           .order('name', ascending: true);
 
       return response
