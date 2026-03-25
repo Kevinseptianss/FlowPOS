@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:equatable/equatable.dart';
 import 'package:flow_pos/core/usecase/use_case.dart';
 import 'package:flow_pos/features/menu_item/domain/entities/menu_item.dart';
 import 'package:flow_pos/features/menu_item/domain/usecases/create_menu_item.dart';
 import 'package:flow_pos/features/menu_item/domain/usecases/get_all_menu_items.dart';
+import 'package:flow_pos/features/menu_item/domain/usecases/listen_all_menu_items.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 part 'menu_item_event.dart';
@@ -11,15 +14,24 @@ part 'menu_item_state.dart';
 class MenuItemBloc extends Bloc<MenuItemEvent, MenuItemState> {
   final GetAllMenuItems _getAllMenuItems;
   final CreateMenuItem _createMenuItem;
+  final ListenAllMenuItems _listenAllMenuItems;
+
+  StreamSubscription? _menuItemsSubscription;
 
   MenuItemBloc({
     required GetAllMenuItems getAllMenuItems,
     required CreateMenuItem createMenuItem,
+    required ListenAllMenuItems listenAllMenuItems,
   }) : _getAllMenuItems = getAllMenuItems,
        _createMenuItem = createMenuItem,
+       _listenAllMenuItems = listenAllMenuItems,
        super(MenuItemInitial()) {
     on<GetAllMenuItemsEvent>(_onGetAllMenuItems);
     on<CreateMenuItemEvent>(_onCreateMenuItem);
+    on<StartMenuItemsRealtimeEvent>(_onStartMenuItemsRealtime);
+    on<StopMenuItemsRealtimeEvent>(_onStopMenuItemsRealtime);
+    on<MenuItemsRealtimeUpdatedEvent>(_onMenuItemsRealtimeUpdated);
+    on<MenuItemsRealtimeFailureEvent>(_onMenuItemsRealtimeFailure);
   }
 
   void _onGetAllMenuItems(
@@ -62,5 +74,48 @@ class MenuItemBloc extends Bloc<MenuItemEvent, MenuItemState> {
       (l) => emit(MenuItemFailure(l.message)),
       (r) => emit(MenuItemLoaded(r)),
     );
+  }
+
+  void _onStartMenuItemsRealtime(
+    StartMenuItemsRealtimeEvent event,
+    Emitter<MenuItemState> emit,
+  ) async {
+    await _menuItemsSubscription?.cancel();
+    emit(MenuItemLoading());
+
+    _menuItemsSubscription = _listenAllMenuItems().listen((result) {
+      result.fold(
+        (failure) => add(MenuItemsRealtimeFailureEvent(failure.message)),
+        (menuItems) => add(MenuItemsRealtimeUpdatedEvent(menuItems)),
+      );
+    });
+  }
+
+  void _onStopMenuItemsRealtime(
+    StopMenuItemsRealtimeEvent event,
+    Emitter<MenuItemState> emit,
+  ) async {
+    await _menuItemsSubscription?.cancel();
+    _menuItemsSubscription = null;
+  }
+
+  void _onMenuItemsRealtimeUpdated(
+    MenuItemsRealtimeUpdatedEvent event,
+    Emitter<MenuItemState> emit,
+  ) {
+    emit(MenuItemLoaded(event.menuItems));
+  }
+
+  void _onMenuItemsRealtimeFailure(
+    MenuItemsRealtimeFailureEvent event,
+    Emitter<MenuItemState> emit,
+  ) {
+    emit(MenuItemFailure(event.message));
+  }
+
+  @override
+  Future<void> close() async {
+    await _menuItemsSubscription?.cancel();
+    return super.close();
   }
 }

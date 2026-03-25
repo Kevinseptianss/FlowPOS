@@ -38,7 +38,7 @@ class _AnalyticSectionState extends State<AnalyticSection> {
   void initState() {
     super.initState();
     context.read<OrderBloc>().add(
-      GetMonthlyRevenueEvent(month: DateTime.now()),
+      StartMonthlyRevenueRealtimeEvent(month: DateTime.now()),
     );
   }
 

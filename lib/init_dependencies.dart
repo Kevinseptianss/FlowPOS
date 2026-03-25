@@ -13,12 +13,14 @@ import 'package:flow_pos/features/category/data/repositories/category_repository
 import 'package:flow_pos/features/category/domain/repositories/category_repository.dart';
 import 'package:flow_pos/features/category/domain/usecases/create_category.dart';
 import 'package:flow_pos/features/category/domain/usecases/get_all_categories.dart';
+import 'package:flow_pos/features/category/domain/usecases/listen_all_categories.dart';
 import 'package:flow_pos/features/category/presentation/bloc/category_bloc.dart';
 import 'package:flow_pos/features/menu_item/data/datasources/menu_item_remote_data_source.dart';
 import 'package:flow_pos/features/menu_item/data/repositories/menu_item_repository_impl.dart';
 import 'package:flow_pos/features/menu_item/domain/repositories/menu_item_repository.dart';
 import 'package:flow_pos/features/menu_item/domain/usecases/create_menu_item.dart';
 import 'package:flow_pos/features/menu_item/domain/usecases/get_all_menu_items.dart';
+import 'package:flow_pos/features/menu_item/domain/usecases/listen_all_menu_items.dart';
 import 'package:flow_pos/features/menu_item/presentation/bloc/menu_item_bloc.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/bloc/cart_bloc.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/bloc/table_bloc.dart';
@@ -33,6 +35,8 @@ import 'package:flow_pos/features/order/domain/repositories/order_repository.dar
 import 'package:flow_pos/features/order/domain/usecases/create_order.dart';
 import 'package:flow_pos/features/order/domain/usecases/get_all_orders.dart';
 import 'package:flow_pos/features/order/domain/usecases/get_monthly_revenue.dart';
+import 'package:flow_pos/features/order/domain/usecases/listen_all_orders.dart';
+import 'package:flow_pos/features/order/domain/usecases/listen_monthly_revenue.dart';
 import 'package:flow_pos/features/order/presentation/bloc/order_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -91,12 +95,14 @@ void _initMenuItem() {
     )
     // Usecases
     ..registerFactory(() => GetAllMenuItems(serviceLocator()))
+    ..registerFactory(() => ListenAllMenuItems(serviceLocator()))
     ..registerFactory(() => CreateMenuItem(serviceLocator()))
     // Bloc
     ..registerLazySingleton(
       () => MenuItemBloc(
         getAllMenuItems: serviceLocator(),
         createMenuItem: serviceLocator(),
+        listenAllMenuItems: serviceLocator(),
       ),
     );
 }
@@ -113,12 +119,14 @@ void _initCategory() {
     )
     // Usecases
     ..registerFactory(() => GetAllCategories(serviceLocator()))
+    ..registerFactory(() => ListenAllCategories(serviceLocator()))
     ..registerFactory(() => CreateCategory(serviceLocator()))
     // Bloc
     ..registerLazySingleton(
       () => CategoryBloc(
         getAllCategories: serviceLocator(),
         createCategory: serviceLocator(),
+        listenAllCategories: serviceLocator(),
       ),
     );
 }
@@ -145,12 +153,16 @@ void _initOrder() {
     ..registerFactory(() => CreateOrder(serviceLocator()))
     ..registerFactory(() => GetMonthlyRevenue(serviceLocator()))
     ..registerFactory(() => GetAllOrders(serviceLocator()))
+    ..registerFactory(() => ListenMonthlyRevenue(serviceLocator()))
+    ..registerFactory(() => ListenAllOrders(serviceLocator()))
     // Bloc
     ..registerLazySingleton(
       () => OrderBloc(
         createOrder: serviceLocator(),
         getMonthlyRevenue: serviceLocator(),
         getAllOrders: serviceLocator(),
+        listenMonthlyRevenue: serviceLocator(),
+        listenAllOrders: serviceLocator(),
       ),
     );
 }

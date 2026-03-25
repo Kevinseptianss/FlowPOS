@@ -57,3 +57,43 @@ final class GetMonthlyRevenueEvent extends OrderEvent {
 }
 
 final class GetAllOrdersEvent extends OrderEvent {}
+
+final class StartMonthlyRevenueRealtimeEvent extends OrderEvent {
+  final DateTime month;
+
+  const StartMonthlyRevenueRealtimeEvent({required this.month});
+
+  @override
+  List<Object> get props => [month];
+}
+
+final class StartAllOrdersRealtimeEvent extends OrderEvent {}
+
+final class StopOrderRealtimeEvent extends OrderEvent {}
+
+final class MonthlyRevenueRealtimeUpdatedEvent extends OrderEvent {
+  final MonthlyRevenue revenue;
+
+  const MonthlyRevenueRealtimeUpdatedEvent(this.revenue);
+
+  @override
+  List<Object> get props => [revenue];
+}
+
+final class OrdersRealtimeUpdatedEvent extends OrderEvent {
+  final List<OrderEntity> orders;
+
+  const OrdersRealtimeUpdatedEvent(this.orders);
+
+  @override
+  List<Object> get props => [orders];
+}
+
+final class OrderRealtimeFailureEvent extends OrderEvent {
+  final String message;
+
+  const OrderRealtimeFailureEvent(this.message);
+
+  @override
+  List<Object> get props => [message];
+}

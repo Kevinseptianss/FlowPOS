@@ -21,6 +21,20 @@ class MenuItemRepositoryImpl implements MenuItemRepository {
   }
 
   @override
+  Stream<Either<Failure, List<MenuItem>>> listenAllMenuItems() async* {
+    try {
+      await for (final menuItems
+          in menuItemRemoteDataSource.listenAllMenuItems()) {
+        yield right(menuItems);
+      }
+    } on ServerException catch (e) {
+      yield left(Failure(e.message));
+    } catch (e) {
+      yield left(Failure(e.toString()));
+    }
+  }
+
+  @override
   Future<Either<Failure, MenuItem>> createMenuItem({
     required String name,
     required int price,
