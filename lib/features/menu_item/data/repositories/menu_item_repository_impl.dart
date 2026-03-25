@@ -19,4 +19,22 @@ class MenuItemRepositoryImpl implements MenuItemRepository {
       return left(Failure(e.message));
     }
   }
+
+  @override
+  Future<Either<Failure, MenuItem>> createMenuItem({
+    required String name,
+    required int price,
+    required String categoryId,
+  }) async {
+    try {
+      final menuItem = await menuItemRemoteDataSource.createMenuItem(
+        name: name,
+        price: price,
+        categoryId: categoryId,
+      );
+      return right(menuItem);
+    } on ServerException catch (e) {
+      return left(Failure(e.message));
+    }
+  }
 }

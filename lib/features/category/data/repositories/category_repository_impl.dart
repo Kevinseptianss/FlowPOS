@@ -22,4 +22,14 @@ class CategoryRepositoryImpl implements CategoryRepository {
       return left(Failure(e.message));
     }
   }
+
+  @override
+  Future<Either<Failure, Category>> createCategory(String name) async {
+    try {
+      final category = await categoryRemoteDataSource.createCategory(name);
+      return right(category);
+    } on ServerException catch (e) {
+      return left(Failure(e.message));
+    }
+  }
 }

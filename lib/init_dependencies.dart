@@ -11,11 +11,13 @@ import 'package:flow_pos/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:flow_pos/features/category/data/datasources/category_remote_data_source.dart';
 import 'package:flow_pos/features/category/data/repositories/category_repository_impl.dart';
 import 'package:flow_pos/features/category/domain/repositories/category_repository.dart';
+import 'package:flow_pos/features/category/domain/usecases/create_category.dart';
 import 'package:flow_pos/features/category/domain/usecases/get_all_categories.dart';
 import 'package:flow_pos/features/category/presentation/bloc/category_bloc.dart';
 import 'package:flow_pos/features/menu_item/data/datasources/menu_item_remote_data_source.dart';
 import 'package:flow_pos/features/menu_item/data/repositories/menu_item_repository_impl.dart';
 import 'package:flow_pos/features/menu_item/domain/repositories/menu_item_repository.dart';
+import 'package:flow_pos/features/menu_item/domain/usecases/create_menu_item.dart';
 import 'package:flow_pos/features/menu_item/domain/usecases/get_all_menu_items.dart';
 import 'package:flow_pos/features/menu_item/presentation/bloc/menu_item_bloc.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/bloc/cart_bloc.dart';
@@ -89,9 +91,13 @@ void _initMenuItem() {
     )
     // Usecases
     ..registerFactory(() => GetAllMenuItems(serviceLocator()))
+    ..registerFactory(() => CreateMenuItem(serviceLocator()))
     // Bloc
     ..registerLazySingleton(
-      () => MenuItemBloc(getAllMenuItems: serviceLocator()),
+      () => MenuItemBloc(
+        getAllMenuItems: serviceLocator(),
+        createMenuItem: serviceLocator(),
+      ),
     );
 }
 
@@ -107,9 +113,13 @@ void _initCategory() {
     )
     // Usecases
     ..registerFactory(() => GetAllCategories(serviceLocator()))
+    ..registerFactory(() => CreateCategory(serviceLocator()))
     // Bloc
     ..registerLazySingleton(
-      () => CategoryBloc(getAllCategories: serviceLocator()),
+      () => CategoryBloc(
+        getAllCategories: serviceLocator(),
+        createCategory: serviceLocator(),
+      ),
     );
 }
 
