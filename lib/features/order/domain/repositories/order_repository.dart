@@ -21,4 +21,6 @@ abstract interface class OrderRepository {
   Future<Either<Failure, MonthlyRevenue>> getMonthlyRevenue({
     required DateTime month,
   });
+
+  Future<Either<Failure, List<OrderEntity>>> getAllOrders();
 }

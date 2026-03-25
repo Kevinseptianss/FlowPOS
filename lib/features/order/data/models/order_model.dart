@@ -6,7 +6,8 @@ class OrderModel extends OrderEntity {
     required super.orderNumber,
     required super.tableNumber,
     required super.total,
-    required super.paymentId,
-    required super.paymentMethod,
+    required super.createdAt,
+    required super.payment,
+    required super.items,
   });
 }

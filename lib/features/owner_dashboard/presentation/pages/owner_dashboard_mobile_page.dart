@@ -2,6 +2,7 @@ import 'package:flow_pos/core/theme/app_pallete.dart';
 import 'package:flow_pos/core/utils/datetime_formatter.dart';
 import 'package:flow_pos/core/utils/show_snackbar.dart';
 import 'package:flow_pos/features/menu_item/presentation/bloc/menu_item_bloc.dart';
+import 'package:flow_pos/features/order/domain/entities/order_entity.dart';
 import 'package:flow_pos/features/order/presentation/bloc/order_bloc.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/widgets/add_menu_dialog.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/widgets/menu_card.dart';
@@ -25,50 +26,7 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
   int _cashRevenue = 0;
   int _totalOrders = 0;
 
-  static const List<Map<String, dynamic>> _orders = [
-    {
-      'orderId': 'ORD-001',
-      'paymentType': 'QRIS',
-      'datetime': '2026-03-14 10:30',
-      'totalItems': 5,
-      'totalPayment': '150.000',
-    },
-    {
-      'orderId': 'ORD-002',
-      'paymentType': 'Cash',
-      'datetime': '2026-03-14 11:15',
-      'totalItems': 3,
-      'totalPayment': '75.000',
-    },
-    {
-      'orderId': 'ORD-003',
-      'paymentType': 'QRIS',
-      'datetime': '2026-03-14 12:00',
-      'totalItems': 7,
-      'totalPayment': '200.000',
-    },
-    {
-      'orderId': 'ORD-004',
-      'paymentType': 'Cash',
-      'datetime': '2026-03-14 12:45',
-      'totalItems': 2,
-      'totalPayment': '50.000',
-    },
-    {
-      'orderId': 'ORD-005',
-      'paymentType': 'QRIS',
-      'datetime': '2026-03-14 13:30',
-      'totalItems': 4,
-      'totalPayment': '120.000',
-    },
-    {
-      'orderId': 'ORD-006',
-      'paymentType': 'Cash',
-      'datetime': '2026-03-15 09:20',
-      'totalItems': 6,
-      'totalPayment': '180.000',
-    },
-  ];
+  List<OrderEntity> _orders = [];
 
   String _formatRupiah(int value) {
     final digits = value.toString();
@@ -91,6 +49,7 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
     context.read<OrderBloc>().add(
       GetMonthlyRevenueEvent(month: DateTime.now()),
     );
+    context.read<OrderBloc>().add(GetAllOrdersEvent());
     context.read<MenuItemBloc>().add(GetAllMenuItemsEvent());
   }
 
@@ -104,6 +63,10 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
             _qrisRevenue = state.revenue.totalQrisRevenue;
             _cashRevenue = state.revenue.totalCashRevenue;
             _totalOrders = state.revenue.totalOrders;
+          });
+        } else if (state is OrdersLoaded) {
+          setState(() {
+            _orders = state.orders;
           });
         } else if (state is OrderFailure) {
           showSnackbar(context, state.message);
@@ -296,17 +259,35 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
                 color: AppPallete.surface,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: _isOrderHistorySelected
-                    ? ListView.builder(
-                        itemCount: _orders.length,
-                        itemBuilder: (context, index) {
-                          final order = _orders[index];
-                          return OrderCard(
-                            orderId: order['orderId'] as String,
-                            paymentType: order['paymentType'] as String,
-                            datetime: order['datetime'] as String,
-                            totalItems: order['totalItems'] as int,
-                            totalPayment: order['totalPayment'] as String,
-                          );
+                    ? BlocBuilder<OrderBloc, OrderState>(
+                        builder: (context, state) {
+                          if (state is OrdersLoading) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          } else if (state is OrderFailure) {
+                            return Center(
+                              child: Text(
+                                'Failed to load orders',
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(color: AppPallete.error),
+                              ),
+                            );
+                          } else {
+                            return ListView.builder(
+                              itemCount: _orders.length,
+                              itemBuilder: (context, index) {
+                                final order = _orders[index];
+                                return OrderCard(
+                                  orderId: order.orderNumber,
+                                  paymentType: order.payment.method,
+                                  datetime: DatetimeFormatter.formatDateTime(order.createdAt),
+                                  totalItems: order.items.length,
+                                  totalPayment: _formatRupiah(order.total),
+                                );
+                              },
+                            );
+                          }
                         },
                       )
                     : BlocBuilder<MenuItemBloc, MenuItemState>(

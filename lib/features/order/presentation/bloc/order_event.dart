@@ -55,3 +55,5 @@ final class GetMonthlyRevenueEvent extends OrderEvent {
   @override
   List<Object> get props => [month];
 }
+
+final class GetAllOrdersEvent extends OrderEvent {}

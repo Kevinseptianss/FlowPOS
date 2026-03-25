@@ -1,20 +1,24 @@
 import 'package:equatable/equatable.dart';
+import 'package:flow_pos/features/order/domain/entities/order_item.dart';
+import 'package:flow_pos/features/order/domain/entities/payment_entity.dart';
 
 class OrderEntity extends Equatable {
   final String id;
   final String orderNumber;
   final int tableNumber;
   final int total;
-  final String paymentId;
-  final String paymentMethod;
+  final DateTime createdAt;
+  final PaymentEntity payment;
+  final List<OrderItem> items;
 
   const OrderEntity({
     required this.id,
     required this.orderNumber,
     required this.tableNumber,
     required this.total,
-    required this.paymentId,
-    required this.paymentMethod,
+    required this.createdAt,
+    required this.payment,
+    required this.items,
   });
 
   @override
@@ -23,7 +27,8 @@ class OrderEntity extends Equatable {
     orderNumber,
     tableNumber,
     total,
-    paymentId,
-    paymentMethod,
+    createdAt,
+    payment,
+    items,
   ];
 }

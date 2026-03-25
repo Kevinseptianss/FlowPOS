@@ -1,54 +1,17 @@
 import 'package:flow_pos/core/theme/app_pallete.dart';
+import 'package:flow_pos/core/utils/datetime_formatter.dart';
+import 'package:flow_pos/features/order/domain/entities/order_entity.dart';
 import 'package:flutter/material.dart';
 
 import 'order_card.dart';
 
 class OrderSection extends StatelessWidget {
-  const OrderSection({super.key});
+  final List<OrderEntity> orders;
+
+  const OrderSection({super.key, required this.orders});
 
   @override
   Widget build(BuildContext context) {
-    // Mock data
-    final List<Map<String, dynamic>> orders = [
-      {
-        'orderId': 'ORD-001',
-        'paymentType': 'QRIS',
-        'datetime': '2026-03-14 10:30',
-        'totalItems': 5,
-        'totalPayment': '150.000',
-      },
-      {
-        'orderId': 'ORD-002',
-        'paymentType': 'Cash',
-        'datetime': '2026-03-14 11:15',
-        'totalItems': 3,
-        'totalPayment': '75.000',
-      },
-      {
-        'orderId': 'ORD-003',
-        'paymentType': 'QRIS',
-        'datetime': '2026-03-14 12:00',
-        'totalItems': 7,
-        'totalPayment': '200.000',
-      },
-      {
-        'orderId': 'ORD-004',
-        'paymentType': 'Cash',
-        'datetime': '2026-03-14 12:45',
-        'totalItems': 2,
-        'totalPayment': '50.000',
-      },
-      {
-        'orderId': 'ORD-005',
-        'paymentType': 'QRIS',
-        'datetime': '2026-03-14 13:30',
-        'totalItems': 4,
-        'totalPayment': '120.000',
-      },
-    ];
-
-    // final orders = [];
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -76,16 +39,33 @@ class OrderSection extends StatelessWidget {
                   itemBuilder: (context, index) {
                     final order = orders[index];
                     return OrderCard(
-                      orderId: order['orderId'] as String,
-                      paymentType: order['paymentType'] as String,
-                      datetime: order['datetime'] as String,
-                      totalItems: order['totalItems'] as int,
-                      totalPayment: order['totalPayment'] as String,
+                      orderId: order.orderNumber,
+                      paymentType: order.payment.method,
+                      datetime: DatetimeFormatter.formatDateTime(
+                        order.createdAt,
+                      ),
+                      totalItems: order.items.length,
+                      totalPayment: _formatRupiah(order.total),
                     );
                   },
                 ),
         ),
       ],
     );
+  }
+
+  String _formatRupiah(int value) {
+    final digits = value.toString();
+    final buffer = StringBuffer();
+
+    for (var i = 0; i < digits.length; i++) {
+      final reverseIndex = digits.length - i;
+      buffer.write(digits[i]);
+      if (reverseIndex > 1 && reverseIndex % 3 == 1) {
+        buffer.write('.');
+      }
+    }
+
+    return 'Rp ${buffer.toString()}';
   }
 }

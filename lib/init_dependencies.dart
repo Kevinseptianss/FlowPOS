@@ -29,6 +29,7 @@ import 'package:flow_pos/features/order/data/datasources/order_remote_data_sourc
 import 'package:flow_pos/features/order/data/repositories/order_repository_impl.dart';
 import 'package:flow_pos/features/order/domain/repositories/order_repository.dart';
 import 'package:flow_pos/features/order/domain/usecases/create_order.dart';
+import 'package:flow_pos/features/order/domain/usecases/get_all_orders.dart';
 import 'package:flow_pos/features/order/domain/usecases/get_monthly_revenue.dart';
 import 'package:flow_pos/features/order/presentation/bloc/order_bloc.dart';
 import 'package:get_it/get_it.dart';
@@ -133,11 +134,13 @@ void _initOrder() {
     // Usecases
     ..registerFactory(() => CreateOrder(serviceLocator()))
     ..registerFactory(() => GetMonthlyRevenue(serviceLocator()))
+    ..registerFactory(() => GetAllOrders(serviceLocator()))
     // Bloc
     ..registerLazySingleton(
       () => OrderBloc(
         createOrder: serviceLocator(),
         getMonthlyRevenue: serviceLocator(),
+        getAllOrders: serviceLocator(),
       ),
     );
 }

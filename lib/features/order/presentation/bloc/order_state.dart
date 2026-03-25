@@ -31,6 +31,17 @@ final class OrderRevenueLoaded extends OrderState {
   List<Object> get props => [revenue];
 }
 
+final class OrdersLoading extends OrderState {}
+
+final class OrdersLoaded extends OrderState {
+  final List<OrderEntity> orders;
+
+  const OrdersLoaded(this.orders);
+
+  @override
+  List<Object> get props => [orders];
+}
+
 final class OrderFailure extends OrderState {
   final String message;
 
