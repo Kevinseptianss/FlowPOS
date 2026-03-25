@@ -277,20 +277,35 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
                               ),
                             );
                           } else {
-                            return ListView.builder(
-                              itemCount: _orders.length,
-                              itemBuilder: (context, index) {
-                                final order = _orders[index];
-                                return OrderCard(
-                                  orderId: order.orderNumber,
-                                  paymentType: order.payment.method,
-                                  datetime: DatetimeFormatter.formatDateTime(
-                                    order.createdAt,
-                                  ),
-                                  totalItems: order.items.length,
-                                  totalPayment: _formatRupiah(order.total),
+                            return RefreshIndicator(
+                              onRefresh: () async {
+                                context.read<OrderBloc>().add(
+                                  GetMonthlyRevenueEvent(month: DateTime.now()),
+                                );
+                                context.read<OrderBloc>().add(
+                                  GetAllOrdersEvent(),
+                                );
+
+                                await Future.delayed(
+                                  const Duration(seconds: 1),
                                 );
                               },
+                              child: ListView.builder(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                itemCount: _orders.length,
+                                itemBuilder: (context, index) {
+                                  final order = _orders[index];
+                                  return OrderCard(
+                                    orderId: order.orderNumber,
+                                    paymentType: order.payment.method,
+                                    datetime: DatetimeFormatter.formatDateTime(
+                                      order.createdAt,
+                                    ),
+                                    totalItems: order.items.length,
+                                    totalPayment: _formatRupiah(order.total),
+                                  );
+                                },
+                              ),
                             );
                           }
                         },
@@ -310,32 +325,44 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
                               ),
                             );
                           } else if (state is MenuItemLoaded) {
-                            return ListView.builder(
-                              itemCount: state.menuItems.length + 1,
-                              itemBuilder: (context, index) {
-                                if (index == 0) {
-                                  return _AddMenuOrCategoryCard(
-                                    onTap: () {
-                                      showDialog(
-                                        context: context,
-                                        builder: (context) =>
-                                            const AddMenuDialog(),
-                                      );
-                                    },
-                                  );
-                                }
+                            return RefreshIndicator(
+                              onRefresh: () async {
+                                context.read<MenuItemBloc>().add(
+                                  GetAllMenuItemsEvent(),
+                                );
 
-                                final menuItem = state.menuItems[index - 1];
-                                return MenuCard(
-                                  title: menuItem.name,
-                                  price: menuItem.price,
-                                  category: menuItem.category.name,
-                                  enabled: menuItem.enabled,
-                                  image: Image.asset(
-                                    'assets/images/default-food.jpg',
-                                  ),
+                                await Future.delayed(
+                                  const Duration(seconds: 1),
                                 );
                               },
+                              child: ListView.builder(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                itemCount: state.menuItems.length + 1,
+                                itemBuilder: (context, index) {
+                                  if (index == 0) {
+                                    return _AddMenuOrCategoryCard(
+                                      onTap: () {
+                                        showDialog(
+                                          context: context,
+                                          builder: (context) =>
+                                              const AddMenuDialog(),
+                                        );
+                                      },
+                                    );
+                                  }
+
+                                  final menuItem = state.menuItems[index - 1];
+                                  return MenuCard(
+                                    title: menuItem.name,
+                                    price: menuItem.price,
+                                    category: menuItem.category.name,
+                                    enabled: menuItem.enabled,
+                                    image: Image.asset(
+                                      'assets/images/default-food.jpg',
+                                    ),
+                                  );
+                                },
+                              ),
                             );
                           }
 

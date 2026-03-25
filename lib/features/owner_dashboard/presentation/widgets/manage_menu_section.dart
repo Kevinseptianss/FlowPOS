@@ -73,18 +73,26 @@ class _ManageMenuSectionState extends State<ManageMenuSection> {
                     ),
                   );
                 } else if (state is MenuItemLoaded) {
-                  return ListView.builder(
-                    itemCount: state.menuItems.length,
-                    itemBuilder: (context, index) {
-                      final menuItem = state.menuItems[index];
-                      return MenuCard(
-                        title: menuItem.name,
-                        price: menuItem.price,
-                        category: menuItem.category.name,
-                        enabled: menuItem.enabled,
-                        image: Image.asset('assets/images/default-food.jpg'),
-                      );
+                  return RefreshIndicator(
+                    onRefresh: () async {
+                      context.read<MenuItemBloc>().add(GetAllMenuItemsEvent());
+
+                      await Future.delayed(const Duration(seconds: 1));
                     },
+                    child: ListView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      itemCount: state.menuItems.length,
+                      itemBuilder: (context, index) {
+                        final menuItem = state.menuItems[index];
+                        return MenuCard(
+                          title: menuItem.name,
+                          price: menuItem.price,
+                          category: menuItem.category.name,
+                          enabled: menuItem.enabled,
+                          image: Image.asset('assets/images/default-food.jpg'),
+                        );
+                      },
+                    ),
                   );
                 }
 

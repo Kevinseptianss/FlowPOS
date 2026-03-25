@@ -1,7 +1,9 @@
 import 'package:flow_pos/core/theme/app_pallete.dart';
 import 'package:flow_pos/core/utils/datetime_formatter.dart';
 import 'package:flow_pos/features/order/domain/entities/order_entity.dart';
+import 'package:flow_pos/features/order/presentation/bloc/order_bloc.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'order_card.dart';
 
@@ -34,20 +36,28 @@ class OrderSection extends StatelessWidget {
                     ).textTheme.titleLarge?.copyWith(color: AppPallete.primary),
                   ),
                 )
-              : ListView.builder(
-                  itemCount: orders.length,
-                  itemBuilder: (context, index) {
-                    final order = orders[index];
-                    return OrderCard(
-                      orderId: order.orderNumber,
-                      paymentType: order.payment.method,
-                      datetime: DatetimeFormatter.formatDateTime(
-                        order.createdAt,
-                      ),
-                      totalItems: order.items.length,
-                      totalPayment: _formatRupiah(order.total),
-                    );
+              : RefreshIndicator(
+                  onRefresh: () async {
+                    context.read<OrderBloc>().add(GetAllOrdersEvent());
+
+                    await Future.delayed(const Duration(seconds: 1));
                   },
+                  child: ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    itemCount: orders.length,
+                    itemBuilder: (context, index) {
+                      final order = orders[index];
+                      return OrderCard(
+                        orderId: order.orderNumber,
+                        paymentType: order.payment.method,
+                        datetime: DatetimeFormatter.formatDateTime(
+                          order.createdAt,
+                        ),
+                        totalItems: order.items.length,
+                        totalPayment: _formatRupiah(order.total),
+                      );
+                    },
+                  ),
                 ),
         ),
       ],
