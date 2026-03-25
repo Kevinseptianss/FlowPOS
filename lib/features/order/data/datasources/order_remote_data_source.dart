@@ -7,7 +7,6 @@ import 'package:flow_pos/features/order/domain/entities/monthly_revenue.dart';
 import 'package:flow_pos/features/order/domain/entities/order_item.dart';
 import 'package:flow_pos/features/order/domain/entities/payment_entity.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:uuid/uuid.dart';
 
 abstract interface class OrderRemoteDataSource {
   Future<OrderModel> createOrder({
@@ -34,7 +33,6 @@ abstract interface class OrderRemoteDataSource {
 
 class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
   final SupabaseClient supabaseClient;
-  final Uuid _uuid = const Uuid();
 
   OrderRemoteDataSourceImpl(this.supabaseClient);
 
@@ -51,26 +49,10 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
     required int amountPaid,
     required List<OrderItem> items,
   }) async {
-    final orderId = _uuid.v4();
-    final paymentId = _uuid.v4();
-
     try {
-      await supabaseClient.from('orders').insert({
-        'id': orderId,
-        'order_number': orderNumber,
-        'table_number': tableNumber,
-        'cashier_id': cashierId,
-        'subtotal': subtotal,
-        'tax': tax,
-        'service_charge': serviceCharge,
-        'total': total,
-      });
-
       final orderItemPayload = items
           .map(
             (item) => {
-              'id': _uuid.v4(),
-              'order_id': orderId,
               'menu_item_id': item.menuItemId,
               'quantity': item.quantity,
               'unit_price': item.unitPrice,
@@ -86,27 +68,35 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
       final amountDue = total;
       final changeGiven = max(0, safeAmountPaid - amountDue);
 
-      await supabaseClient.from('payments').insert({
-        'id': paymentId,
-        'order_id': orderId,
-        'method': method,
-        'amount_paid': safeAmountPaid,
-        'amount_due': amountDue,
-        'change_given': changeGiven,
-      });
+      final result = await supabaseClient.rpc(
+        'create_order_atomic',
+        params: {
+          'p_order_number': orderNumber,
+          'p_table_number': tableNumber,
+          'p_cashier_id': cashierId,
+          'p_subtotal': subtotal,
+          'p_tax': tax,
+          'p_service_charge': serviceCharge,
+          'p_total': total,
+          'p_method': method,
+          'p_amount_paid': safeAmountPaid,
+          'p_amount_due': amountDue,
+          'p_change_given': changeGiven,
+          'p_items': orderItemPayload,
+        },
+      );
 
-      final orderData = await supabaseClient
-          .from('orders')
-          .select('created_at')
-          .eq('id', orderId)
-          .single();
+      final resultMap = (result as Map<String, dynamic>);
+      final orderId = resultMap['order_id'] as String;
+      final paymentId = resultMap['payment_id'] as String;
+      final createdAtRaw = resultMap['created_at'] as String;
 
       return OrderModel(
         id: orderId,
         orderNumber: orderNumber,
         tableNumber: tableNumber,
         total: total,
-        createdAt: DateTime.parse(orderData['created_at'] as String),
+        createdAt: DateTime.parse(createdAtRaw),
         payment: PaymentEntity(
           id: paymentId,
           orderId: orderId,
