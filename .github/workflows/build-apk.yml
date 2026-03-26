@@ -27,6 +27,14 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Create app_secrets.dart file
+        run: |
+          mkdir -p lib/core/secrets
+          echo "class AppSecrets {" > lib/core/secrets/app_secrets.dart
+          echo "  static const supabaseURL = '${{ secrets.SUPABASE_URL }}';" >> lib/core/secrets/app_secrets.dart
+          echo "  static const supabaseKey = '${{ secrets.SUPABASE_KEY }}';" >> lib/core/secrets/app_secrets.dart
+          echo "}" >> lib/core/secrets/app_secrets.dart
+
       - name: Build APK
         run: flutter build apk --release
 
