@@ -13,6 +13,10 @@ abstract interface class MenuItemRemoteDataSource {
     required int price,
     required String categoryId,
   });
+  Future<MenuItemModel> updateMenuItemAvailability({
+    required String menuItemId,
+    required bool enabled,
+  });
 }
 
 class MenuItemRemoteDataSourceImpl implements MenuItemRemoteDataSource {
@@ -120,6 +124,25 @@ class MenuItemRemoteDataSourceImpl implements MenuItemRemoteDataSource {
           .from('menu_items')
           .select('*, categories!category_id(id, name)')
           .eq('id', menuItemId)
+          .single();
+
+      return MenuItemModel.fromJson(menuItem);
+    } catch (e) {
+      throw ServerException(e.toString());
+    }
+  }
+
+  @override
+  Future<MenuItemModel> updateMenuItemAvailability({
+    required String menuItemId,
+    required bool enabled,
+  }) async {
+    try {
+      final menuItem = await supabaseClient
+          .from('menu_items')
+          .update({'is_available': enabled})
+          .eq('id', menuItemId)
+          .select('*, categories!category_id(id, name)')
           .single();
 
       return MenuItemModel.fromJson(menuItem);

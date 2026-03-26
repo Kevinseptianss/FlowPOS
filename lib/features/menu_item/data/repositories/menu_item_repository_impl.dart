@@ -51,4 +51,18 @@ class MenuItemRepositoryImpl implements MenuItemRepository {
       return left(Failure(e.message));
     }
   }
+
+  @override
+  Future<Either<Failure, MenuItem>> updateMenuItemAvailability({
+    required String menuItemId,
+    required bool enabled,
+  }) async {
+    try {
+      final updatedMenuItem = await menuItemRemoteDataSource
+          .updateMenuItemAvailability(menuItemId: menuItemId, enabled: enabled);
+      return right(updatedMenuItem);
+    } on ServerException catch (e) {
+      return left(Failure(e.message));
+    }
+  }
 }

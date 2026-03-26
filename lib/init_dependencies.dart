@@ -21,6 +21,7 @@ import 'package:flow_pos/features/menu_item/domain/repositories/menu_item_reposi
 import 'package:flow_pos/features/menu_item/domain/usecases/create_menu_item.dart';
 import 'package:flow_pos/features/menu_item/domain/usecases/get_all_menu_items.dart';
 import 'package:flow_pos/features/menu_item/domain/usecases/listen_all_menu_items.dart';
+import 'package:flow_pos/features/menu_item/domain/usecases/update_menu_item_availability.dart';
 import 'package:flow_pos/features/menu_item/presentation/bloc/menu_item_bloc.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/bloc/cart_bloc.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/bloc/table_bloc.dart';
@@ -97,12 +98,14 @@ void _initMenuItem() {
     ..registerFactory(() => GetAllMenuItems(serviceLocator()))
     ..registerFactory(() => ListenAllMenuItems(serviceLocator()))
     ..registerFactory(() => CreateMenuItem(serviceLocator()))
+    ..registerFactory(() => UpdateMenuItemAvailability(serviceLocator()))
     // Bloc
     ..registerLazySingleton(
       () => MenuItemBloc(
         getAllMenuItems: serviceLocator(),
         createMenuItem: serviceLocator(),
         listenAllMenuItems: serviceLocator(),
+        updateMenuItemAvailability: serviceLocator(),
       ),
     );
 }

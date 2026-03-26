@@ -31,6 +31,19 @@ final class MenuItemsRealtimeFailureEvent extends MenuItemEvent {
   List<Object> get props => [message];
 }
 
+final class UpdateMenuItemAvailabilityEvent extends MenuItemEvent {
+  final String menuItemId;
+  final bool enabled;
+
+  const UpdateMenuItemAvailabilityEvent({
+    required this.menuItemId,
+    required this.enabled,
+  });
+
+  @override
+  List<Object> get props => [menuItemId, enabled];
+}
+
 final class CreateMenuItemEvent extends MenuItemEvent {
   final String name;
   final int price;

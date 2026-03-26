@@ -91,10 +91,19 @@ class _ManageMenuSectionState extends State<ManageMenuSection> {
                       itemBuilder: (context, index) {
                         final menuItem = state.menuItems[index];
                         return MenuCard(
+                          key: ValueKey(menuItem.id),
                           title: menuItem.name,
                           price: menuItem.price,
                           category: menuItem.category.name,
                           enabled: menuItem.enabled,
+                          onEnabledChanged: (value) {
+                            context.read<MenuItemBloc>().add(
+                              UpdateMenuItemAvailabilityEvent(
+                                menuItemId: menuItem.id,
+                                enabled: value,
+                              ),
+                            );
+                          },
                           image: Image.asset('assets/images/default-food.jpg'),
                         );
                       },

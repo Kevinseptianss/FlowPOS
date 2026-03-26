@@ -10,4 +10,8 @@ abstract interface class MenuItemRepository {
     required int price,
     required String categoryId,
   });
+  Future<Either<Failure, MenuItem>> updateMenuItemAvailability({
+    required String menuItemId,
+    required bool enabled,
+  });
 }

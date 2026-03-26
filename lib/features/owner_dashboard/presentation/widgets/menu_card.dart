@@ -1,12 +1,13 @@
 import 'package:flow_pos/core/theme/app_pallete.dart';
 import 'package:flutter/material.dart';
 
-class MenuCard extends StatefulWidget {
+class MenuCard extends StatelessWidget {
   final String title;
   final int price;
   final String category;
   final bool enabled;
   final Image image;
+  final ValueChanged<bool>? onEnabledChanged;
 
   const MenuCard({
     super.key,
@@ -15,28 +16,8 @@ class MenuCard extends StatefulWidget {
     required this.category,
     required this.enabled,
     required this.image,
+    this.onEnabledChanged,
   });
-
-  @override
-  State<MenuCard> createState() => _MenuCardState();
-}
-
-class _MenuCardState extends State<MenuCard> {
-  late String _title;
-  late int _price;
-  late String _category;
-  late bool _enabled;
-  late Image _image;
-
-  @override
-  void initState() {
-    super.initState();
-    _title = widget.title;
-    _price = widget.price;
-    _category = widget.category;
-    _enabled = widget.enabled;
-    _image = widget.image;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +36,7 @@ class _MenuCardState extends State<MenuCard> {
                 height: 56,
                 color: AppPallete.surface,
                 alignment: Alignment.center,
-                child: _image,
+                child: image,
               ),
             ),
             const SizedBox(width: 12),
@@ -65,14 +46,14 @@ class _MenuCardState extends State<MenuCard> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    _title,
+                    title,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: AppPallete.primary,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    "Rp ${_price.toString()}",
+                    "Rp ${price.toString()}",
                     style: Theme.of(
                       context,
                     ).textTheme.bodyMedium?.copyWith(color: AppPallete.primary),
@@ -89,7 +70,7 @@ class _MenuCardState extends State<MenuCard> {
                       border: Border.all(color: AppPallete.divider),
                     ),
                     child: Text(
-                      _category,
+                      category,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: AppPallete.textPrimary,
                       ),
@@ -101,12 +82,8 @@ class _MenuCardState extends State<MenuCard> {
             Transform.scale(
               scale: 0.7,
               child: Switch(
-                value: _enabled,
-                onChanged: (value) {
-                  setState(() {
-                    _enabled = value;
-                  });
-                },
+                value: enabled,
+                onChanged: onEnabledChanged,
                 activeThumbColor: AppPallete.success,
                 inactiveThumbColor: AppPallete.error,
               ),

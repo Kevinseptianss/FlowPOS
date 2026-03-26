@@ -346,10 +346,19 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
 
                                   final menuItem = state.menuItems[index - 1];
                                   return MenuCard(
+                                    key: ValueKey(menuItem.id),
                                     title: menuItem.name,
                                     price: menuItem.price,
                                     category: menuItem.category.name,
                                     enabled: menuItem.enabled,
+                                    onEnabledChanged: (value) {
+                                      context.read<MenuItemBloc>().add(
+                                        UpdateMenuItemAvailabilityEvent(
+                                          menuItemId: menuItem.id,
+                                          enabled: value,
+                                        ),
+                                      );
+                                    },
                                     image: Image.asset(
                                       'assets/images/default-food.jpg',
                                     ),
