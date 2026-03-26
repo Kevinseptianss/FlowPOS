@@ -1,5 +1,6 @@
 import 'package:flow_pos/core/theme/app_pallete.dart';
 import 'package:flow_pos/core/utils/datetime_formatter.dart';
+import 'package:flow_pos/core/utils/format_rupiah.dart';
 import 'package:flow_pos/core/utils/show_snackbar.dart';
 import 'package:flow_pos/features/menu_item/presentation/bloc/menu_item_bloc.dart';
 import 'package:flow_pos/features/order/domain/entities/order_entity.dart';
@@ -28,21 +29,6 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
   int _totalOrders = 0;
 
   List<OrderEntity> _orders = [];
-
-  String _formatRupiah(int value) {
-    final digits = value.toString();
-    final buffer = StringBuffer();
-
-    for (var i = 0; i < digits.length; i++) {
-      final reverseIndex = digits.length - i;
-      buffer.write(digits[i]);
-      if (reverseIndex > 1 && reverseIndex % 3 == 1) {
-        buffer.write('.');
-      }
-    }
-
-    return 'Rp ${buffer.toString()}';
-  }
 
   @override
   void initState() {
@@ -166,7 +152,7 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
                         }
 
                         return Text(
-                          _formatRupiah(_totalRevenue),
+                          formatRupiah(_totalRevenue),
                           style: Theme.of(context).textTheme.headlineSmall
                               ?.copyWith(
                                 color: AppPallete.primary,
@@ -189,7 +175,7 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
                               const SizedBox(width: 6),
                               Flexible(
                                 child: Text(
-                                  _formatRupiah(_qrisRevenue),
+                                  formatRupiah(_qrisRevenue),
                                   style: Theme.of(context).textTheme.titleMedium
                                       ?.copyWith(color: AppPallete.primary),
                                   overflow: TextOverflow.ellipsis,
@@ -210,7 +196,7 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
                               const SizedBox(width: 6),
                               Flexible(
                                 child: Text(
-                                  _formatRupiah(_cashRevenue),
+                                  formatRupiah(_cashRevenue),
                                   style: Theme.of(context).textTheme.titleMedium
                                       ?.copyWith(color: AppPallete.primary),
                                   overflow: TextOverflow.ellipsis,
@@ -309,7 +295,7 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
                                       order.createdAt,
                                     ),
                                     totalItems: order.items.length,
-                                    totalPayment: _formatRupiah(order.total),
+                                    totalPayment: formatRupiah(order.total),
                                   );
                                 },
                               ),

@@ -1,5 +1,6 @@
 import 'package:flow_pos/core/theme/app_pallete.dart';
 import 'package:flow_pos/core/utils/datetime_formatter.dart';
+import 'package:flow_pos/core/utils/format_rupiah.dart';
 import 'package:flow_pos/features/order/domain/entities/order_entity.dart';
 import 'package:flow_pos/features/order/presentation/bloc/order_bloc.dart';
 import 'package:flutter/material.dart';
@@ -54,7 +55,7 @@ class OrderSection extends StatelessWidget {
                           order.createdAt,
                         ),
                         totalItems: order.items.length,
-                        totalPayment: _formatRupiah(order.total),
+                        totalPayment: formatRupiah(order.total),
                       );
                     },
                   ),
@@ -62,20 +63,5 @@ class OrderSection extends StatelessWidget {
         ),
       ],
     );
-  }
-
-  String _formatRupiah(int value) {
-    final digits = value.toString();
-    final buffer = StringBuffer();
-
-    for (var i = 0; i < digits.length; i++) {
-      final reverseIndex = digits.length - i;
-      buffer.write(digits[i]);
-      if (reverseIndex > 1 && reverseIndex % 3 == 1) {
-        buffer.write('.');
-      }
-    }
-
-    return 'Rp ${buffer.toString()}';
   }
 }

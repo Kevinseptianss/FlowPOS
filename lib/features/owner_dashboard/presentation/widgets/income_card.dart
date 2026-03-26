@@ -1,4 +1,5 @@
 import 'package:flow_pos/core/theme/app_pallete.dart';
+import 'package:flow_pos/core/utils/format_rupiah.dart';
 import 'package:flutter/material.dart';
 
 class IncomeCard extends StatelessWidget {
@@ -10,21 +11,6 @@ class IncomeCard extends StatelessWidget {
     required this.qrisRevenue,
     required this.cashRevenue,
   });
-
-  String _formatRupiahCompact(int value) {
-    final digits = value.toString();
-    final buffer = StringBuffer();
-
-    for (var i = 0; i < digits.length; i++) {
-      final reverseIndex = digits.length - i;
-      buffer.write(digits[i]);
-      if (reverseIndex > 1 && reverseIndex % 3 == 1) {
-        buffer.write('.');
-      }
-    }
-
-    return buffer.toString();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -68,7 +54,7 @@ class IncomeCard extends StatelessWidget {
                                 ?.copyWith(color: Colors.black),
                           ),
                           Text(
-                            _formatRupiahCompact(qrisRevenue),
+                            formatRupiah(qrisRevenue),
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                         ],
@@ -111,7 +97,7 @@ class IncomeCard extends StatelessWidget {
                                 ?.copyWith(color: Colors.black),
                           ),
                           Text(
-                            _formatRupiahCompact(cashRevenue),
+                            formatRupiah(cashRevenue),
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                         ],
