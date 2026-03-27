@@ -7,6 +7,7 @@ import 'package:flow_pos/features/order/domain/entities/monthly_revenue.dart';
 import 'package:flow_pos/features/order/domain/entities/order_item.dart';
 import 'package:flow_pos/features/order/domain/entities/payment_entity.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 abstract interface class OrderRemoteDataSource {
   Future<OrderModel> createOrder({
@@ -33,6 +34,7 @@ abstract interface class OrderRemoteDataSource {
 
 class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
   final SupabaseClient supabaseClient;
+  final Uuid _uuid = const Uuid();
 
   OrderRemoteDataSourceImpl(this.supabaseClient);
 
@@ -53,6 +55,7 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
       final orderItemPayload = items
           .map(
             (item) => {
+              'id': _uuid.v4(),
               'menu_item_id': item.menuItemId,
               'quantity': item.quantity,
               'unit_price': item.unitPrice,
@@ -61,8 +64,6 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
             },
           )
           .toList();
-
-      await supabaseClient.from('order_items').insert(orderItemPayload);
 
       final safeAmountPaid = max(amountPaid, 0);
       final amountDue = total;
