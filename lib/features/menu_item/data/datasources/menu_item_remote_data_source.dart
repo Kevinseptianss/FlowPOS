@@ -123,17 +123,10 @@ class MenuItemRemoteDataSourceImpl implements MenuItemRemoteDataSource {
     final menuItemsStream = supabaseClient
         .from('menu_items')
         .stream(primaryKey: ['id'])
-        .eq('is_available', true)
         .order('name', ascending: true);
     final categoriesStream = supabaseClient
         .from('categories')
         .stream(primaryKey: ['id']);
-
-    // Debugging: Log changes to menu_items to verify real-time updates are working
-    supabaseClient
-        .from('menu_items')
-        .stream(primaryKey: ["id"])
-        .listen((data) => print("Menu items changed: $data"));
 
     final controller = StreamController<List<MenuItemModel>>();
 
@@ -150,6 +143,7 @@ class MenuItemRemoteDataSourceImpl implements MenuItemRemoteDataSource {
       }
 
       final menuItems = latestMenuRows
+          .where((row) => row['is_available'] == true)
           .map(
             (row) => MenuItemModel.fromJson({
               ...row,
