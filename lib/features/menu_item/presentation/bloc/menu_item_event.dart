@@ -9,7 +9,11 @@ sealed class MenuItemEvent extends Equatable {
 
 final class GetAllMenuItemsEvent extends MenuItemEvent {}
 
+final class GetEnabledMenuItemsEvent extends MenuItemEvent {}
+
 final class StartMenuItemsRealtimeEvent extends MenuItemEvent {}
+
+final class StartEnabledMenuItemsRealtimeEvent extends MenuItemEvent {}
 
 final class StopMenuItemsRealtimeEvent extends MenuItemEvent {}
 

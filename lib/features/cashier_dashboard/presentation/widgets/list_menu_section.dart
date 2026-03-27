@@ -24,7 +24,7 @@ class _ListMenuSectionState extends State<ListMenuSection> {
   void initState() {
     super.initState();
     context.read<CategoryBloc>().add(StartCategoriesRealtimeEvent());
-    context.read<MenuItemBloc>().add(StartMenuItemsRealtimeEvent());
+    context.read<MenuItemBloc>().add(StartEnabledMenuItemsRealtimeEvent());
   }
 
   @override
@@ -100,7 +100,9 @@ class _ListMenuSectionState extends State<ListMenuSection> {
 
                   return RefreshIndicator(
                     onRefresh: () async {
-                      context.read<MenuItemBloc>().add(GetAllMenuItemsEvent());
+                      context.read<MenuItemBloc>().add(
+                        GetEnabledMenuItemsEvent(),
+                      );
 
                       await Future.delayed(const Duration(seconds: 1));
                     },

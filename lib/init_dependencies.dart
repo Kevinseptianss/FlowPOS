@@ -20,7 +20,9 @@ import 'package:flow_pos/features/menu_item/data/repositories/menu_item_reposito
 import 'package:flow_pos/features/menu_item/domain/repositories/menu_item_repository.dart';
 import 'package:flow_pos/features/menu_item/domain/usecases/create_menu_item.dart';
 import 'package:flow_pos/features/menu_item/domain/usecases/get_all_menu_items.dart';
+import 'package:flow_pos/features/menu_item/domain/usecases/get_enabled_menu_items.dart';
 import 'package:flow_pos/features/menu_item/domain/usecases/listen_all_menu_items.dart';
+import 'package:flow_pos/features/menu_item/domain/usecases/listen_enabled_menu_items.dart';
 import 'package:flow_pos/features/menu_item/domain/usecases/update_menu_item_availability.dart';
 import 'package:flow_pos/features/menu_item/presentation/bloc/menu_item_bloc.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/bloc/cart_bloc.dart';
@@ -96,15 +98,19 @@ void _initMenuItem() {
     )
     // Usecases
     ..registerFactory(() => GetAllMenuItems(serviceLocator()))
+    ..registerFactory(() => GetEnabledMenuItems(serviceLocator()))
     ..registerFactory(() => ListenAllMenuItems(serviceLocator()))
+    ..registerFactory(() => ListenEnabledMenuItems(serviceLocator()))
     ..registerFactory(() => CreateMenuItem(serviceLocator()))
     ..registerFactory(() => UpdateMenuItemAvailability(serviceLocator()))
     // Bloc
     ..registerLazySingleton(
       () => MenuItemBloc(
         getAllMenuItems: serviceLocator(),
+        getEnabledMenuItems: serviceLocator(),
         createMenuItem: serviceLocator(),
         listenAllMenuItems: serviceLocator(),
+        listenEnabledMenuItems: serviceLocator(),
         updateMenuItemAvailability: serviceLocator(),
       ),
     );

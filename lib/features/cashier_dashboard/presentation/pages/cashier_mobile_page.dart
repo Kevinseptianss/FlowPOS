@@ -30,7 +30,7 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
   void initState() {
     super.initState();
     context.read<CategoryBloc>().add(StartCategoriesRealtimeEvent());
-    context.read<MenuItemBloc>().add(StartMenuItemsRealtimeEvent());
+    context.read<MenuItemBloc>().add(StartEnabledMenuItemsRealtimeEvent());
   }
 
   @override
@@ -197,7 +197,7 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
                               return RefreshIndicator(
                                 onRefresh: () async {
                                   context.read<MenuItemBloc>().add(
-                                    GetAllMenuItemsEvent(),
+                                    GetEnabledMenuItemsEvent(),
                                   );
 
                                   await Future.delayed(

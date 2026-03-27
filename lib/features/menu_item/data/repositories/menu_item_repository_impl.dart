@@ -21,10 +21,34 @@ class MenuItemRepositoryImpl implements MenuItemRepository {
   }
 
   @override
+  Future<Either<Failure, List<MenuItem>>> getEnabledMenuItems() async {
+    try {
+      final menuItems = await menuItemRemoteDataSource.getEnabledMenuItems();
+      return right(menuItems);
+    } on ServerException catch (e) {
+      return left(Failure(e.message));
+    }
+  }
+
+  @override
   Stream<Either<Failure, List<MenuItem>>> listenAllMenuItems() async* {
     try {
       await for (final menuItems
           in menuItemRemoteDataSource.listenAllMenuItems()) {
+        yield right(menuItems);
+      }
+    } on ServerException catch (e) {
+      yield left(Failure(e.message));
+    } catch (e) {
+      yield left(Failure(e.toString()));
+    }
+  }
+
+  @override
+  Stream<Either<Failure, List<MenuItem>>> listenEnabledMenuItems() async* {
+    try {
+      await for (final menuItems
+          in menuItemRemoteDataSource.listenEnabledMenuItems()) {
         yield right(menuItems);
       }
     } on ServerException catch (e) {
