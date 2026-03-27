@@ -3,6 +3,7 @@ import 'package:flow_pos/core/utils/datetime_formatter.dart';
 import 'package:flow_pos/core/utils/show_snackbar.dart';
 import 'package:flow_pos/features/order/domain/entities/order_entity.dart';
 import 'package:flow_pos/features/order/presentation/bloc/order_bloc.dart';
+import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_order_detail_page.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_settings_page.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/widgets/analytic_section.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/widgets/manage_menu_section.dart';
@@ -107,7 +108,17 @@ class _OwnerDashboardIpadPageState extends State<OwnerDashboardIpadPage> {
                   children: [
                     const AnalyticSection(),
                     const SizedBox(height: 24),
-                    Expanded(child: OrderSection(orders: _orders)),
+                    Expanded(
+                      child: OrderSection(
+                        orders: _orders,
+                        onOrderTap: (order) {
+                          Navigator.push(
+                            context,
+                            OwnerOrderDetailPage.route(order),
+                          );
+                        },
+                      ),
+                    ),
                   ],
                 ),
               ),

@@ -10,8 +10,9 @@ import 'order_card.dart';
 
 class OrderSection extends StatelessWidget {
   final List<OrderEntity> orders;
+  final void Function(OrderEntity order)? onOrderTap;
 
-  const OrderSection({super.key, required this.orders});
+  const OrderSection({super.key, required this.orders, this.onOrderTap});
 
   @override
   Widget build(BuildContext context) {
@@ -56,6 +57,7 @@ class OrderSection extends StatelessWidget {
                         ),
                         totalItems: order.items.length,
                         totalPayment: formatRupiah(order.total),
+                        onTap: () => onOrderTap?.call(order),
                       );
                     },
                   ),
