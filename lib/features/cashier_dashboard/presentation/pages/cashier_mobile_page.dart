@@ -1,3 +1,4 @@
+import 'package:flow_pos/core/common/bloc/user_bloc.dart';
 import 'package:flow_pos/core/theme/app_pallete.dart';
 import 'package:flow_pos/core/utils/show_snackbar.dart';
 import 'package:flow_pos/features/auth/presentation/bloc/auth_bloc.dart';
@@ -22,8 +23,6 @@ class CashierMobilePage extends StatefulWidget {
 }
 
 class _CashierMobilePageState extends State<CashierMobilePage> {
-  static const String _cashierName = 'Jason';
-
   String _selectedCategory = 'all';
 
   @override
@@ -68,11 +67,18 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
                 ),
               ),
               const SizedBox(height: 2),
-              Text(
-                'Cashier: $_cashierName',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppPallete.onPrimary.withAlpha(220),
-                ),
+              BlocBuilder<UserBloc, UserState>(
+                builder: (context, state) {
+                  final name = state is UserLoggedIn
+                      ? state.user.name
+                      : 'Unknown';
+                  return Text(
+                    'Cashier: $name',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppPallete.onPrimary,
+                    ),
+                  );
+                },
               ),
             ],
           ),
