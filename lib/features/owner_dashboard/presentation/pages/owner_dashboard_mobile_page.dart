@@ -1,3 +1,4 @@
+import 'package:dotted_border/dotted_border.dart';
 import 'package:flow_pos/core/theme/app_pallete.dart';
 import 'package:flow_pos/core/utils/datetime_formatter.dart';
 import 'package:flow_pos/core/utils/format_rupiah.dart';
@@ -433,28 +434,38 @@ class _AddMenuOrCategoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      color: AppPallete.background,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: SizedBox(
-          height: 72,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.add_circle_outline, color: AppPallete.primary),
-              const SizedBox(width: 8),
-              Text(
-                'Add Menu or Category',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppPallete.primary,
-                  fontWeight: FontWeight.w700,
+    return DottedBorder(
+      options: RoundedRectDottedBorderOptions(
+        radius: const Radius.circular(12),
+        color: AppPallete.primary,
+        strokeWidth: 2,
+        dashPattern: const [10, 4],
+        strokeCap: StrokeCap.round,
+        padding: EdgeInsets.all(3),
+      ),
+      child: Card(
+        elevation: 2,
+        margin: EdgeInsets.zero,
+        color: AppPallete.background,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: SizedBox(
+            height: 72,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.add_circle_outline, color: AppPallete.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'Add Menu or Category',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: AppPallete.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
