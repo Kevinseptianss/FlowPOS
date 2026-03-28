@@ -1,4 +1,5 @@
 import 'package:flow_pos/core/theme/app_pallete.dart';
+import 'package:flow_pos/core/utils/format_rupiah.dart';
 import 'package:flutter/material.dart';
 
 class MenuCard extends StatelessWidget {
@@ -53,7 +54,7 @@ class MenuCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    "Rp ${price.toString()}",
+                    formatRupiah(price),
                     style: Theme.of(
                       context,
                     ).textTheme.bodyMedium?.copyWith(color: AppPallete.primary),
