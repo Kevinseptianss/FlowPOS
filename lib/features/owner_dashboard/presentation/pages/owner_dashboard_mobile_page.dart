@@ -26,6 +26,9 @@ class OwnerDashboardMobilePage extends StatefulWidget {
 class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
   bool _isOrderHistorySelected = true;
 
+  late final OrderBloc _orderBloc;
+  late final MenuItemBloc _menuItemBloc;
+
   int _totalRevenue = 0;
   int _qrisRevenue = 0;
   int _cashRevenue = 0;
@@ -36,17 +39,18 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
   @override
   void initState() {
     super.initState();
-    context.read<OrderBloc>().add(
-      StartMonthlyRevenueRealtimeEvent(month: DateTime.now()),
-    );
-    context.read<OrderBloc>().add(StartAllOrdersRealtimeEvent());
-    context.read<MenuItemBloc>().add(StartMenuItemsRealtimeEvent());
+    _orderBloc = context.read<OrderBloc>();
+    _menuItemBloc = context.read<MenuItemBloc>();
+
+    _orderBloc.add(StartMonthlyRevenueRealtimeEvent(month: DateTime.now()));
+    _orderBloc.add(StartAllOrdersRealtimeEvent());
+    _menuItemBloc.add(StartMenuItemsRealtimeEvent());
   }
 
   @override
   void dispose() {
-    context.read<OrderBloc>().add(StopOrderRealtimeEvent());
-    context.read<MenuItemBloc>().add(StopMenuItemsRealtimeEvent());
+    _orderBloc.add(StopOrderRealtimeEvent());
+    _menuItemBloc.add(StopMenuItemsRealtimeEvent());
     super.dispose();
   }
 

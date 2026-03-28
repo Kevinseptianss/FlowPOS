@@ -12,15 +12,18 @@ class CashierPage extends StatefulWidget {
 }
 
 class _CashierPageState extends State<CashierPage> {
+  late final StoreSettingsBloc _storeSettingsBloc;
+
   @override
   void initState() {
     super.initState();
-    context.read<StoreSettingsBloc>().add(StartStoreSettingsRealtimeEvent());
+    _storeSettingsBloc = context.read<StoreSettingsBloc>();
+    _storeSettingsBloc.add(StartStoreSettingsRealtimeEvent());
   }
 
   @override
   void dispose() {
-    context.read<StoreSettingsBloc>().add(StopStoreSettingsRealtimeEvent());
+    _storeSettingsBloc.add(StopStoreSettingsRealtimeEvent());
     super.dispose();
   }
 

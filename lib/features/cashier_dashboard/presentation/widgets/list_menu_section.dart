@@ -19,18 +19,23 @@ class ListMenuSection extends StatefulWidget {
 
 class _ListMenuSectionState extends State<ListMenuSection> {
   String _selectedCategory = 'all';
+  late final CategoryBloc _categoryBloc;
+  late final MenuItemBloc _menuItemBloc;
 
   @override
   void initState() {
     super.initState();
-    context.read<CategoryBloc>().add(StartCategoriesRealtimeEvent());
-    context.read<MenuItemBloc>().add(StartEnabledMenuItemsRealtimeEvent());
+    _categoryBloc = context.read<CategoryBloc>();
+    _menuItemBloc = context.read<MenuItemBloc>();
+
+    _categoryBloc.add(StartCategoriesRealtimeEvent());
+    _menuItemBloc.add(StartEnabledMenuItemsRealtimeEvent());
   }
 
   @override
   void dispose() {
-    context.read<CategoryBloc>().add(StopCategoriesRealtimeEvent());
-    context.read<MenuItemBloc>().add(StopMenuItemsRealtimeEvent());
+    _categoryBloc.add(StopCategoriesRealtimeEvent());
+    _menuItemBloc.add(StopMenuItemsRealtimeEvent());
     super.dispose();
   }
 

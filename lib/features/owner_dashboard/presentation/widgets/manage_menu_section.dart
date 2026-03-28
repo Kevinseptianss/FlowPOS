@@ -14,15 +14,18 @@ class ManageMenuSection extends StatefulWidget {
 }
 
 class _ManageMenuSectionState extends State<ManageMenuSection> {
+  late final MenuItemBloc _menuItemBloc;
+
   @override
   void initState() {
     super.initState();
-    context.read<MenuItemBloc>().add(StartMenuItemsRealtimeEvent());
+    _menuItemBloc = context.read<MenuItemBloc>();
+    _menuItemBloc.add(StartMenuItemsRealtimeEvent());
   }
 
   @override
   void dispose() {
-    context.read<MenuItemBloc>().add(StopMenuItemsRealtimeEvent());
+    _menuItemBloc.add(StopMenuItemsRealtimeEvent());
     super.dispose();
   }
 

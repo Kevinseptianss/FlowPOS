@@ -20,19 +20,20 @@ class OwnerDashboardIpadPage extends StatefulWidget {
 
 class _OwnerDashboardIpadPageState extends State<OwnerDashboardIpadPage> {
   List<OrderEntity> _orders = [];
+  late final OrderBloc _orderBloc;
 
   @override
   void initState() {
     super.initState();
-    context.read<OrderBloc>().add(
-      StartMonthlyRevenueRealtimeEvent(month: DateTime.now()),
-    );
-    context.read<OrderBloc>().add(StartAllOrdersRealtimeEvent());
+    _orderBloc = context.read<OrderBloc>();
+
+    _orderBloc.add(StartMonthlyRevenueRealtimeEvent(month: DateTime.now()));
+    _orderBloc.add(StartAllOrdersRealtimeEvent());
   }
 
   @override
   void dispose() {
-    context.read<OrderBloc>().add(StopOrderRealtimeEvent());
+    _orderBloc.add(StopOrderRealtimeEvent());
     super.dispose();
   }
 
