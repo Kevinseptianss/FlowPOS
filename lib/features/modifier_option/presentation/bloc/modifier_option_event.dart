@@ -24,3 +24,16 @@ final class GetModifierGroupSelectionEvent extends ModifierOptionEvent {
   @override
   List<Object> get props => [menuId];
 }
+
+final class CreateModifierGroupEvent extends ModifierOptionEvent {
+  final String groupName;
+  final List<CreateModifierOptionInput> options;
+
+  const CreateModifierGroupEvent({
+    required this.groupName,
+    required this.options,
+  });
+
+  @override
+  List<Object> get props => [groupName, options];
+}

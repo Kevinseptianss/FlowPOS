@@ -34,6 +34,7 @@ import 'package:flow_pos/features/modifier_option/domain/usecases/get_all_modifi
 import 'package:flow_pos/features/modifier_option/domain/usecases/get_all_modifier_options.dart';
 import 'package:flow_pos/features/modifier_option/domain/usecases/get_selected_modifier_group_ids.dart';
 import 'package:flow_pos/features/modifier_option/domain/usecases/update_menu_modifier_groups.dart';
+import 'package:flow_pos/features/modifier_option/domain/usecases/create_modifier_group_with_options.dart';
 import 'package:flow_pos/features/modifier_option/presentation/bloc/modifier_option_bloc.dart';
 import 'package:flow_pos/features/order/data/datasources/order_remote_data_source.dart';
 import 'package:flow_pos/features/order/data/repositories/order_repository_impl.dart';
@@ -84,12 +85,14 @@ void _initModifierOption() {
     // Usecases
     ..registerFactory(() => GetAllModifierOptions(serviceLocator()))
     ..registerFactory(() => GetAllModifierGroupOptions(serviceLocator()))
+    ..registerFactory(() => CreateModifierGroupWithOptions(serviceLocator()))
     ..registerFactory(() => GetSelectedModifierGroupIds(serviceLocator()))
     ..registerFactory(() => UpdateMenuModifierGroups(serviceLocator()))
     // Bloc
     ..registerLazySingleton(
       () => ModifierOptionBloc(
         getAllModifierOptions: serviceLocator(),
+        createModifierGroupWithOptions: serviceLocator(),
         getAllModifierGroupOptions: serviceLocator(),
         getSelectedModifierGroupIds: serviceLocator(),
       ),

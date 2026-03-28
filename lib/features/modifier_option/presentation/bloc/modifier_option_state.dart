@@ -35,6 +35,8 @@ final class ModifierGroupSelectionLoaded extends ModifierOptionState {
   List<Object> get props => [menuId, modifierOptions, selectedModifierGroupIds];
 }
 
+final class ModifierGroupCreatedSuccess extends ModifierOptionState {}
+
 final class ModifierOptionFailure extends ModifierOptionState {
   final String message;
 
