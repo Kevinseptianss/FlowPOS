@@ -1,5 +1,6 @@
 import 'package:flow_pos/core/common/bloc/user_bloc.dart';
 import 'package:flow_pos/core/theme/app_pallete.dart';
+import 'package:flow_pos/core/utils/show_logout_dialog.dart';
 import 'package:flow_pos/core/utils/show_snackbar.dart';
 import 'package:flow_pos/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/list_menu_section.dart';
@@ -49,7 +50,16 @@ class CashierIpadPage extends StatelessWidget {
           ),
           actions: [
             IconButton(
-              onPressed: () {
+              onPressed: () async {
+                final shouldLogout = await showLogoutDialog(
+                  context,
+                  accountLabel: 'cashier account',
+                );
+
+                if (!context.mounted || !shouldLogout) {
+                  return;
+                }
+
                 context.read<AuthBloc>().add(SignOutEvent());
               },
               icon: const Icon(Icons.logout),

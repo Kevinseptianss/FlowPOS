@@ -1,4 +1,5 @@
 import 'package:flow_pos/core/theme/app_pallete.dart';
+import 'package:flow_pos/core/utils/show_logout_dialog.dart';
 import 'package:flow_pos/core/utils/show_snackbar.dart';
 import 'package:flow_pos/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_modifier_group_create_page.dart';
@@ -66,31 +67,17 @@ class OwnerSettingsPage extends StatelessWidget {
                       color: AppPallete.textPrimary,
                     ),
                   ),
-                  onTap: () {
-                    // Show confirmation dialog
-                    showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Confirm Logout'),
-                        content: const Text('Are you sure you want to logout?'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('Cancel'),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.pop(context); // Close dialog
-                              context.read<AuthBloc>().add(SignOutEvent());
-                            },
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppPallete.error,
-                            ),
-                            child: const Text('Logout'),
-                          ),
-                        ],
-                      ),
+                  onTap: () async {
+                    final shouldLogout = await showLogoutDialog(
+                      context,
+                      accountLabel: 'owner account',
                     );
+
+                    if (!context.mounted || !shouldLogout) {
+                      return;
+                    }
+
+                    context.read<AuthBloc>().add(SignOutEvent());
                   },
                 ),
               ),
