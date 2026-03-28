@@ -49,6 +49,7 @@ import 'package:flow_pos/features/store_settings/data/datasources/store_settings
 import 'package:flow_pos/features/store_settings/data/repositories/store_settings_repository_impl.dart';
 import 'package:flow_pos/features/store_settings/domain/repositories/store_settings_repository.dart';
 import 'package:flow_pos/features/store_settings/domain/usecases/listen_store_settings.dart';
+import 'package:flow_pos/features/store_settings/domain/usecases/update_store_settings.dart';
 import 'package:flow_pos/features/store_settings/presentation/bloc/store_settings_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -207,9 +208,13 @@ void _initStoreSettings() {
     )
     // Usecases
     ..registerFactory(() => ListenStoreSettings(serviceLocator()))
+    ..registerFactory(() => UpdateStoreSettings(serviceLocator()))
     // Bloc
     ..registerLazySingleton(
-      () => StoreSettingsBloc(listenStoreSettings: serviceLocator()),
+      () => StoreSettingsBloc(
+        listenStoreSettings: serviceLocator(),
+        updateStoreSettings: serviceLocator(),
+      ),
     );
 }
 

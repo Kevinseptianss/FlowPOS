@@ -4,4 +4,9 @@ import 'package:fpdart/fpdart.dart';
 
 abstract interface class StoreSettingsRepository {
   Stream<Either<Failure, StoreSettings>> listenStoreSettings();
+  Future<Either<Failure, StoreSettings>> updateStoreSettings({
+    String? id,
+    required double taxPercentage,
+    required double serviceChargePercentage,
+  });
 }

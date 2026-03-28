@@ -20,6 +20,17 @@ final class StoreSettingsLoaded extends StoreSettingsState {
   List<Object> get props => [storeSettings];
 }
 
+final class StoreSettingsUpdating extends StoreSettingsState {}
+
+final class StoreSettingsUpdated extends StoreSettingsState {
+  final StoreSettings storeSettings;
+
+  const StoreSettingsUpdated(this.storeSettings);
+
+  @override
+  List<Object> get props => [storeSettings];
+}
+
 final class StoreSettingsFailure extends StoreSettingsState {
   final String message;
 

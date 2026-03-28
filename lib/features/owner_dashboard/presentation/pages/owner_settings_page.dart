@@ -2,6 +2,7 @@ import 'package:flow_pos/core/theme/app_pallete.dart';
 import 'package:flow_pos/core/utils/show_snackbar.dart';
 import 'package:flow_pos/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_modifier_group_create_page.dart';
+import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_store_settings_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -132,6 +133,45 @@ class OwnerSettingsPage extends StatelessWidget {
                       context,
                       OwnerModifierGroupCreatePage.route(),
                     );
+                  },
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Store Configuration',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppPallete.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                decoration: BoxDecoration(
+                  color: AppPallete.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppPallete.divider),
+                ),
+                child: ListTile(
+                  leading: const Icon(
+                    Icons.receipt_long_outlined,
+                    color: AppPallete.primary,
+                  ),
+                  title: Text(
+                    'Tax & Service Charge',
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: AppPallete.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Configure checkout tax and service percentages',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppPallete.textPrimary,
+                    ),
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.push(context, OwnerStoreSettingsPage.route());
                   },
                 ),
               ),

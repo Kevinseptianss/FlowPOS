@@ -11,6 +11,21 @@ final class StartStoreSettingsRealtimeEvent extends StoreSettingsEvent {}
 
 final class StopStoreSettingsRealtimeEvent extends StoreSettingsEvent {}
 
+final class UpdateStoreSettingsEvent extends StoreSettingsEvent {
+  final String? id;
+  final double taxPercentage;
+  final double serviceChargePercentage;
+
+  const UpdateStoreSettingsEvent({
+    this.id,
+    required this.taxPercentage,
+    required this.serviceChargePercentage,
+  });
+
+  @override
+  List<Object> get props => [id ?? '', taxPercentage, serviceChargePercentage];
+}
+
 final class StoreSettingsRealtimeUpdatedEvent extends StoreSettingsEvent {
   final StoreSettings storeSettings;
 

@@ -23,4 +23,25 @@ class StoreSettingsRepositoryImpl implements StoreSettingsRepository {
       yield left(Failure(e.toString()));
     }
   }
+
+  @override
+  Future<Either<Failure, StoreSettings>> updateStoreSettings({
+    String? id,
+    required double taxPercentage,
+    required double serviceChargePercentage,
+  }) async {
+    try {
+      final updated = await storeSettingsRemoteDataSource.updateStoreSettings(
+        id: id,
+        taxPercentage: taxPercentage,
+        serviceChargePercentage: serviceChargePercentage,
+      );
+
+      return right(updated);
+    } on ServerException catch (e) {
+      return left(Failure(e.message));
+    } catch (e) {
+      return left(Failure(e.toString()));
+    }
+  }
 }
