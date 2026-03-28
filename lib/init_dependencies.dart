@@ -45,6 +45,11 @@ import 'package:flow_pos/features/order/domain/usecases/get_monthly_revenue.dart
 import 'package:flow_pos/features/order/domain/usecases/listen_all_orders.dart';
 import 'package:flow_pos/features/order/domain/usecases/listen_monthly_revenue.dart';
 import 'package:flow_pos/features/order/presentation/bloc/order_bloc.dart';
+import 'package:flow_pos/features/store_settings/data/datasources/store_settings_remote_data_source.dart';
+import 'package:flow_pos/features/store_settings/data/repositories/store_settings_repository_impl.dart';
+import 'package:flow_pos/features/store_settings/domain/repositories/store_settings_repository.dart';
+import 'package:flow_pos/features/store_settings/domain/usecases/listen_store_settings.dart';
+import 'package:flow_pos/features/store_settings/presentation/bloc/store_settings_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -59,6 +64,7 @@ Future<void> initDependencies() async {
   _initCart();
   _initTable();
   _initOrder();
+  _initStoreSettings();
 
   final supabase = await Supabase.initialize(
     url: AppSecrets.supabaseURL,
@@ -186,6 +192,24 @@ void _initOrder() {
         listenMonthlyRevenue: serviceLocator(),
         listenAllOrders: serviceLocator(),
       ),
+    );
+}
+
+void _initStoreSettings() {
+  serviceLocator
+    // Datasources
+    ..registerFactory<StoreSettingsRemoteDataSource>(
+      () => StoreSettingsRemoteDataSourceImpl(serviceLocator()),
+    )
+    // Repositories
+    ..registerFactory<StoreSettingsRepository>(
+      () => StoreSettingsRepositoryImpl(serviceLocator()),
+    )
+    // Usecases
+    ..registerFactory(() => ListenStoreSettings(serviceLocator()))
+    // Bloc
+    ..registerLazySingleton(
+      () => StoreSettingsBloc(listenStoreSettings: serviceLocator()),
     );
 }
 

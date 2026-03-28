@@ -9,6 +9,8 @@ import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/qty_but
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/summary_row.dart';
 import 'package:flow_pos/features/order/domain/entities/order_item.dart';
 import 'package:flow_pos/features/order/presentation/bloc/order_bloc.dart';
+import 'package:flow_pos/features/store_settings/domain/entities/store_settings.dart';
+import 'package:flow_pos/features/store_settings/presentation/bloc/store_settings_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -29,139 +31,190 @@ class ListOrderSection extends StatelessWidget {
           showSnackbar(context, orderState.message);
         }
       },
-      child: BlocBuilder<CartBloc, CartState>(
-        builder: (context, state) {
-          if (state is CartEmpty) {
-            return Container(
-              color: AppPallete.surface,
-              padding: const EdgeInsets.all(16),
-              child: const Center(child: Text('Cart is empty')),
-            );
+      child: BlocListener<StoreSettingsBloc, StoreSettingsState>(
+        listener: (context, settingsState) {
+          if (settingsState is StoreSettingsFailure) {
+            showSnackbar(context, settingsState.message);
           }
-
-          if (state is CartLoaded) {
-            const int taxRate = 10;
-            const int serviceChargeRate = 5;
-            final int subtotal = state.totalAmount;
-            final int tax = (subtotal * taxRate) ~/ 100;
-            final int serviceCharge = (subtotal * serviceChargeRate) ~/ 100;
-            final int total = subtotal + tax + serviceCharge;
-
-            return Container(
-              color: AppPallete.surface,
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Order',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppPallete.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: state.items.length,
-                      itemBuilder: (context, index) {
-                        final item = state.items[index];
-                        return _OrderItemTile(
-                          cartItem: item,
-                          onQuantityChanged: (newQuantity) {
-                            context.read<CartBloc>().add(
-                              UpdateCartItemQuantityEvent(item.id, newQuantity),
-                            );
-                          },
-                          onRemove: () {
-                            context.read<CartBloc>().add(
-                              RemoveFromCartEvent(item.id),
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Divider(color: AppPallete.divider),
-                  const SizedBox(height: 8),
-                  SummaryRow(label: 'Subtotal', value: subtotal),
-                  const SizedBox(height: 6),
-                  SummaryRow(label: 'Tax ($taxRate%)', value: tax),
-                  const SizedBox(height: 6),
-                  SummaryRow(
-                    label: 'Service ($serviceChargeRate%)',
-                    value: serviceCharge,
-                  ),
-                  const SizedBox(height: 8),
-                  const Divider(color: AppPallete.divider),
-                  const SizedBox(height: 8),
-                  SummaryRow(label: 'Total', value: total, isTotal: true),
-                  const SizedBox(height: 16),
-                  BlocBuilder<OrderBloc, OrderState>(
-                    builder: (context, state) {
-                      if (state is OrderLoading) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                      return Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () =>
-                                  _createOrder(context, 'QRIS', total),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppPallete.primary,
-                                foregroundColor: AppPallete.onPrimary,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                              child: const Text('QRIS'),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () =>
-                                  _showCashPaymentDialog(context, total),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppPallete.secondary,
-                                foregroundColor: AppPallete.onPrimary,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                              child: const Text('CASH'),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return const SizedBox();
         },
+        child: BlocBuilder<StoreSettingsBloc, StoreSettingsState>(
+          builder: (context, settingsState) {
+            final storeSettings = settingsState is StoreSettingsLoaded
+                ? settingsState.storeSettings
+                : const StoreSettings.zero();
+
+            return BlocBuilder<CartBloc, CartState>(
+              builder: (context, state) {
+                if (state is CartEmpty) {
+                  return Container(
+                    color: AppPallete.surface,
+                    padding: const EdgeInsets.all(16),
+                    child: const Center(child: Text('Cart is empty')),
+                  );
+                }
+
+                if (state is CartLoaded) {
+                  final double taxRate = storeSettings.taxPercentage;
+                  final double serviceChargeRate =
+                      storeSettings.serviceChargePercentage;
+
+                  final int subtotal = state.totalAmount;
+                  final int tax = _calculateCharge(subtotal, taxRate);
+                  final int serviceCharge = _calculateCharge(
+                    subtotal,
+                    serviceChargeRate,
+                  );
+                  final int total = subtotal + tax + serviceCharge;
+
+                  return Container(
+                    color: AppPallete.surface,
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Order',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(color: AppPallete.textPrimary),
+                        ),
+                        const SizedBox(height: 16),
+                        Expanded(
+                          child: ListView.builder(
+                            itemCount: state.items.length,
+                            itemBuilder: (context, index) {
+                              final item = state.items[index];
+                              return _OrderItemTile(
+                                cartItem: item,
+                                onQuantityChanged: (newQuantity) {
+                                  context.read<CartBloc>().add(
+                                    UpdateCartItemQuantityEvent(
+                                      item.id,
+                                      newQuantity,
+                                    ),
+                                  );
+                                },
+                                onRemove: () {
+                                  context.read<CartBloc>().add(
+                                    RemoveFromCartEvent(item.id),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        const Divider(color: AppPallete.divider),
+                        const SizedBox(height: 8),
+                        SummaryRow(label: 'Subtotal', value: subtotal),
+                        const SizedBox(height: 6),
+                        SummaryRow(
+                          label: 'Tax (${_formatPercentage(taxRate)}%)',
+                          value: tax,
+                        ),
+                        const SizedBox(height: 6),
+                        SummaryRow(
+                          label:
+                              'Service (${_formatPercentage(serviceChargeRate)}%)',
+                          value: serviceCharge,
+                        ),
+                        const SizedBox(height: 8),
+                        const Divider(color: AppPallete.divider),
+                        const SizedBox(height: 8),
+                        SummaryRow(label: 'Total', value: total, isTotal: true),
+                        const SizedBox(height: 16),
+                        BlocBuilder<OrderBloc, OrderState>(
+                          builder: (context, state) {
+                            if (state is OrderLoading) {
+                              return const Center(
+                                child: CircularProgressIndicator(),
+                              );
+                            }
+                            return Row(
+                              children: [
+                                Expanded(
+                                  child: ElevatedButton(
+                                    onPressed: () => _createOrder(
+                                      context,
+                                      'QRIS',
+                                      total,
+                                      taxPercentage: taxRate,
+                                      serviceChargePercentage:
+                                          serviceChargeRate,
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppPallete.primary,
+                                      foregroundColor: AppPallete.onPrimary,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                    child: const Text('QRIS'),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: ElevatedButton(
+                                    onPressed: () => _showCashPaymentDialog(
+                                      context,
+                                      total,
+                                      taxPercentage: taxRate,
+                                      serviceChargePercentage:
+                                          serviceChargeRate,
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppPallete.secondary,
+                                      foregroundColor: AppPallete.onPrimary,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                    child: const Text('CASH'),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return const SizedBox();
+              },
+            );
+          },
+        ),
       ),
     );
   }
 
-  void _showCashPaymentDialog(BuildContext context, int total) {
+  void _showCashPaymentDialog(
+    BuildContext context,
+    int total, {
+    required double taxPercentage,
+    required double serviceChargePercentage,
+  }) {
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
         return CashPaymentDialog(
           total: total,
           onConfirmPayment: (int amountPaid) {
-            _createOrder(context, 'CASH', total, amountPaid: amountPaid);
+            _createOrder(
+              context,
+              'CASH',
+              total,
+              amountPaid: amountPaid,
+              taxPercentage: taxPercentage,
+              serviceChargePercentage: serviceChargePercentage,
+            );
           },
         );
       },
@@ -173,6 +226,8 @@ class ListOrderSection extends StatelessWidget {
     String method,
     int total, {
     int? amountPaid,
+    required double taxPercentage,
+    required double serviceChargePercentage,
   }) {
     final cartBloc = context.read<CartBloc>();
     final orderBloc = context.read<OrderBloc>();
@@ -212,8 +267,6 @@ class ListOrderSection extends StatelessWidget {
     }).toList();
 
     // Calculate amounts
-    const int taxRate = 10;
-    const int serviceChargeRate = 5;
     final int subtotal = cartState.totalAmount;
 
     // Use provided amountPaid or default to total for QRIS
@@ -225,14 +278,29 @@ class ListOrderSection extends StatelessWidget {
         tableNumber: tableBloc.state.selectedTableNumber,
         cashierId: userState.user.id,
         subtotal: subtotal,
-        tax: taxRate.toDouble(),
-        serviceCharge: serviceChargeRate.toDouble(),
+        tax: taxPercentage,
+        serviceCharge: serviceChargePercentage,
         total: total,
         method: method,
         amountPaid: finalAmountPaid,
         items: orderItems,
       ),
     );
+  }
+
+  int _calculateCharge(int subtotal, double percentage) {
+    return (subtotal * percentage / 100).round();
+  }
+
+  String _formatPercentage(double percentage) {
+    if (percentage == percentage.truncateToDouble()) {
+      return percentage.toStringAsFixed(0);
+    }
+
+    return percentage
+        .toStringAsFixed(2)
+        .replaceFirst(RegExp(r'0+$'), '')
+        .replaceFirst(RegExp(r'\.$'), '');
   }
 
   int _modifiersUnitPrice(Cart item) {
