@@ -7,6 +7,7 @@ import 'package:flow_pos/features/menu_item/presentation/bloc/menu_item_bloc.dar
 import 'package:flow_pos/features/order/domain/entities/order_entity.dart';
 import 'package:flow_pos/features/order/presentation/bloc/order_bloc.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_order_detail_page.dart';
+import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_menu_item_detail_page.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_settings_page.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/widgets/add_menu_dialog.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/widgets/menu_card.dart';
@@ -359,6 +360,12 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
                                     price: menuItem.price,
                                     category: menuItem.category.name,
                                     enabled: menuItem.enabled,
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        OwnerMenuItemDetailPage.route(menuItem),
+                                      );
+                                    },
                                     onEnabledChanged: (value) {
                                       context.read<MenuItemBloc>().add(
                                         UpdateMenuItemAvailabilityEvent(

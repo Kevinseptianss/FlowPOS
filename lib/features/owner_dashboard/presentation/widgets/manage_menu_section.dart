@@ -1,5 +1,6 @@
 import 'package:flow_pos/core/theme/app_pallete.dart';
 import 'package:flow_pos/features/menu_item/presentation/bloc/menu_item_bloc.dart';
+import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_menu_item_detail_page.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/widgets/add_menu_dialog.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/widgets/menu_card.dart';
 import 'package:flutter/material.dart';
@@ -96,6 +97,12 @@ class _ManageMenuSectionState extends State<ManageMenuSection> {
                           price: menuItem.price,
                           category: menuItem.category.name,
                           enabled: menuItem.enabled,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              OwnerMenuItemDetailPage.route(menuItem),
+                            );
+                          },
                           onEnabledChanged: (value) {
                             context.read<MenuItemBloc>().add(
                               UpdateMenuItemAvailabilityEvent(

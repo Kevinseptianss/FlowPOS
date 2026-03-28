@@ -15,3 +15,12 @@ final class GetAllModifierOptionsEvent extends ModifierOptionEvent {
   @override
   List<Object> get props => [menuId];
 }
+
+final class GetModifierGroupSelectionEvent extends ModifierOptionEvent {
+  final String menuId;
+
+  const GetModifierGroupSelectionEvent({required this.menuId});
+
+  @override
+  List<Object> get props => [menuId];
+}

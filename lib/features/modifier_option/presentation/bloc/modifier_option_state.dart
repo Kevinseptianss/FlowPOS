@@ -20,6 +20,21 @@ final class ModifierOptionLoaded extends ModifierOptionState {
   List<Object> get props => [modifierOptions];
 }
 
+final class ModifierGroupSelectionLoaded extends ModifierOptionState {
+  final String menuId;
+  final List<ModifierOption> modifierOptions;
+  final Set<String> selectedModifierGroupIds;
+
+  const ModifierGroupSelectionLoaded({
+    required this.menuId,
+    required this.modifierOptions,
+    required this.selectedModifierGroupIds,
+  });
+
+  @override
+  List<Object> get props => [menuId, modifierOptions, selectedModifierGroupIds];
+}
+
 final class ModifierOptionFailure extends ModifierOptionState {
   final String message;
 

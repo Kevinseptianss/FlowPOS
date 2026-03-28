@@ -30,7 +30,10 @@ import 'package:flow_pos/features/cashier_dashboard/presentation/bloc/table_bloc
 import 'package:flow_pos/features/modifier_option/data/datasources/modifier_option_remote_data_source.dart';
 import 'package:flow_pos/features/modifier_option/data/repositories/modifier_option_repository_impl.dart';
 import 'package:flow_pos/features/modifier_option/domain/repositories/modifier_option_repository.dart';
+import 'package:flow_pos/features/modifier_option/domain/usecases/get_all_modifier_group_options.dart';
 import 'package:flow_pos/features/modifier_option/domain/usecases/get_all_modifier_options.dart';
+import 'package:flow_pos/features/modifier_option/domain/usecases/get_selected_modifier_group_ids.dart';
+import 'package:flow_pos/features/modifier_option/domain/usecases/update_menu_modifier_groups.dart';
 import 'package:flow_pos/features/modifier_option/presentation/bloc/modifier_option_bloc.dart';
 import 'package:flow_pos/features/order/data/datasources/order_remote_data_source.dart';
 import 'package:flow_pos/features/order/data/repositories/order_repository_impl.dart';
@@ -80,9 +83,16 @@ void _initModifierOption() {
     )
     // Usecases
     ..registerFactory(() => GetAllModifierOptions(serviceLocator()))
+    ..registerFactory(() => GetAllModifierGroupOptions(serviceLocator()))
+    ..registerFactory(() => GetSelectedModifierGroupIds(serviceLocator()))
+    ..registerFactory(() => UpdateMenuModifierGroups(serviceLocator()))
     // Bloc
     ..registerLazySingleton(
-      () => ModifierOptionBloc(getAllModifierOptions: serviceLocator()),
+      () => ModifierOptionBloc(
+        getAllModifierOptions: serviceLocator(),
+        getAllModifierGroupOptions: serviceLocator(),
+        getSelectedModifierGroupIds: serviceLocator(),
+      ),
     );
 }
 

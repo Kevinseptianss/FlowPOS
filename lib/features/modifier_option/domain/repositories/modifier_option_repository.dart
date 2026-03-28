@@ -6,4 +6,15 @@ abstract interface class ModifierOptionRepository {
   Future<Either<Failure, List<ModifierOption>>> getAllModifierOptionsByMenuId(
     String menuId,
   );
+
+  Future<Either<Failure, List<ModifierOption>>> getAllModifierOptions();
+
+  Future<Either<Failure, Set<String>>> getSelectedModifierGroupIdsByMenuId(
+    String menuId,
+  );
+
+  Future<Either<Failure, void>> updateMenuModifierGroupMappings({
+    required String menuId,
+    required Set<String> modifierGroupIds,
+  });
 }

@@ -22,4 +22,44 @@ class ModifierOptionRepositoryImpl implements ModifierOptionRepository {
       return left(Failure(e.message));
     }
   }
+
+  @override
+  Future<Either<Failure, List<ModifierOption>>> getAllModifierOptions() async {
+    try {
+      final modifierOptions = await modifierOptionRemoteDataSource
+          .getAllModifierOptions();
+      return right(modifierOptions);
+    } on ServerException catch (e) {
+      return left(Failure(e.message));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Set<String>>> getSelectedModifierGroupIdsByMenuId(
+    String menuId,
+  ) async {
+    try {
+      final selectedGroupIds = await modifierOptionRemoteDataSource
+          .getSelectedModifierGroupIdsByMenuId(menuId);
+      return right(selectedGroupIds);
+    } on ServerException catch (e) {
+      return left(Failure(e.message));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> updateMenuModifierGroupMappings({
+    required String menuId,
+    required Set<String> modifierGroupIds,
+  }) async {
+    try {
+      await modifierOptionRemoteDataSource.updateMenuModifierGroupMappings(
+        menuId: menuId,
+        modifierGroupIds: modifierGroupIds,
+      );
+      return right(null);
+    } on ServerException catch (e) {
+      return left(Failure(e.message));
+    }
+  }
 }
