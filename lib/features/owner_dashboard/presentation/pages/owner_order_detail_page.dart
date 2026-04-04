@@ -204,7 +204,7 @@ class _OrderItemTile extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Menu ID: ${item.menuItemId}',
+            'Menu Name: ${item.menuName}',
             style: Theme.of(
               context,
             ).textTheme.bodySmall?.copyWith(color: AppPallete.textPrimary),

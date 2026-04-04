@@ -182,6 +182,9 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
               id,
               order_id,
               menu_item_id,
+              menu_items (
+                name
+              ),
               quantity,
               unit_price,
               notes,
@@ -211,17 +214,28 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
               );
 
         final orderItemsData = row['order_items'] as List<dynamic>? ?? [];
-        final items = orderItemsData
-            .map(
-              (item) => OrderItem(
-                menuItemId: item['menu_item_id'] as String,
-                quantity: item['quantity'] as int,
-                unitPrice: (item['unit_price'] as num).toInt(),
-                notes: item['notes'] as String?,
-                modifierSnapshot: item['modifier_snapshot'] as String?,
-              ),
-            )
-            .toList();
+        final items = orderItemsData.map((item) {
+          final menuData = item['menu_items'];
+          var menuName = 'Unknown Menu';
+
+          if (menuData is Map<String, dynamic>) {
+            menuName = menuData['name'] as String? ?? menuName;
+          } else if (menuData is List && menuData.isNotEmpty) {
+            final first = menuData.first;
+            if (first is Map<String, dynamic>) {
+              menuName = first['name'] as String? ?? menuName;
+            }
+          }
+
+          return OrderItem(
+            menuItemId: item['menu_item_id'] as String,
+            menuName: menuName,
+            quantity: item['quantity'] as int,
+            unitPrice: (item['unit_price'] as num).toInt(),
+            notes: item['notes'] as String?,
+            modifierSnapshot: item['modifier_snapshot'] as String?,
+          );
+        }).toList();
 
         return OrderModel(
           id: row['id'] as String,

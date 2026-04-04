@@ -258,6 +258,7 @@ class ListOrderSection extends StatelessWidget {
 
       return OrderItem(
         menuItemId: cartItem.menuItemId,
+        menuName: cartItem.name,
         quantity: cartItem.quantity,
         unitPrice: (cartItem.basePrice + _modifiersUnitPrice(cartItem))
             .toInt(), // Include modifier price
