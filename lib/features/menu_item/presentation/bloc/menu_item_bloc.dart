@@ -92,6 +92,29 @@ class MenuItemBloc extends Bloc<MenuItemEvent, MenuItemState> {
     UpdateMenuItemAvailabilityEvent event,
     Emitter<MenuItemState> emit,
   ) async {
+    List<MenuItem>? previousMenuItems;
+
+    if (state is MenuItemLoaded) {
+      final current = state as MenuItemLoaded;
+      previousMenuItems = current.menuItems;
+
+      final optimisticMenuItems = current.menuItems
+          .map(
+            (item) => item.id == event.menuItemId
+                ? MenuItem(
+                    id: item.id,
+                    name: item.name,
+                    price: item.price,
+                    category: item.category,
+                    enabled: event.enabled,
+                  )
+                : item,
+          )
+          .toList(growable: false);
+
+      emit(MenuItemLoaded(optimisticMenuItems));
+    }
+
     final result = await _updateMenuItemAvailability(
       UpdateMenuItemAvailabilityParams(
         menuItemId: event.menuItemId,
@@ -99,6 +122,12 @@ class MenuItemBloc extends Bloc<MenuItemEvent, MenuItemState> {
       ),
     );
 
-    result.fold((failure) => emit(MenuItemFailure(failure.message)), (_) {});
+    result.fold((failure) {
+      if (previousMenuItems != null) {
+        emit(MenuItemLoaded(previousMenuItems));
+      } else {
+        emit(MenuItemFailure(failure.message));
+      }
+    }, (_) {});
   }
 }
