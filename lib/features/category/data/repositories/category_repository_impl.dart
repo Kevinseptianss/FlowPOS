@@ -24,25 +24,6 @@ class CategoryRepositoryImpl implements CategoryRepository {
   }
 
   @override
-  Stream<Either<Failure, List<Category>>> listenAllCategories() async* {
-    try {
-      await for (final categories
-          in categoryRemoteDataSource.listenAllCategories()) {
-        final categoriesWithAll = [
-          const CategoryModel(id: 'all', name: 'All'),
-          ...categories.where((category) => category.id != 'all'),
-        ];
-
-        yield right(categoriesWithAll);
-      }
-    } on ServerException catch (e) {
-      yield left(Failure(e.message));
-    } catch (e) {
-      yield left(Failure(e.toString()));
-    }
-  }
-
-  @override
   Future<Either<Failure, Category>> createCategory(String name) async {
     try {
       final category = await categoryRemoteDataSource.createCategory(name);

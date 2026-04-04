@@ -5,8 +5,6 @@ import 'package:fpdart/fpdart.dart';
 abstract interface class MenuItemRepository {
   Future<Either<Failure, List<MenuItem>>> getAllMenuItems();
   Future<Either<Failure, List<MenuItem>>> getEnabledMenuItems();
-  Stream<Either<Failure, List<MenuItem>>> listenAllMenuItems();
-  Stream<Either<Failure, List<MenuItem>>> listenEnabledMenuItems();
   Future<Either<Failure, MenuItem>> createMenuItem({
     required String name,
     required int price,

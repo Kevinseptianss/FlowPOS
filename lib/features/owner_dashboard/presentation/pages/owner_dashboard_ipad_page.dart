@@ -27,14 +27,8 @@ class _OwnerDashboardIpadPageState extends State<OwnerDashboardIpadPage> {
     super.initState();
     _orderBloc = context.read<OrderBloc>();
 
-    _orderBloc.add(StartMonthlyRevenueRealtimeEvent(month: DateTime.now()));
-    _orderBloc.add(StartAllOrdersRealtimeEvent());
-  }
-
-  @override
-  void dispose() {
-    _orderBloc.add(StopOrderRealtimeEvent());
-    super.dispose();
+    _orderBloc.add(GetMonthlyRevenueEvent(month: DateTime.now()));
+    _orderBloc.add(GetAllOrdersEvent());
   }
 
   @override

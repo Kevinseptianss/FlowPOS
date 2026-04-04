@@ -22,11 +22,5 @@ abstract interface class OrderRepository {
     required DateTime month,
   });
 
-  Stream<Either<Failure, MonthlyRevenue>> listenMonthlyRevenue({
-    required DateTime month,
-  });
-
   Future<Either<Failure, List<OrderEntity>>> getAllOrders();
-
-  Stream<Either<Failure, List<OrderEntity>>> listenAllOrders();
 }

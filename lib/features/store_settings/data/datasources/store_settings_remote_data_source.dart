@@ -2,7 +2,7 @@ import 'package:flow_pos/features/store_settings/data/models/store_settings_mode
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 abstract interface class StoreSettingsRemoteDataSource {
-  Stream<StoreSettingsModel> listenStoreSettings();
+  Future<StoreSettingsModel> getStoreSettings();
   Future<StoreSettingsModel> updateStoreSettings({
     String? id,
     required double taxPercentage,
@@ -17,18 +17,18 @@ class StoreSettingsRemoteDataSourceImpl
   StoreSettingsRemoteDataSourceImpl(this.supabaseClient);
 
   @override
-  Stream<StoreSettingsModel> listenStoreSettings() {
-    return supabaseClient
+  Future<StoreSettingsModel> getStoreSettings() async {
+    final rows = await supabaseClient
         .from('store_settings')
-        .stream(primaryKey: ['id'])
+        .select()
         .order('updated_at', ascending: false)
-        .map((rows) {
-          if (rows.isEmpty) {
-            return const StoreSettingsModel.zero();
-          }
+        .limit(1);
 
-          return StoreSettingsModel.fromJson(rows.first);
-        });
+    if (rows.isEmpty) {
+      return const StoreSettingsModel.zero();
+    }
+
+    return StoreSettingsModel.fromJson(rows.first);
   }
 
   @override

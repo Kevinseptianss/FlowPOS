@@ -3,7 +3,7 @@ import 'package:flow_pos/features/store_settings/domain/entities/store_settings.
 import 'package:fpdart/fpdart.dart';
 
 abstract interface class StoreSettingsRepository {
-  Stream<Either<Failure, StoreSettings>> listenStoreSettings();
+  Future<Either<Failure, StoreSettings>> getStoreSettings();
   Future<Either<Failure, StoreSettings>> updateStoreSettings({
     String? id,
     required double taxPercentage,

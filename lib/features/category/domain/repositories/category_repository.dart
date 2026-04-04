@@ -4,6 +4,5 @@ import 'package:fpdart/fpdart.dart';
 
 abstract interface class CategoryRepository {
   Future<Either<Failure, List<Category>>> getAllCategories();
-  Stream<Either<Failure, List<Category>>> listenAllCategories();
   Future<Either<Failure, Category>> createCategory(String name);
 }

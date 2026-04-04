@@ -65,8 +65,6 @@ void _initMenuItem() {
     // Usecases
     ..registerFactory(() => GetAllMenuItems(serviceLocator()))
     ..registerFactory(() => GetEnabledMenuItems(serviceLocator()))
-    ..registerFactory(() => ListenAllMenuItems(serviceLocator()))
-    ..registerFactory(() => ListenEnabledMenuItems(serviceLocator()))
     ..registerFactory(() => CreateMenuItem(serviceLocator()))
     ..registerFactory(() => UpdateMenuItemAvailability(serviceLocator()))
     // Bloc
@@ -75,8 +73,6 @@ void _initMenuItem() {
         getAllMenuItems: serviceLocator(),
         getEnabledMenuItems: serviceLocator(),
         createMenuItem: serviceLocator(),
-        listenAllMenuItems: serviceLocator(),
-        listenEnabledMenuItems: serviceLocator(),
         updateMenuItemAvailability: serviceLocator(),
       ),
     );
@@ -94,14 +90,12 @@ void _initCategory() {
     )
     // Usecases
     ..registerFactory(() => GetAllCategories(serviceLocator()))
-    ..registerFactory(() => ListenAllCategories(serviceLocator()))
     ..registerFactory(() => CreateCategory(serviceLocator()))
     // Bloc
     ..registerLazySingleton(
       () => CategoryBloc(
         getAllCategories: serviceLocator(),
         createCategory: serviceLocator(),
-        listenAllCategories: serviceLocator(),
       ),
     );
 }
@@ -128,16 +122,12 @@ void _initOrder() {
     ..registerFactory(() => CreateOrder(serviceLocator()))
     ..registerFactory(() => GetMonthlyRevenue(serviceLocator()))
     ..registerFactory(() => GetAllOrders(serviceLocator()))
-    ..registerFactory(() => ListenMonthlyRevenue(serviceLocator()))
-    ..registerFactory(() => ListenAllOrders(serviceLocator()))
     // Bloc
     ..registerLazySingleton(
       () => OrderBloc(
         createOrder: serviceLocator(),
         getMonthlyRevenue: serviceLocator(),
         getAllOrders: serviceLocator(),
-        listenMonthlyRevenue: serviceLocator(),
-        listenAllOrders: serviceLocator(),
       ),
     );
 }
@@ -153,12 +143,12 @@ void _initStoreSettings() {
       () => StoreSettingsRepositoryImpl(serviceLocator()),
     )
     // Usecases
-    ..registerFactory(() => ListenStoreSettings(serviceLocator()))
+    ..registerFactory(() => GetStoreSettings(serviceLocator()))
     ..registerFactory(() => UpdateStoreSettings(serviceLocator()))
     // Bloc
     ..registerLazySingleton(
       () => StoreSettingsBloc(
-        listenStoreSettings: serviceLocator(),
+        getStoreSettings: serviceLocator(),
         updateStoreSettings: serviceLocator(),
       ),
     );

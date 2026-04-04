@@ -61,42 +61,12 @@ class OrderRepositoryImpl implements OrderRepository {
   }
 
   @override
-  Stream<Either<Failure, MonthlyRevenue>> listenMonthlyRevenue({
-    required DateTime month,
-  }) async* {
-    try {
-      await for (final revenue in orderRemoteDataSource.listenMonthlyRevenue(
-        month: month,
-      )) {
-        yield right(revenue);
-      }
-    } on ServerException catch (e) {
-      yield left(Failure(e.message));
-    } catch (e) {
-      yield left(Failure(e.toString()));
-    }
-  }
-
-  @override
   Future<Either<Failure, List<OrderEntity>>> getAllOrders() async {
     try {
       final orders = await orderRemoteDataSource.getAllOrders();
       return right(orders);
     } on ServerException catch (e) {
       return left(Failure(e.message));
-    }
-  }
-
-  @override
-  Stream<Either<Failure, List<OrderEntity>>> listenAllOrders() async* {
-    try {
-      await for (final orders in orderRemoteDataSource.listenAllOrders()) {
-        yield right(orders);
-      }
-    } on ServerException catch (e) {
-      yield left(Failure(e.message));
-    } catch (e) {
-      yield left(Failure(e.toString()));
     }
   }
 }

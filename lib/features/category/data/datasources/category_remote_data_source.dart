@@ -5,7 +5,6 @@ import 'package:uuid/uuid.dart';
 
 abstract interface class CategoryRemoteDataSource {
   Future<List<CategoryModel>> getAllCategories();
-  Stream<List<CategoryModel>> listenAllCategories();
   Future<CategoryModel> createCategory(String name);
 }
 
@@ -29,18 +28,6 @@ class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
     } catch (e) {
       throw ServerException(e.toString());
     }
-  }
-
-  @override
-  Stream<List<CategoryModel>> listenAllCategories() {
-    return supabaseClient
-        .from('categories')
-        .stream(primaryKey: ['id'])
-        .order('name', ascending: true)
-        .map(
-          (rows) =>
-              rows.map((category) => CategoryModel.fromJson(category)).toList(),
-        );
   }
 
   @override

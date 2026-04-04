@@ -34,15 +34,8 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
     _categoryBloc = context.read<CategoryBloc>();
     _menuItemBloc = context.read<MenuItemBloc>();
 
-    _categoryBloc.add(StartCategoriesRealtimeEvent());
-    _menuItemBloc.add(StartEnabledMenuItemsRealtimeEvent());
-  }
-
-  @override
-  void dispose() {
-    _categoryBloc.add(StopCategoriesRealtimeEvent());
-    _menuItemBloc.add(StopMenuItemsRealtimeEvent());
-    super.dispose();
+    _categoryBloc.add(GetAllCategoriesEvent());
+    _menuItemBloc.add(GetEnabledMenuItemsEvent());
   }
 
   @override

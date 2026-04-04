@@ -11,16 +11,15 @@ class StoreSettingsRepositoryImpl implements StoreSettingsRepository {
   StoreSettingsRepositoryImpl(this.storeSettingsRemoteDataSource);
 
   @override
-  Stream<Either<Failure, StoreSettings>> listenStoreSettings() async* {
+  Future<Either<Failure, StoreSettings>> getStoreSettings() async {
     try {
-      await for (final storeSettings
-          in storeSettingsRemoteDataSource.listenStoreSettings()) {
-        yield right(storeSettings);
-      }
+      final storeSettings = await storeSettingsRemoteDataSource
+          .getStoreSettings();
+      return right(storeSettings);
     } on ServerException catch (e) {
-      yield left(Failure(e.message));
+      return left(Failure(e.message));
     } catch (e) {
-      yield left(Failure(e.toString()));
+      return left(Failure(e.toString()));
     }
   }
 

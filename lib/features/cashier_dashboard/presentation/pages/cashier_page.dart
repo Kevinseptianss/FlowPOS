@@ -18,13 +18,7 @@ class _CashierPageState extends State<CashierPage> {
   void initState() {
     super.initState();
     _storeSettingsBloc = context.read<StoreSettingsBloc>();
-    _storeSettingsBloc.add(StartStoreSettingsRealtimeEvent());
-  }
-
-  @override
-  void dispose() {
-    _storeSettingsBloc.add(StopStoreSettingsRealtimeEvent());
-    super.dispose();
+    _storeSettingsBloc.add(GetStoreSettingsEvent());
   }
 
   @override

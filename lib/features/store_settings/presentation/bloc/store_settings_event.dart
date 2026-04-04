@@ -7,9 +7,7 @@ sealed class StoreSettingsEvent extends Equatable {
   List<Object> get props => [];
 }
 
-final class StartStoreSettingsRealtimeEvent extends StoreSettingsEvent {}
-
-final class StopStoreSettingsRealtimeEvent extends StoreSettingsEvent {}
+final class GetStoreSettingsEvent extends StoreSettingsEvent {}
 
 final class UpdateStoreSettingsEvent extends StoreSettingsEvent {
   final String? id;
@@ -24,22 +22,4 @@ final class UpdateStoreSettingsEvent extends StoreSettingsEvent {
 
   @override
   List<Object> get props => [id ?? '', taxPercentage, serviceChargePercentage];
-}
-
-final class StoreSettingsRealtimeUpdatedEvent extends StoreSettingsEvent {
-  final StoreSettings storeSettings;
-
-  const StoreSettingsRealtimeUpdatedEvent(this.storeSettings);
-
-  @override
-  List<Object> get props => [storeSettings];
-}
-
-final class StoreSettingsRealtimeFailureEvent extends StoreSettingsEvent {
-  final String message;
-
-  const StoreSettingsRealtimeFailureEvent(this.message);
-
-  @override
-  List<Object> get props => [message];
 }

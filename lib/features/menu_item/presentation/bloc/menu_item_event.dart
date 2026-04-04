@@ -11,30 +11,6 @@ final class GetAllMenuItemsEvent extends MenuItemEvent {}
 
 final class GetEnabledMenuItemsEvent extends MenuItemEvent {}
 
-final class StartMenuItemsRealtimeEvent extends MenuItemEvent {}
-
-final class StartEnabledMenuItemsRealtimeEvent extends MenuItemEvent {}
-
-final class StopMenuItemsRealtimeEvent extends MenuItemEvent {}
-
-final class MenuItemsRealtimeUpdatedEvent extends MenuItemEvent {
-  final List<MenuItem> menuItems;
-
-  const MenuItemsRealtimeUpdatedEvent(this.menuItems);
-
-  @override
-  List<Object> get props => [menuItems];
-}
-
-final class MenuItemsRealtimeFailureEvent extends MenuItemEvent {
-  final String message;
-
-  const MenuItemsRealtimeFailureEvent(this.message);
-
-  @override
-  List<Object> get props => [message];
-}
-
 final class UpdateMenuItemAvailabilityEvent extends MenuItemEvent {
   final String menuItemId;
   final bool enabled;

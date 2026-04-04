@@ -20,13 +20,7 @@ class _ManageMenuSectionState extends State<ManageMenuSection> {
   void initState() {
     super.initState();
     _menuItemBloc = context.read<MenuItemBloc>();
-    _menuItemBloc.add(StartMenuItemsRealtimeEvent());
-  }
-
-  @override
-  void dispose() {
-    _menuItemBloc.add(StopMenuItemsRealtimeEvent());
-    super.dispose();
+    _menuItemBloc.add(GetAllMenuItemsEvent());
   }
 
   @override

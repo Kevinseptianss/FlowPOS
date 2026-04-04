@@ -26,7 +26,7 @@ class _OwnerStoreSettingsPageState extends State<OwnerStoreSettingsPage> {
   @override
   void initState() {
     super.initState();
-    context.read<StoreSettingsBloc>().add(StartStoreSettingsRealtimeEvent());
+    context.read<StoreSettingsBloc>().add(GetStoreSettingsEvent());
   }
 
   @override

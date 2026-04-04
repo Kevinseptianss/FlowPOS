@@ -42,16 +42,9 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
     _orderBloc = context.read<OrderBloc>();
     _menuItemBloc = context.read<MenuItemBloc>();
 
-    _orderBloc.add(StartMonthlyRevenueRealtimeEvent(month: DateTime.now()));
-    _orderBloc.add(StartAllOrdersRealtimeEvent());
-    _menuItemBloc.add(StartMenuItemsRealtimeEvent());
-  }
-
-  @override
-  void dispose() {
-    _orderBloc.add(StopOrderRealtimeEvent());
-    _menuItemBloc.add(StopMenuItemsRealtimeEvent());
-    super.dispose();
+    _orderBloc.add(GetMonthlyRevenueEvent(month: DateTime.now()));
+    _orderBloc.add(GetAllOrdersEvent());
+    _menuItemBloc.add(GetAllMenuItemsEvent());
   }
 
   @override
