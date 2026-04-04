@@ -1,4 +1,5 @@
 import 'package:flow_pos/core/common/bloc/user_bloc.dart';
+import 'package:flow_pos/core/services/cashier_shift_local_service.dart';
 import 'package:flow_pos/core/theme/app_pallete.dart';
 import 'package:flow_pos/core/utils/show_logout_dialog.dart';
 import 'package:flow_pos/core/utils/show_snackbar.dart';
@@ -7,12 +8,14 @@ import 'package:flow_pos/features/cashier_dashboard/domain/entities/selected_mod
 import 'package:flow_pos/features/cashier_dashboard/presentation/bloc/table_bloc.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/pages/select_table_mobile_page.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/list_order_section.dart';
+import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/cashier_shift_dialogs.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/menu_item_card.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/modifier_dialog.dart';
 import 'package:flow_pos/features/category/presentation/bloc/category_bloc.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/bloc/cart_bloc.dart';
 import 'package:flow_pos/features/menu_item/presentation/bloc/menu_item_bloc.dart';
 import 'package:flow_pos/features/modifier_option/presentation/bloc/modifier_option_bloc.dart';
+import 'package:flow_pos/init_dependencies.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -27,15 +30,138 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
   String _selectedCategory = 'all';
   late final CategoryBloc _categoryBloc;
   late final MenuItemBloc _menuItemBloc;
+  late final CashierShiftLocalService _cashierShiftLocalService;
+
+  bool _isShiftActive = false;
+  bool _isShiftReady = false;
+  bool _isProcessingShiftAction = false;
+  String? _cashierId;
 
   @override
   void initState() {
     super.initState();
     _categoryBloc = context.read<CategoryBloc>();
     _menuItemBloc = context.read<MenuItemBloc>();
+    _cashierShiftLocalService = serviceLocator<CashierShiftLocalService>();
 
     _categoryBloc.add(GetAllCategoriesEvent());
     _menuItemBloc.add(GetEnabledMenuItemsEvent());
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _bootstrapShiftState();
+    });
+  }
+
+  Future<void> _bootstrapShiftState() async {
+    final userState = context.read<UserBloc>().state;
+    if (userState is! UserLoggedIn) {
+      return;
+    }
+
+    _cashierId = userState.user.id;
+    final hasActiveShift = _cashierShiftLocalService.hasActiveShift(
+      userState.user.id,
+    );
+
+    if (hasActiveShift) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isShiftActive = true;
+        _isShiftReady = true;
+      });
+
+      return;
+    }
+
+    final openingBalance = await showOpeningBalanceDialog(
+      context,
+      cashierName: userState.user.name,
+    );
+
+    await _cashierShiftLocalService.openShift(
+      cashierId: userState.user.id,
+      cashierName: userState.user.name,
+      openingBalance: openingBalance,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isShiftActive = true;
+      _isShiftReady = true;
+    });
+
+    showSnackbar(
+      context,
+      'Shift aktif. Modal awal tersimpan di local database.',
+    );
+  }
+
+  Future<void> _closeShift() async {
+    if (_cashierId == null || _isProcessingShiftAction) {
+      return;
+    }
+
+    final activeShift = _cashierShiftLocalService.getActiveShift(_cashierId!);
+    if (activeShift == null) {
+      setState(() {
+        _isShiftActive = false;
+      });
+      return;
+    }
+
+    final openingBalance =
+        (activeShift['openingBalance'] as num?)?.toDouble() ?? 0;
+    final openedAt = DateTime.tryParse(
+      activeShift['openedAt'] as String? ?? '',
+    );
+    final confirmed = await showCloseShiftDialog(
+      context,
+      openingBalance: openingBalance,
+      openedAt: openedAt ?? DateTime.now(),
+    );
+
+    if (!confirmed || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _isProcessingShiftAction = true;
+    });
+
+    await _cashierShiftLocalService.closeShift(cashierId: _cashierId!);
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isShiftActive = false;
+      _isProcessingShiftAction = false;
+    });
+
+    showSnackbar(
+      context,
+      'Shift ditutup. Data tersimpan lokal dan siap dikirim ke database.',
+    );
+  }
+
+  Future<void> _logout() async {
+    final shouldLogout = await showLogoutDialog(
+      context,
+      accountLabel: 'cashier account',
+    );
+
+    if (!mounted || !shouldLogout) {
+      return;
+    }
+
+    context.read<AuthBloc>().add(SignOutEvent());
   }
 
   @override
@@ -114,23 +240,39 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
                 );
               },
             ),
-            IconButton(
-              onPressed: () async {
-                final shouldLogout = await showLogoutDialog(
-                  context,
-                  accountLabel: 'cashier account',
-                );
-
-                if (!context.mounted || !shouldLogout) {
-                  return;
-                }
-
-                context.read<AuthBloc>().add(SignOutEvent());
-              },
-              icon: const Icon(Icons.logout),
-              color: AppPallete.onPrimary,
-              tooltip: 'Logout',
-            ),
+            if (!_isShiftReady)
+              const Padding(
+                padding: EdgeInsets.only(right: 12),
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppPallete.onPrimary,
+                  ),
+                ),
+              )
+            else if (_isShiftActive)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppPallete.warning,
+                    foregroundColor: AppPallete.onPrimary,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  onPressed: _isProcessingShiftAction ? null : _closeShift,
+                  icon: const Icon(Icons.lock_clock_rounded),
+                  label: const Text('Tutup Kasir'),
+                ),
+              )
+            else
+              IconButton(
+                onPressed: _logout,
+                icon: const Icon(Icons.logout),
+                color: AppPallete.onPrimary,
+                tooltip: 'Logout',
+              ),
             const SizedBox(width: 4),
           ],
         ),

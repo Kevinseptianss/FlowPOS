@@ -13,6 +13,14 @@ Future<void> initDependencies() async {
   _initOrder();
   _initStoreSettings();
 
+  await Hive.initFlutter();
+  final cashierShiftBox = await Hive.openBox<dynamic>('cashier_shift_box');
+
+  serviceLocator.registerLazySingleton<Box<dynamic>>(() => cashierShiftBox);
+  serviceLocator.registerLazySingleton(
+    () => CashierShiftLocalService(serviceLocator()),
+  );
+
   final supabase = await Supabase.initialize(
     url: AppSecrets.supabaseURL,
     anonKey: AppSecrets.supabaseKey,
