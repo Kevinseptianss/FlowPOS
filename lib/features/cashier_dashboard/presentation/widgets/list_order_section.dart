@@ -68,120 +68,135 @@ class ListOrderSection extends StatelessWidget {
 
                   return Container(
                     color: AppPallete.surface,
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Order',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(color: AppPallete.textPrimary),
-                        ),
-                        const SizedBox(height: 16),
-                        Expanded(
-                          child: ListView.builder(
-                            itemCount: state.items.length,
-                            itemBuilder: (context, index) {
-                              final item = state.items[index];
-                              return _OrderItemTile(
-                                cartItem: item,
-                                onQuantityChanged: (newQuantity) {
-                                  context.read<CartBloc>().add(
-                                    UpdateCartItemQuantityEvent(
-                                      item.id,
-                                      newQuantity,
-                                    ),
+                    child: SafeArea(
+                      top: false,
+                      bottom:
+                          true, // Ensure content is above system navigation on Android
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Order',
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(color: AppPallete.textPrimary),
+                            ),
+                            const SizedBox(height: 16),
+                            Expanded(
+                              child: ListView.builder(
+                                itemCount: state.items.length,
+                                itemBuilder: (context, index) {
+                                  final item = state.items[index];
+                                  return _OrderItemTile(
+                                    cartItem: item,
+                                    onQuantityChanged: (newQuantity) {
+                                      context.read<CartBloc>().add(
+                                        UpdateCartItemQuantityEvent(
+                                          item.id,
+                                          newQuantity,
+                                        ),
+                                      );
+                                    },
+                                    onRemove: () {
+                                      context.read<CartBloc>().add(
+                                        RemoveFromCartEvent(item.id),
+                                      );
+                                    },
                                   );
                                 },
-                                onRemove: () {
-                                  context.read<CartBloc>().add(
-                                    RemoveFromCartEvent(item.id),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            const Divider(color: AppPallete.divider),
+                            const SizedBox(height: 8),
+                            SummaryRow(label: 'Subtotal', value: subtotal),
+                            const SizedBox(height: 6),
+                            SummaryRow(
+                              label: 'Tax (${_formatPercentage(taxRate)}%)',
+                              value: tax,
+                            ),
+                            const SizedBox(height: 6),
+                            SummaryRow(
+                              label:
+                                  'Service (${_formatPercentage(serviceChargeRate)}%)',
+                              value: serviceCharge,
+                            ),
+                            const SizedBox(height: 8),
+                            const Divider(color: AppPallete.divider),
+                            const SizedBox(height: 8),
+                            SummaryRow(
+                              label: 'Total',
+                              value: total,
+                              isTotal: true,
+                            ),
+                            const SizedBox(height: 16),
+                            BlocBuilder<OrderBloc, OrderState>(
+                              builder: (context, state) {
+                                if (state is OrderLoading) {
+                                  return const Center(
+                                    child: CircularProgressIndicator(),
                                   );
-                                },
-                              );
-                            },
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        const Divider(color: AppPallete.divider),
-                        const SizedBox(height: 8),
-                        SummaryRow(label: 'Subtotal', value: subtotal),
-                        const SizedBox(height: 6),
-                        SummaryRow(
-                          label: 'Tax (${_formatPercentage(taxRate)}%)',
-                          value: tax,
-                        ),
-                        const SizedBox(height: 6),
-                        SummaryRow(
-                          label:
-                              'Service (${_formatPercentage(serviceChargeRate)}%)',
-                          value: serviceCharge,
-                        ),
-                        const SizedBox(height: 8),
-                        const Divider(color: AppPallete.divider),
-                        const SizedBox(height: 8),
-                        SummaryRow(label: 'Total', value: total, isTotal: true),
-                        const SizedBox(height: 16),
-                        BlocBuilder<OrderBloc, OrderState>(
-                          builder: (context, state) {
-                            if (state is OrderLoading) {
-                              return const Center(
-                                child: CircularProgressIndicator(),
-                              );
-                            }
-                            return Row(
-                              children: [
-                                Expanded(
-                                  child: ElevatedButton(
-                                    onPressed: () => _createOrder(
-                                      context,
-                                      'QRIS',
-                                      total,
-                                      taxPercentage: taxRate,
-                                      serviceChargePercentage:
-                                          serviceChargeRate,
-                                    ),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppPallete.primary,
-                                      foregroundColor: AppPallete.onPrimary,
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 12,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10),
+                                }
+                                return Row(
+                                  children: [
+                                    Expanded(
+                                      child: ElevatedButton(
+                                        onPressed: () => _createOrder(
+                                          context,
+                                          'QRIS',
+                                          total,
+                                          taxPercentage: taxRate,
+                                          serviceChargePercentage:
+                                              serviceChargeRate,
+                                        ),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppPallete.primary,
+                                          foregroundColor: AppPallete.onPrimary,
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 12,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                          ),
+                                        ),
+                                        child: const Text('QRIS'),
                                       ),
                                     ),
-                                    child: const Text('QRIS'),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: ElevatedButton(
-                                    onPressed: () => _showCashPaymentDialog(
-                                      context,
-                                      total,
-                                      taxPercentage: taxRate,
-                                      serviceChargePercentage:
-                                          serviceChargeRate,
-                                    ),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppPallete.secondary,
-                                      foregroundColor: AppPallete.onPrimary,
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 12,
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: ElevatedButton(
+                                        onPressed: () => _showCashPaymentDialog(
+                                          context,
+                                          total,
+                                          taxPercentage: taxRate,
+                                          serviceChargePercentage:
+                                              serviceChargeRate,
+                                        ),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppPallete.secondary,
+                                          foregroundColor: AppPallete.onPrimary,
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 12,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                          ),
+                                        ),
+                                        child: const Text('CASH'),
                                       ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
                                     ),
-                                    child: const Text('CASH'),
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
+                                  ],
+                                );
+                              },
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   );
                 }
