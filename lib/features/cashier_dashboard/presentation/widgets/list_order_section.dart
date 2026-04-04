@@ -445,6 +445,7 @@ class CashPaymentDialog extends StatefulWidget {
 
 class _CashPaymentDialogState extends State<CashPaymentDialog> {
   late final TextEditingController amountController;
+  bool isFormatting = false;
   int change = 0;
   String formattedAmount = '';
 
@@ -462,103 +463,255 @@ class _CashPaymentDialogState extends State<CashPaymentDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(
-        'Cash Payment',
-        style: Theme.of(
-          context,
-        ).textTheme.titleLarge?.copyWith(color: AppPallete.textPrimary),
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'Total: Rp ${_formatCurrency(widget.total)}',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: AppPallete.primary,
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: amountController,
-            keyboardType: TextInputType.number,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: AppPallete.textPrimary),
-            decoration: InputDecoration(
-              labelText: 'Amount Paid',
-              border: const OutlineInputBorder(),
-              prefixText: 'Rp ',
-              hintText: formattedAmount.isNotEmpty ? formattedAmount : '0',
-              labelStyle: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: AppPallete.textPrimary),
-            ),
-            onChanged: (value) {
-              // Remove any existing formatting and parse
-              final cleanValue = value
-                  .replaceAll('.', '')
-                  .replaceAll('Rp ', '');
-              final amount = int.tryParse(cleanValue) ?? 0;
+    final bool isValidPayment = change >= 0 && amountController.text.isNotEmpty;
 
-              setState(() {
-                change = amount - widget.total;
-                formattedAmount = _formatCurrency(amount);
-              });
-
-              // Update controller text with formatted value
-              if (cleanValue != value) {
-                amountController.text = formattedAmount;
-                amountController.selection = TextSelection.fromPosition(
-                  TextPosition(offset: formattedAmount.length),
-                );
-              }
-            },
-          ),
-          const SizedBox(height: 16),
-          if (change >= 0)
-            Text(
-              'Change: Rp ${_formatCurrency(change)}',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: AppPallete.success,
-                fontWeight: FontWeight.bold,
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 460),
+        decoration: BoxDecoration(
+          color: AppPallete.surface,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x22000000),
+              blurRadius: 26,
+              offset: Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(18, 16, 12, 16),
+              decoration: BoxDecoration(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20),
+                ),
+                gradient: const LinearGradient(
+                  colors: [AppPallete.primary, AppPallete.secondary],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
               ),
-            )
-          else
-            Text(
-              'Insufficient amount: Rp ${_formatCurrency(change.abs())} short',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: AppPallete.error,
-                fontWeight: FontWeight.bold,
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.payments_rounded,
+                    color: AppPallete.onPrimary,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Cash Payment',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: AppPallete.onPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: AppPallete.onPrimary,
+                    ),
+                    splashRadius: 18,
+                  ),
+                ],
               ),
             ),
-        ],
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppPallete.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Total Bill',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: AppPallete.textPrimary),
+                        ),
+                        Text(
+                          'Rp ${_formatCurrency(widget.total)}',
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: AppPallete.primary,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: amountController,
+                    keyboardType: TextInputType.number,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: AppPallete.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: 'Amount Paid',
+                      prefixText: 'Rp ',
+                      hintText: '0',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: AppPallete.divider),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                          color: AppPallete.primary,
+                          width: 1.6,
+                        ),
+                      ),
+                      labelStyle: Theme.of(context).textTheme.bodyMedium
+                          ?.copyWith(color: AppPallete.textPrimary),
+                    ),
+                    onChanged: (value) {
+                      if (isFormatting) return;
+
+                      final amount = _parseAmount(value);
+                      final formatted = amount > 0
+                          ? _formatCurrency(amount)
+                          : '';
+
+                      setState(() {
+                        change = amount - widget.total;
+                        formattedAmount = formatted;
+                      });
+
+                      if (formatted != value) {
+                        isFormatting = true;
+                        amountController.value = TextEditingValue(
+                          text: formatted,
+                          selection: TextSelection.collapsed(
+                            offset: formatted.length,
+                          ),
+                        );
+                        isFormatting = false;
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: change >= 0
+                          ? AppPallete.success.withValues(alpha: 0.12)
+                          : AppPallete.error.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          change >= 0
+                              ? Icons.check_circle_rounded
+                              : Icons.error_rounded,
+                          color: change >= 0
+                              ? AppPallete.success
+                              : AppPallete.error,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            change >= 0
+                                ? 'Change: Rp ${_formatCurrency(change)}'
+                                : 'Insufficient: Rp ${_formatCurrency(change.abs())} short',
+                            style: Theme.of(context).textTheme.bodyLarge
+                                ?.copyWith(
+                                  color: change >= 0
+                                      ? AppPallete.success
+                                      : AppPallete.error,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: AppPallete.divider),
+                            foregroundColor: AppPallete.textPrimary,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: const Text('Cancel'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: isValidPayment
+                              ? () {
+                                  final amount = _parseAmount(
+                                    amountController.text,
+                                  );
+                                  Navigator.of(context).pop();
+                                  widget.onConfirmPayment(amount);
+                                }
+                              : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppPallete.secondary,
+                            foregroundColor: AppPallete.onPrimary,
+                            disabledBackgroundColor: AppPallete.secondary
+                                .withValues(alpha: 0.35),
+                            disabledForegroundColor: AppPallete.onPrimary,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: const Text('Confirm Payment'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: change >= 0 && amountController.text.isNotEmpty
-              ? () {
-                  final cleanValue = amountController.text
-                      .replaceAll('.', '')
-                      .replaceAll('Rp ', '');
-                  final amount = int.tryParse(cleanValue) ?? 0;
-                  Navigator.of(context).pop();
-                  widget.onConfirmPayment(amount);
-                }
-              : null,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppPallete.secondary,
-            foregroundColor: AppPallete.onPrimary,
-          ),
-          child: const Text('Confirm Payment'),
-        ),
-      ],
     );
+  }
+
+  int _parseAmount(String value) {
+    final cleanValue = value.replaceAll('.', '').replaceAll('Rp ', '').trim();
+    return int.tryParse(cleanValue) ?? 0;
   }
 
   String _formatCurrency(int amount) {
