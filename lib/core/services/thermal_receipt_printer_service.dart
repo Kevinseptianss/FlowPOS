@@ -13,6 +13,13 @@ class PrinterDevice {
   const PrinterDevice({required this.name, required this.macAddress});
 }
 
+class ShiftSoldProductSummary {
+  final String name;
+  final int quantity;
+
+  const ShiftSoldProductSummary({required this.name, required this.quantity});
+}
+
 abstract interface class ThermalReceiptPrinterService {
   Future<List<PrinterDevice>> getPairedDevices();
   Future<bool> get isConnected;
@@ -21,6 +28,21 @@ abstract interface class ThermalReceiptPrinterService {
     required OrderEntity order,
     required StoreSettings storeSettings,
     required String cashierName,
+  });
+
+  Future<void> printShiftCloseReport({
+    required StoreSettings storeSettings,
+    required String cashierName,
+    required DateTime openedAt,
+    required DateTime closedAt,
+    required int openingBalance,
+    required int closingBalance,
+    required int totalCashSales,
+    required int totalQrisSales,
+    required int totalCashIn,
+    required int totalCashOut,
+    required int totalTransactions,
+    required List<ShiftSoldProductSummary> soldProducts,
   });
 }
 
@@ -73,6 +95,48 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
 
     final printed = await PrintBluetoothThermal.writeBytes(bytes);
 
+    if (!printed) {
+      throw Exception('Failed to send print data.');
+    }
+  }
+
+  @override
+  Future<void> printShiftCloseReport({
+    required StoreSettings storeSettings,
+    required String cashierName,
+    required DateTime openedAt,
+    required DateTime closedAt,
+    required int openingBalance,
+    required int closingBalance,
+    required int totalCashSales,
+    required int totalQrisSales,
+    required int totalCashIn,
+    required int totalCashOut,
+    required int totalTransactions,
+    required List<ShiftSoldProductSummary> soldProducts,
+  }) async {
+    final connected = await isConnected;
+
+    if (!connected) {
+      throw Exception('Printer is not connected.');
+    }
+
+    final bytes = await _buildShiftCloseReportBytes(
+      storeSettings: storeSettings,
+      cashierName: cashierName,
+      openedAt: openedAt,
+      closedAt: closedAt,
+      openingBalance: openingBalance,
+      closingBalance: closingBalance,
+      totalCashSales: totalCashSales,
+      totalQrisSales: totalQrisSales,
+      totalCashIn: totalCashIn,
+      totalCashOut: totalCashOut,
+      totalTransactions: totalTransactions,
+      soldProducts: soldProducts,
+    );
+
+    final printed = await PrintBluetoothThermal.writeBytes(bytes);
     if (!printed) {
       throw Exception('Failed to send print data.');
     }
@@ -187,6 +251,187 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
     return bytes;
   }
 
+  Future<List<int>> _buildShiftCloseReportBytes({
+    required StoreSettings storeSettings,
+    required String cashierName,
+    required DateTime openedAt,
+    required DateTime closedAt,
+    required int openingBalance,
+    required int closingBalance,
+    required int totalCashSales,
+    required int totalQrisSales,
+    required int totalCashIn,
+    required int totalCashOut,
+    required int totalTransactions,
+    required List<ShiftSoldProductSummary> soldProducts,
+  }) async {
+    final profile = await CapabilityProfile.load();
+    final generator = Generator(PaperSize.mm58, profile);
+    final bytes = <int>[];
+
+    final totalPenerimaan = totalCashSales + totalQrisSales + totalCashIn;
+    final saldoAkhir = totalPenerimaan + openingBalance - closingBalance;
+    final totalProdukTerjual = soldProducts.fold<int>(
+      0,
+      (sum, item) => sum + item.quantity,
+    );
+
+    bytes.addAll(
+      generator.text(
+        storeSettings.storeName,
+        styles: const PosStyles(align: PosAlign.center, bold: true),
+      ),
+    );
+    bytes.addAll(
+      generator.text(
+        storeSettings.storeAddress,
+        styles: const PosStyles(align: PosAlign.center),
+      ),
+    );
+
+    bytes.addAll(generator.hr(ch: '='));
+    bytes.addAll(
+      generator.text(
+        'LAPORAN TUTUP KASIR',
+        styles: const PosStyles(align: PosAlign.center, bold: true),
+      ),
+    );
+    bytes.addAll(
+      generator.text(
+        'TRANSAKSI PENJUALAN',
+        styles: const PosStyles(align: PosAlign.center, bold: true),
+      ),
+    );
+
+    bytes.addAll(generator.feed(1));
+    bytes.addAll(generator.text('Kasir: $cashierName'));
+    bytes.addAll(
+      generator.text('Waktu Buka: ${_formatShiftDateTime(openedAt)}'),
+    );
+    bytes.addAll(
+      generator.text('Waktu Tutup: ${_formatShiftDateTime(closedAt)}'),
+    );
+    bytes.addAll(generator.feed(1));
+
+    _appendTwoColumnRow(
+      bytes,
+      generator,
+      left: 'Modal Awal',
+      right: formatRupiah(openingBalance),
+    );
+    _appendTwoColumnRow(
+      bytes,
+      generator,
+      left: 'CASH',
+      right: formatRupiah(totalCashSales),
+    );
+    _appendTwoColumnRow(
+      bytes,
+      generator,
+      left: 'QRIS',
+      right: formatRupiah(totalQrisSales),
+    );
+
+    if (totalCashIn > 0) {
+      _appendTwoColumnRow(
+        bytes,
+        generator,
+        left: 'Kas Masuk',
+        right: formatRupiah(totalCashIn),
+      );
+    }
+
+    if (totalCashOut > 0) {
+      _appendTwoColumnRow(
+        bytes,
+        generator,
+        left: 'Kas Keluar',
+        right: formatRupiah(totalCashOut),
+      );
+    }
+
+    _appendTwoColumnRow(
+      bytes,
+      generator,
+      left: 'Total Penerimaan',
+      right: formatRupiah(totalPenerimaan),
+      valueBold: true,
+    );
+
+    bytes.addAll(generator.hr(ch: '-'));
+    _appendTwoColumnRow(
+      bytes,
+      generator,
+      left: 'Saldo Akhir',
+      right: formatRupiah(saldoAkhir),
+      valueBold: true,
+    );
+    bytes.addAll(generator.hr(ch: '-'));
+
+    _appendTwoColumnRow(
+      bytes,
+      generator,
+      left: 'Transaksi masuk',
+      right: '$totalTransactions',
+    );
+
+    bytes.addAll(generator.hr(ch: '='));
+    bytes.addAll(generator.feed(3));
+
+    bytes.addAll(
+      generator.text(
+        'LAPORAN TUTUP KASIR',
+        styles: const PosStyles(align: PosAlign.center, bold: true),
+      ),
+    );
+    bytes.addAll(
+      generator.text(
+        'PENJUALAN MENU',
+        styles: const PosStyles(align: PosAlign.center, bold: true),
+      ),
+    );
+
+    bytes.addAll(generator.feed(1));
+    bytes.addAll(generator.text('Kasir: $cashierName'));
+    bytes.addAll(
+      generator.text('Waktu Buka: ${_formatShiftDateTime(openedAt)}'),
+    );
+    bytes.addAll(
+      generator.text('Waktu Tutup: ${_formatShiftDateTime(closedAt)}'),
+    );
+    bytes.addAll(generator.feed(1));
+
+    bytes.addAll(generator.text('Produk Terjual'));
+    bytes.addAll(generator.hr(ch: '-'));
+
+    if (soldProducts.isEmpty) {
+      bytes.addAll(generator.text('Tidak ada data penjualan menu'));
+    } else {
+      for (final item in soldProducts) {
+        _appendTwoColumnRow(
+          bytes,
+          generator,
+          left: item.name,
+          right: '[${item.quantity}]',
+        );
+      }
+    }
+
+    bytes.addAll(generator.hr(ch: '-'));
+    _appendTwoColumnRow(
+      bytes,
+      generator,
+      left: 'Total',
+      right: '[$totalProdukTerjual]',
+      valueBold: true,
+    );
+
+    bytes.addAll(generator.feed(2));
+    bytes.addAll(generator.cut());
+
+    return bytes;
+  }
+
   void _appendItem(List<int> bytes, Generator generator, OrderItem item) {
     final subtotal = item.quantity * item.unitPrice;
     final compactPrice = _toCompactRupiah(item.unitPrice);
@@ -238,6 +483,10 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
 
   String _toCompactRupiah(int value) {
     return formatRupiah(value).replaceFirst('Rp ', '');
+  }
+
+  String _formatShiftDateTime(DateTime value) {
+    return DateFormat('dd MMM yyyy, HH:mm').format(value.toLocal());
   }
 
   String _formatPercentage(double percentage) {
