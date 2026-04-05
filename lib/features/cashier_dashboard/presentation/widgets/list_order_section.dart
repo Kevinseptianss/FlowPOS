@@ -1,4 +1,5 @@
 import 'package:flow_pos/core/common/bloc/user_bloc.dart';
+import 'package:flow_pos/core/services/thermal_receipt_printer_service.dart';
 import 'package:flow_pos/core/theme/app_pallete.dart';
 import 'package:flow_pos/core/utils/show_snackbar.dart';
 import 'package:flow_pos/features/cashier_dashboard/domain/entities/cart.dart';
@@ -7,26 +8,26 @@ import 'package:flow_pos/features/cashier_dashboard/presentation/bloc/cart_bloc.
 import 'package:flow_pos/features/cashier_dashboard/presentation/bloc/table_bloc.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/qty_button.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/summary_row.dart';
+import 'package:flow_pos/features/order/domain/entities/order_entity.dart';
 import 'package:flow_pos/features/order/domain/entities/order_item.dart';
 import 'package:flow_pos/features/order/presentation/bloc/order_bloc.dart';
 import 'package:flow_pos/features/store_settings/domain/entities/store_settings.dart';
 import 'package:flow_pos/features/store_settings/presentation/bloc/store_settings_bloc.dart';
+import 'package:flow_pos/init_dependencies.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class ListOrderSection extends StatelessWidget {
-  const ListOrderSection({super.key});
+  final bool isMobileCheckoutFlow;
+
+  const ListOrderSection({super.key, this.isMobileCheckoutFlow = false});
 
   @override
   Widget build(BuildContext context) {
     return BlocListener<OrderBloc, OrderState>(
-      listener: (context, orderState) {
+      listener: (context, orderState) async {
         if (orderState is OrderCreated) {
-          showSnackbar(context, 'Order created successfully!');
-          // Clear cart after successful order
-          context.read<CartBloc>().add(const ClearCartEvent());
-          // Close the bottom sheet
-          Navigator.of(context).pop();
+          await _handleOrderCreated(context, orderState.order);
         } else if (orderState is OrderFailure) {
           showSnackbar(context, orderState.message);
         }
@@ -207,6 +208,253 @@ class ListOrderSection extends StatelessWidget {
           },
         ),
       ),
+    );
+  }
+
+  Future<void> _handleOrderCreated(
+    BuildContext context,
+    OrderEntity order,
+  ) async {
+    final cartBloc = context.read<CartBloc>();
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+
+    showSnackbar(rootNavigator.context, 'Order created successfully!');
+
+    if (isMobileCheckoutFlow) {
+      Navigator.of(context).pop();
+    }
+
+    if (!rootNavigator.mounted) {
+      cartBloc.add(const ClearCartEvent());
+      return;
+    }
+
+    final shouldPrint = isMobileCheckoutFlow
+        ? await _showMobilePrintPrompt(rootNavigator)
+        : await _showIpadPrintPrompt(rootNavigator);
+
+    if (shouldPrint && rootNavigator.mounted) {
+      await _printInvoice(rootNavigator, order);
+    }
+
+    cartBloc.add(const ClearCartEvent());
+  }
+
+  Future<bool> _showMobilePrintPrompt(NavigatorState rootNavigator) async {
+    final result = await showModalBottomSheet<bool>(
+      context: rootNavigator.context,
+      showDragHandle: true,
+      backgroundColor: AppPallete.surface,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Print Invoice?',
+                  style: Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
+                    color: AppPallete.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Do you want to print this transaction receipt now?',
+                  style: Theme.of(sheetContext).textTheme.bodyMedium?.copyWith(
+                    color: AppPallete.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(sheetContext, false),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppPallete.textPrimary,
+                          side: const BorderSide(color: AppPallete.divider),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: const Text('No'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () => Navigator.pop(sheetContext, true),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppPallete.primary,
+                          foregroundColor: AppPallete.onPrimary,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: const Text('Yes, Print'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    return result ?? false;
+  }
+
+  Future<bool> _showIpadPrintPrompt(NavigatorState rootNavigator) async {
+    final result = await showDialog<bool>(
+      context: rootNavigator.context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Print Invoice?'),
+          content: const Text(
+            'Do you want to print this transaction receipt now?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('No'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Yes, Print'),
+            ),
+          ],
+        );
+      },
+    );
+
+    return result ?? false;
+  }
+
+  Future<void> _printInvoice(
+    NavigatorState rootNavigator,
+    OrderEntity order,
+  ) async {
+    final printerService = serviceLocator<ThermalReceiptPrinterService>();
+    final storeSettings = _resolveStoreSettings(rootNavigator.context);
+    final cashierName = _resolveCashierName(rootNavigator.context);
+
+    try {
+      final connected = await printerService.isConnected;
+      if (!connected) {
+        final devices = await printerService.getPairedDevices();
+
+        if (devices.isEmpty) {
+          throw Exception(
+            'No paired printer found. Please pair your printer first.',
+          );
+        }
+
+        if (!rootNavigator.mounted) {
+          return;
+        }
+
+        final selectedDevice = await _pickPrinterDevice(rootNavigator, devices);
+        if (selectedDevice == null) {
+          return;
+        }
+
+        await printerService.connect(macAddress: selectedDevice.macAddress);
+      }
+
+      await printerService.printOrderReceipt(
+        order: order,
+        storeSettings: storeSettings,
+        cashierName: cashierName,
+      );
+
+      if (!rootNavigator.mounted) {
+        return;
+      }
+
+      showSnackbar(rootNavigator.context, 'Receipt printed successfully.');
+    } catch (error) {
+      if (!rootNavigator.mounted) {
+        return;
+      }
+
+      final message = error is Exception
+          ? error.toString().replaceFirst('Exception: ', '')
+          : 'Failed to print receipt.';
+      showSnackbar(rootNavigator.context, message);
+    }
+  }
+
+  StoreSettings _resolveStoreSettings(BuildContext context) {
+    final state = context.read<StoreSettingsBloc>().state;
+
+    if (state is StoreSettingsLoaded) {
+      return state.storeSettings;
+    }
+
+    if (state is StoreSettingsUpdated) {
+      return state.storeSettings;
+    }
+
+    return const StoreSettings.zero();
+  }
+
+  String _resolveCashierName(BuildContext context) {
+    final userState = context.read<UserBloc>().state;
+
+    if (userState is UserLoggedIn) {
+      return userState.user.name;
+    }
+
+    return 'Cashier';
+  }
+
+  Future<PrinterDevice?> _pickPrinterDevice(
+    NavigatorState rootNavigator,
+    List<PrinterDevice> devices,
+  ) {
+    return showModalBottomSheet<PrinterDevice>(
+      context: rootNavigator.context,
+      showDragHandle: true,
+      backgroundColor: AppPallete.surface,
+      builder: (modalContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: Text(
+                  'Select Printer',
+                  style: Theme.of(modalContext).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: AppPallete.textPrimary,
+                  ),
+                ),
+              ),
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: devices.length,
+                  separatorBuilder: (_, index) => const Divider(height: 1),
+                  itemBuilder: (_, index) {
+                    final device = devices[index];
+
+                    return ListTile(
+                      leading: const Icon(Icons.print_rounded),
+                      title: Text(
+                        device.name.isEmpty ? 'Unknown Printer' : device.name,
+                      ),
+                      subtitle: Text(device.macAddress),
+                      onTap: () => Navigator.pop(modalContext, device),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

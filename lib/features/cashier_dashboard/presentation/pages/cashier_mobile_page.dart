@@ -546,7 +546,9 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
                                           ),
                                           child: const Padding(
                                             padding: EdgeInsets.only(top: 8),
-                                            child: ListOrderSection(),
+                                            child: ListOrderSection(
+                                              isMobileCheckoutFlow: true,
+                                            ),
                                           ),
                                         );
                                       },

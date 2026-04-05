@@ -82,5 +82,4 @@ class OrderBloc extends Bloc<OrderEvent, OrderState> {
       (r) => emit(OrdersLoaded(r)),
     );
   }
-
 }
