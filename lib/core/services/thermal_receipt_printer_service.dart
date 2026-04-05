@@ -1,16 +1,25 @@
+import 'dart:async';
+import 'dart:io' show Platform;
+
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:flow_pos/core/utils/format_rupiah.dart';
 import 'package:flow_pos/features/order/domain/entities/order_entity.dart';
 import 'package:flow_pos/features/order/domain/entities/order_item.dart';
 import 'package:flow_pos/features/store_settings/domain/entities/store_settings.dart';
+import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
 import 'package:intl/intl.dart';
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 
 class PrinterDevice {
   final String name;
   final String macAddress;
+  final bool isPaired;
 
-  const PrinterDevice({required this.name, required this.macAddress});
+  const PrinterDevice({
+    required this.name,
+    required this.macAddress,
+    this.isPaired = true,
+  });
 }
 
 class ShiftSoldProductSummary {
@@ -22,8 +31,16 @@ class ShiftSoldProductSummary {
 
 abstract interface class ThermalReceiptPrinterService {
   Future<List<PrinterDevice>> getPairedDevices();
+  Future<List<PrinterDevice>> discoverNearbyDevices({
+    Duration timeout = const Duration(seconds: 8),
+  });
+  Future<bool> pairDevice({required String macAddress});
   Future<bool> get isConnected;
   Future<void> connect({required String macAddress});
+  Future<void> printTestReceipt({
+    required StoreSettings storeSettings,
+    required String cashierName,
+  });
   Future<void> printOrderReceipt({
     required OrderEntity order,
     required StoreSettings storeSettings,
@@ -47,17 +64,96 @@ abstract interface class ThermalReceiptPrinterService {
 }
 
 class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
+  final FlutterBluetoothSerial _bluetoothSerial =
+      FlutterBluetoothSerial.instance;
+
   @override
   Future<List<PrinterDevice>> getPairedDevices() async {
+    _ensureAndroidOnly();
     await _ensureBluetoothReady();
-    final devices = await PrintBluetoothThermal.pairedBluetooths;
 
+    final devices = await _bluetoothSerial.getBondedDevices();
     return devices
         .map(
-          (device) =>
-              PrinterDevice(name: device.name, macAddress: device.macAdress),
+          (device) => PrinterDevice(
+            name: (device.name ?? '').trim(),
+            macAddress: device.address,
+            isPaired: true,
+          ),
         )
-        .toList();
+        .toList(growable: false);
+  }
+
+  @override
+  Future<List<PrinterDevice>> discoverNearbyDevices({
+    Duration timeout = const Duration(seconds: 8),
+  }) async {
+    _ensureAndroidOnly();
+    await _ensureBluetoothReady();
+
+    final bondedDevices = await getPairedDevices();
+    final byAddress = <String, PrinterDevice>{
+      for (final device in bondedDevices) device.macAddress: device,
+    };
+
+    final stream = _bluetoothSerial.startDiscovery();
+    final completer = Completer<void>();
+
+    late final StreamSubscription<BluetoothDiscoveryResult> subscription;
+    subscription = stream.listen(
+      (result) {
+        final name = (result.device.name ?? '').trim();
+        byAddress[result.device.address] = PrinterDevice(
+          name: name,
+          macAddress: result.device.address,
+          isPaired: byAddress[result.device.address]?.isPaired ?? false,
+        );
+      },
+      onError: (_) {
+        if (!completer.isCompleted) {
+          completer.complete();
+        }
+      },
+      onDone: () {
+        if (!completer.isCompleted) {
+          completer.complete();
+        }
+      },
+      cancelOnError: false,
+    );
+
+    Timer? timeoutTimer;
+    timeoutTimer = Timer(timeout, () {
+      if (!completer.isCompleted) {
+        completer.complete();
+      }
+    });
+
+    await completer.future;
+    timeoutTimer.cancel();
+    await subscription.cancel();
+
+    final devices = byAddress.values.toList(growable: false)
+      ..sort((a, b) {
+        if (a.isPaired != b.isPaired) {
+          return a.isPaired ? -1 : 1;
+        }
+
+        final aName = a.name.isEmpty ? a.macAddress : a.name;
+        final bName = b.name.isEmpty ? b.macAddress : b.name;
+        return aName.toLowerCase().compareTo(bName.toLowerCase());
+      });
+
+    return devices;
+  }
+
+  @override
+  Future<bool> pairDevice({required String macAddress}) async {
+    _ensureAndroidOnly();
+    await _ensureBluetoothReady();
+
+    final paired = await _bluetoothSerial.bondDeviceAtAddress(macAddress);
+    return paired ?? false;
   }
 
   @override
@@ -65,6 +161,7 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
 
   @override
   Future<void> connect({required String macAddress}) async {
+    _ensureAndroidOnly();
     await _ensureBluetoothReady();
     final connected = await PrintBluetoothThermal.connect(
       macPrinterAddress: macAddress,
@@ -72,6 +169,28 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
 
     if (!connected) {
       throw Exception('Failed to connect printer.');
+    }
+  }
+
+  @override
+  Future<void> printTestReceipt({
+    required StoreSettings storeSettings,
+    required String cashierName,
+  }) async {
+    final connected = await isConnected;
+
+    if (!connected) {
+      throw Exception('Printer is not connected.');
+    }
+
+    final bytes = await _buildTestReceiptBytes(
+      storeSettings: storeSettings,
+      cashierName: cashierName,
+    );
+
+    final printed = await PrintBluetoothThermal.writeBytes(bytes);
+    if (!printed) {
+      throw Exception('Failed to send print data.');
     }
   }
 
@@ -154,6 +273,19 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
 
     if (!enabled) {
       throw Exception('Bluetooth is turned off. Please enable it first.');
+    }
+
+    final serialEnabled = await _bluetoothSerial.isEnabled ?? false;
+    if (!serialEnabled) {
+      throw Exception('Bluetooth is turned off. Please enable it first.');
+    }
+  }
+
+  void _ensureAndroidOnly() {
+    if (!Platform.isAndroid) {
+      throw Exception(
+        'In-app Bluetooth scan/pair is currently supported on Android only.',
+      );
     }
   }
 
@@ -426,6 +558,57 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
       valueBold: true,
     );
 
+    bytes.addAll(generator.feed(2));
+    bytes.addAll(generator.cut());
+
+    return bytes;
+  }
+
+  Future<List<int>> _buildTestReceiptBytes({
+    required StoreSettings storeSettings,
+    required String cashierName,
+  }) async {
+    final profile = await CapabilityProfile.load();
+    final generator = Generator(PaperSize.mm58, profile);
+    final bytes = <int>[];
+
+    final printedAt = DateFormat('dd MMM yyyy, HH:mm').format(DateTime.now());
+
+    bytes.addAll(
+      generator.text(
+        storeSettings.storeName,
+        styles: const PosStyles(align: PosAlign.center, bold: true),
+      ),
+    );
+    bytes.addAll(
+      generator.text(
+        storeSettings.storeAddress,
+        styles: const PosStyles(align: PosAlign.center),
+      ),
+    );
+    bytes.addAll(generator.hr(ch: '-'));
+    bytes.addAll(
+      generator.text(
+        'TEST PRINT',
+        styles: const PosStyles(align: PosAlign.center, bold: true),
+      ),
+    );
+    bytes.addAll(
+      generator.text(
+        'Jika teks ini tercetak, printer siap dipakai.',
+        styles: const PosStyles(align: PosAlign.center),
+      ),
+    );
+    bytes.addAll(generator.feed(1));
+    bytes.addAll(generator.text('Kasir: $cashierName'));
+    bytes.addAll(generator.text('Waktu: $printedAt'));
+    bytes.addAll(generator.hr(ch: '-'));
+    bytes.addAll(
+      generator.text(
+        'FLOW POS',
+        styles: const PosStyles(align: PosAlign.center, bold: true),
+      ),
+    );
     bytes.addAll(generator.feed(2));
     bytes.addAll(generator.cut());
 

@@ -26,14 +26,22 @@ class CashierShiftPage extends StatefulWidget {
 
 class _CashierShiftPageState extends State<CashierShiftPage> {
   static const Duration _wibOffset = Duration(hours: 7);
+  static const String _localBoxName = 'cashier_shift_box';
+  static const String _savedPrinterMacKey = 'saved_printer_mac_address';
+  static const String _savedPrinterNameKey = 'saved_printer_name';
 
   late final CashierShiftLocalService _cashierShiftLocalService;
   late final ThermalReceiptPrinterService _printerService;
   late final SupabaseClient _supabaseClient;
+  late final Box<dynamic> _localBox;
 
   String? _cachedCashierId;
   Future<_ClosedShiftReportData?>? _latestClosedShiftFuture;
   bool _isPrintingShiftReport = false;
+  bool _isConnectingPrinter = false;
+  bool _isPrintingTestReceipt = false;
+  bool _isPrinterConnected = false;
+  PrinterDevice? _selectedPrinterDevice;
 
   @override
   void initState() {
@@ -41,6 +49,61 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
     _cashierShiftLocalService = serviceLocator<CashierShiftLocalService>();
     _printerService = serviceLocator<ThermalReceiptPrinterService>();
     _supabaseClient = serviceLocator<SupabaseClient>();
+    _localBox = Hive.box<dynamic>(_localBoxName);
+
+    _restoreSavedPrinter();
+    Future.microtask(_connectToSavedPrinterSilently);
+  }
+
+  void _restoreSavedPrinter() {
+    final savedMac = _localBox.get(_savedPrinterMacKey);
+    if (savedMac is! String || savedMac.isEmpty) {
+      return;
+    }
+
+    final savedNameRaw = _localBox.get(_savedPrinterNameKey);
+    final savedName = savedNameRaw is String && savedNameRaw.isNotEmpty
+        ? savedNameRaw
+        : 'Unknown Printer';
+
+    _selectedPrinterDevice = PrinterDevice(
+      name: savedName,
+      macAddress: savedMac,
+    );
+  }
+
+  Future<void> _saveSelectedPrinter(PrinterDevice device) async {
+    await _localBox.put(_savedPrinterMacKey, device.macAddress);
+    await _localBox.put(_savedPrinterNameKey, device.name);
+  }
+
+  Future<bool> _connectToSavedPrinterSilently() async {
+    final savedMac = _localBox.get(_savedPrinterMacKey);
+    if (savedMac is! String || savedMac.isEmpty) {
+      return false;
+    }
+
+    try {
+      await _printerService.connect(macAddress: savedMac);
+
+      if (!mounted) {
+        return false;
+      }
+
+      setState(() {
+        _isPrinterConnected = true;
+      });
+      return true;
+    } catch (_) {
+      if (!mounted) {
+        return false;
+      }
+
+      setState(() {
+        _isPrinterConnected = false;
+      });
+      return false;
+    }
   }
 
   void _ensureLatestClosedShiftFuture(String cashierId) {
@@ -178,24 +241,13 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
 
     try {
       final connected = await _printerService.isConnected;
-      if (!connected) {
-        final devices = await _printerService.getPairedDevices();
-        if (devices.isEmpty) {
-          throw Exception(
-            'No paired printer found. Please pair your printer first.',
-          );
-        }
-
-        if (!mounted) {
+      if (!connected && !await _connectToSavedPrinterSilently()) {
+        final didConnect = await _scanAndConnectPrinter(
+          showSuccessSnackbar: false,
+        );
+        if (!didConnect) {
           return;
         }
-
-        final selectedDevice = await _pickPrinterDevice(devices);
-        if (selectedDevice == null) {
-          return;
-        }
-
-        await _printerService.connect(macAddress: selectedDevice.macAddress);
       }
 
       await _printerService.printShiftCloseReport(
@@ -243,6 +295,134 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
     }
   }
 
+  Future<bool> _scanAndConnectPrinter({bool showSuccessSnackbar = true}) async {
+    if (_isConnectingPrinter) {
+      return false;
+    }
+
+    setState(() {
+      _isConnectingPrinter = true;
+    });
+
+    try {
+      final devices = await _printerService.discoverNearbyDevices();
+      if (devices.isEmpty) {
+        throw Exception('No nearby printer found. Please try scanning again.');
+      }
+
+      if (!mounted) {
+        return false;
+      }
+
+      final selectedDevice = await _pickPrinterDevice(devices);
+      if (selectedDevice == null) {
+        return false;
+      }
+
+      if (!selectedDevice.isPaired) {
+        final paired = await _printerService.pairDevice(
+          macAddress: selectedDevice.macAddress,
+        );
+        if (!paired) {
+          throw Exception('Failed to pair with selected printer.');
+        }
+      }
+
+      await _printerService.connect(macAddress: selectedDevice.macAddress);
+
+      if (!mounted) {
+        return false;
+      }
+
+      setState(() {
+        _selectedPrinterDevice = selectedDevice;
+        _isPrinterConnected = true;
+      });
+
+      await _saveSelectedPrinter(selectedDevice);
+
+      if (!mounted) {
+        return false;
+      }
+
+      if (showSuccessSnackbar) {
+        showSnackbar(
+          context,
+          'Connected to ${selectedDevice.name.isEmpty ? selectedDevice.macAddress : selectedDevice.name} (${selectedDevice.macAddress}).',
+        );
+      }
+
+      return true;
+    } catch (error) {
+      if (!mounted) {
+        return false;
+      }
+
+      final message = error is Exception
+          ? error.toString().replaceFirst('Exception: ', '')
+          : 'Failed to connect printer.';
+      showSnackbar(context, message);
+      setState(() {
+        _isPrinterConnected = false;
+      });
+      return false;
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isConnectingPrinter = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _printTestReceipt({required User user}) async {
+    if (_isPrintingTestReceipt) {
+      return;
+    }
+
+    setState(() {
+      _isPrintingTestReceipt = true;
+    });
+
+    try {
+      final connected = await _printerService.isConnected;
+      if (!connected && !await _connectToSavedPrinterSilently()) {
+        final didConnect = await _scanAndConnectPrinter(
+          showSuccessSnackbar: false,
+        );
+        if (!didConnect) {
+          return;
+        }
+      }
+
+      await _printerService.printTestReceipt(
+        storeSettings: _resolveStoreSettings(),
+        cashierName: user.name,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      showSnackbar(context, 'Test print sent successfully.');
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      final message = error is Exception
+          ? error.toString().replaceFirst('Exception: ', '')
+          : 'Failed to print test receipt.';
+      showSnackbar(context, message);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isPrintingTestReceipt = false;
+        });
+      }
+    }
+  }
+
   StoreSettings _resolveStoreSettings() {
     final state = context.read<StoreSettingsBloc>().state;
 
@@ -258,6 +438,11 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
   }
 
   Future<PrinterDevice?> _pickPrinterDevice(List<PrinterDevice> devices) {
+    final pairedDevices = devices.where((device) => device.isPaired).toList();
+    final availableDevices = devices
+        .where((device) => !device.isPaired)
+        .toList();
+
     return showModalBottomSheet<PrinterDevice>(
       context: context,
       showDragHandle: true,
@@ -270,7 +455,7 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                 child: Text(
-                  'Select Printer',
+                  'Select Bluetooth Printer',
                   style: Theme.of(modalContext).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                     color: AppPallete.textPrimary,
@@ -278,21 +463,44 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
                 ),
               ),
               Flexible(
-                child: ListView.separated(
+                child: ListView(
                   shrinkWrap: true,
-                  itemCount: devices.length,
-                  separatorBuilder: (_, index) => const Divider(height: 1),
-                  itemBuilder: (_, index) {
-                    final device = devices[index];
-                    return ListTile(
-                      leading: const Icon(Icons.print_rounded),
-                      title: Text(
-                        device.name.isEmpty ? 'Unknown Printer' : device.name,
+                  children: [
+                    if (pairedDevices.isNotEmpty) ...[
+                      _DeviceSectionLabel(title: 'Paired'),
+                      ...pairedDevices.map(
+                        (device) => ListTile(
+                          leading: const Icon(Icons.print_rounded),
+                          title: Text(
+                            device.name.isEmpty
+                                ? 'Unknown Printer'
+                                : device.name,
+                          ),
+                          subtitle: Text(device.macAddress),
+                          trailing: const Icon(Icons.check_circle_rounded),
+                          onTap: () => Navigator.pop(modalContext, device),
+                        ),
                       ),
-                      subtitle: Text(device.macAddress),
-                      onTap: () => Navigator.pop(modalContext, device),
-                    );
-                  },
+                    ],
+                    if (availableDevices.isNotEmpty) ...[
+                      _DeviceSectionLabel(title: 'Available'),
+                      ...availableDevices.map(
+                        (device) => ListTile(
+                          leading: const Icon(
+                            Icons.bluetooth_searching_rounded,
+                          ),
+                          title: Text(
+                            device.name.isEmpty
+                                ? 'Unknown Device'
+                                : device.name,
+                          ),
+                          subtitle: Text(device.macAddress),
+                          trailing: const Text('Tap to Pair'),
+                          onTap: () => Navigator.pop(modalContext, device),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ],
@@ -439,6 +647,18 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
                           return Column(
                             children: [
                               _InfoRow(
+                                icon: Icons.bluetooth_connected_rounded,
+                                label: 'Bluetooth Printer',
+                                value: _selectedPrinterDevice == null
+                                    ? 'Not Connected'
+                                    : '${_selectedPrinterDevice!.name.isEmpty ? 'Unknown Printer' : _selectedPrinterDevice!.name} (${_selectedPrinterDevice!.macAddress})',
+                                valueColor: _selectedPrinterDevice == null
+                                    ? AppPallete.warning
+                                    : (_isPrinterConnected
+                                          ? AppPallete.success
+                                          : AppPallete.warning),
+                              ),
+                              _InfoRow(
                                 icon: Icons.login_rounded,
                                 label: 'Waktu Buka',
                                 value: _formatShiftDateTime(
@@ -497,6 +717,54 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
                                 value: '${closedShift.totalTransactions}',
                               ),
                               const SizedBox(height: 10),
+                              OutlinedButton.icon(
+                                onPressed: _isConnectingPrinter
+                                    ? null
+                                    : () => _scanAndConnectPrinter(),
+                                icon: _isConnectingPrinter
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons.bluetooth_searching_rounded,
+                                      ),
+                                label: Text(
+                                  _isConnectingPrinter
+                                      ? 'Scanning Bluetooth...'
+                                      : 'Scan & Connect Bluetooth Printer',
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  minimumSize: const Size.fromHeight(46),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              OutlinedButton.icon(
+                                onPressed: _isPrintingTestReceipt
+                                    ? null
+                                    : () => _printTestReceipt(user: user),
+                                icon: _isPrintingTestReceipt
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(Icons.receipt_rounded),
+                                label: Text(
+                                  _isPrintingTestReceipt
+                                      ? 'Printing Test...'
+                                      : 'Test Print',
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  minimumSize: const Size.fromHeight(46),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
                               FilledButton.icon(
                                 onPressed: _isPrintingShiftReport
                                     ? null
@@ -800,6 +1068,28 @@ class _InfoRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _DeviceSectionLabel extends StatelessWidget {
+  final String title;
+
+  const _DeviceSectionLabel({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: AppPallete.surface,
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+      child: Text(
+        title,
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+          color: AppPallete.primary,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
