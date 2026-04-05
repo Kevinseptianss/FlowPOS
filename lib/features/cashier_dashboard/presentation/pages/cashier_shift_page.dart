@@ -25,6 +25,8 @@ class CashierShiftPage extends StatefulWidget {
 }
 
 class _CashierShiftPageState extends State<CashierShiftPage> {
+  static const Duration _wibOffset = Duration(hours: 7);
+
   late final CashierShiftLocalService _cashierShiftLocalService;
   late final ThermalReceiptPrinterService _printerService;
   late final SupabaseClient _supabaseClient;
@@ -83,15 +85,17 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
     }
 
     final shift = shiftRows.first;
-    final openedAt = DateTime.parse(shift['opened_at'] as String).toLocal();
-    final closedAt = DateTime.parse(shift['closed_at'] as String).toLocal();
+    final openedAtUtc = DateTime.parse(shift['opened_at'] as String).toUtc();
+    final closedAtUtc = DateTime.parse(shift['closed_at'] as String).toUtc();
+    final openedAtWib = openedAtUtc.add(_wibOffset);
+    final closedAtWib = closedAtUtc.add(_wibOffset);
 
     final orderRows = await _supabaseClient
         .from('orders')
         .select('id')
         .eq('cashier_id', cashierId)
-        .gte('created_at', openedAt.toIso8601String())
-        .lte('created_at', closedAt.toIso8601String());
+        .gte('created_at', openedAtUtc.toIso8601String())
+        .lte('created_at', closedAtUtc.toIso8601String());
 
     final totalTransactions = orderRows.length;
     final orderIds = orderRows
@@ -151,8 +155,8 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
     return _ClosedShiftReportData(
       id: shift['id'] as String,
       cashierId: shift['cashier_id'] as String,
-      openedAt: openedAt,
-      closedAt: closedAt,
+      openedAt: openedAtWib,
+      closedAt: closedAtWib,
       openingBalance: (shift['opening_balance'] as num).toInt(),
       closingBalance: (shift['closing_balance'] as num).toInt(),
       totalCashSales: (shift['total_cash_sales'] as num).toInt(),
@@ -300,7 +304,7 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
+    final nowWib = DateTime.now().toUtc().add(_wibOffset);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Shift'), centerTitle: false),
@@ -348,7 +352,8 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
                           _InfoRow(
                             icon: Icons.calendar_today_rounded,
                             label: 'Date',
-                            value: DatetimeFormatter.formatDateTime(now),
+                            value:
+                                '${DatetimeFormatter.formatDateTime(nowWib)} WIB',
                           ),
                           _InfoRow(
                             icon: Icons.bolt_rounded,
@@ -750,7 +755,7 @@ class _SoldProductSummary {
 }
 
 String _formatShiftDateTime(DateTime value) {
-  return DateFormat('dd MMM yyyy, HH:mm').format(value.toLocal());
+  return '${DateFormat('dd MMM yyyy, HH:mm').format(value)} WIB';
 }
 
 class _InfoRow extends StatelessWidget {

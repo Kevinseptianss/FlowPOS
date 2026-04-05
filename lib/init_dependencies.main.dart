@@ -13,23 +13,22 @@ Future<void> initDependencies() async {
   _initOrder();
   _initStoreSettings();
 
+  final supabase = await Supabase.initialize(
+    url: AppSecrets.supabaseURL,
+    anonKey: AppSecrets.supabaseKey,
+  );
+  serviceLocator.registerLazySingleton(() => supabase.client);
+
   await Hive.initFlutter();
   final cashierShiftBox = await Hive.openBox<dynamic>('cashier_shift_box');
 
   serviceLocator.registerLazySingleton<Box<dynamic>>(() => cashierShiftBox);
   serviceLocator.registerLazySingleton(
-    () => CashierShiftLocalService(serviceLocator()),
+    () => CashierShiftLocalService(serviceLocator(), serviceLocator()),
   );
   serviceLocator.registerLazySingleton<ThermalReceiptPrinterService>(
     () => ThermalReceiptPrinterServiceImpl(),
   );
-
-  final supabase = await Supabase.initialize(
-    url: AppSecrets.supabaseURL,
-    anonKey: AppSecrets.supabaseKey,
-  );
-
-  serviceLocator.registerLazySingleton(() => supabase.client);
 }
 
 void _initUser() {

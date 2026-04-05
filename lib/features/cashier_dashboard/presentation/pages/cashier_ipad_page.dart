@@ -107,7 +107,9 @@ class _CashierIpadPageState extends State<CashierIpadPage> {
     final openingBalance =
         (activeShift['openingBalance'] as num?)?.toDouble() ?? 0;
     final openedAt = DateTime.tryParse(
-      activeShift['openedAt'] as String? ?? '',
+      activeShift['openedAtUtc'] as String? ??
+          activeShift['openedAt'] as String? ??
+          '',
     );
     final confirmed = await showCloseShiftDialog(
       context,
@@ -123,9 +125,27 @@ class _CashierIpadPageState extends State<CashierIpadPage> {
       _isProcessingShiftAction = true;
     });
 
-    final closedShift = await _cashierShiftLocalService.closeShift(
-      cashierId: _cashierId!,
-    );
+    Map<String, dynamic>? closedShift;
+
+    try {
+      closedShift = await _cashierShiftLocalService.closeShift(
+        cashierId: _cashierId!,
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isProcessingShiftAction = false;
+      });
+
+      showSnackbar(
+        context,
+        'Gagal menutup shift: ${error.toString().replaceFirst('Exception: ', '')}',
+      );
+      return;
+    }
 
     if (closedShift != null && openedAt != null) {
       final closedAt = DateTime.tryParse(
@@ -149,10 +169,7 @@ class _CashierIpadPageState extends State<CashierIpadPage> {
       _isProcessingShiftAction = false;
     });
 
-    showSnackbar(
-      context,
-      'Shift ditutup. Data tersimpan lokal dan siap dikirim ke database.',
-    );
+    showSnackbar(context, 'Shift ditutup. Data berhasil disimpan ke database.');
   }
 
   Future<void> _printShiftOrderItemsToDebugConsole({

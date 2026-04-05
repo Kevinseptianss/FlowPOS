@@ -217,9 +217,12 @@ Future<bool> showCloseShiftDialog(
   required double openingBalance,
   required DateTime openedAt,
 }) async {
+  const wibOffset = Duration(hours: 7);
   final currency = NumberFormat.currency(symbol: 'Rp ', decimalDigits: 0);
   final formatter = DateFormat('dd MMM yyyy, HH:mm');
-  final shiftDuration = DateTime.now().difference(openedAt);
+  final openedAtWib = openedAt.toUtc().add(wibOffset);
+  final nowWib = DateTime.now().toUtc().add(wibOffset);
+  final shiftDuration = nowWib.difference(openedAtWib);
   final shiftHours = shiftDuration.inHours;
   final shiftMinutes = shiftDuration.inMinutes.remainder(60);
 
@@ -347,7 +350,7 @@ Future<bool> showCloseShiftDialog(
                           _ShiftInfoRow(
                             icon: Icons.play_circle_outline_rounded,
                             label: 'Mulai Shift',
-                            value: formatter.format(openedAt),
+                            value: '${formatter.format(openedAtWib)} WIB',
                           ),
                           const SizedBox(height: 10),
                           _ShiftInfoRow(
