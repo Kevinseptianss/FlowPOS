@@ -15,7 +15,9 @@ import 'package:flow_pos/features/category/presentation/bloc/category_bloc.dart'
 import 'package:flow_pos/features/cashier_dashboard/presentation/bloc/cart_bloc.dart';
 import 'package:flow_pos/features/menu_item/presentation/bloc/menu_item_bloc.dart';
 import 'package:flow_pos/features/modifier_option/presentation/bloc/modifier_option_bloc.dart';
+import 'package:flow_pos/features/order/domain/usecases/get_all_orders.dart';
 import 'package:flow_pos/init_dependencies.dart';
+import 'package:flow_pos/core/usecase/use_case.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -31,6 +33,7 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
   late final CategoryBloc _categoryBloc;
   late final MenuItemBloc _menuItemBloc;
   late final CashierShiftLocalService _cashierShiftLocalService;
+  late final GetAllOrders _getAllOrders;
 
   bool _isShiftActive = false;
   bool _isShiftReady = false;
@@ -43,6 +46,7 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
     _categoryBloc = context.read<CategoryBloc>();
     _menuItemBloc = context.read<MenuItemBloc>();
     _cashierShiftLocalService = serviceLocator<CashierShiftLocalService>();
+    _getAllOrders = serviceLocator<GetAllOrders>();
 
     _categoryBloc.add(GetAllCategoriesEvent());
     _menuItemBloc.add(GetEnabledMenuItemsEvent());
@@ -134,7 +138,22 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
       _isProcessingShiftAction = true;
     });
 
-    await _cashierShiftLocalService.closeShift(cashierId: _cashierId!);
+    final closedShift = await _cashierShiftLocalService.closeShift(
+      cashierId: _cashierId!,
+    );
+
+    if (closedShift != null && openedAt != null) {
+      final closedAt = DateTime.tryParse(
+        closedShift['closedAt'] as String? ?? '',
+      );
+
+      if (closedAt != null) {
+        await _printShiftOrderItemsToDebugConsole(
+          openedAt: openedAt,
+          closedAt: closedAt,
+        );
+      }
+    }
 
     if (!mounted) {
       return;
@@ -148,6 +167,54 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
     showSnackbar(
       context,
       'Shift ditutup. Data tersimpan lokal dan siap dikirim ke database.',
+    );
+  }
+
+  Future<void> _printShiftOrderItemsToDebugConsole({
+    required DateTime openedAt,
+    required DateTime closedAt,
+  }) async {
+    final result = await _getAllOrders(NoParams());
+
+    result.fold(
+      (failure) {
+        debugPrint(
+          '[ShiftClose] Failed to load orders for shift logging: ${failure.message}',
+        );
+      },
+      (orders) {
+        final openedAtLocal = openedAt.toLocal();
+        final closedAtLocal = closedAt.toLocal();
+
+        final ordersInShift = orders.where((order) {
+          final orderTime = order.createdAt.toLocal();
+          return !orderTime.isBefore(openedAtLocal) &&
+              !orderTime.isAfter(closedAtLocal);
+        }).toList();
+
+        if (ordersInShift.isEmpty) {
+          debugPrint(
+            '[ShiftClose] No orders found between ${openedAtLocal.toIso8601String()} and ${closedAtLocal.toIso8601String()}.',
+          );
+          return;
+        }
+
+        debugPrint(
+          '[ShiftClose] Orders between ${openedAtLocal.toIso8601String()} and ${closedAtLocal.toIso8601String()}:',
+        );
+
+        for (final order in ordersInShift) {
+          debugPrint(
+            '[ShiftClose] Order ${order.orderNumber} at ${order.createdAt.toLocal().toIso8601String()}',
+          );
+
+          for (final item in order.items) {
+            debugPrint(
+              '[ShiftClose]  - ${item.menuName} x${item.quantity} @ ${item.unitPrice}',
+            );
+          }
+        }
+      },
     );
   }
 
