@@ -23,6 +23,10 @@ class CashierShiftLocalService {
     return getActiveShift(cashierId) != null;
   }
 
+  Stream<BoxEvent> watchActiveShift(String cashierId) {
+    return _box.watch(key: _activeShiftKey(cashierId));
+  }
+
   Future<void> openShift({
     required String cashierId,
     required String cashierName,

@@ -9,6 +9,7 @@ import 'package:flow_pos/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:flow_pos/init_dependencies.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hive/hive.dart';
 
 class CashierShiftPage extends StatelessWidget {
   const CashierShiftPage({super.key});
@@ -43,105 +44,110 @@ class CashierShiftPage extends StatelessWidget {
             }
 
             final user = state.user;
-            final hasActiveShift = cashierShiftLocalService.hasActiveShift(
-              user.id,
-            );
+            return StreamBuilder<BoxEvent>(
+              stream: cashierShiftLocalService.watchActiveShift(user.id),
+              builder: (context, snapshot) {
+                final hasActiveShift = cashierShiftLocalService.hasActiveShift(
+                  user.id,
+                );
 
-            return ListView(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
-              children: [
-                _ProfileHero(user: user),
-                const SizedBox(height: 14),
-                _SectionCard(
-                  title: 'Current Shift',
-                  child: Column(
-                    children: [
-                      _InfoRow(
-                        icon: Icons.calendar_today_rounded,
-                        label: 'Date',
-                        value: DatetimeFormatter.formatDateTime(now),
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
+                  children: [
+                    _ProfileHero(user: user),
+                    const SizedBox(height: 14),
+                    _SectionCard(
+                      title: 'Current Shift',
+                      child: Column(
+                        children: [
+                          _InfoRow(
+                            icon: Icons.calendar_today_rounded,
+                            label: 'Date',
+                            value: DatetimeFormatter.formatDateTime(now),
+                          ),
+                          _InfoRow(
+                            icon: Icons.bolt_rounded,
+                            label: 'Status',
+                            value: hasActiveShift ? 'Open' : 'Closed',
+                            valueColor: hasActiveShift
+                                ? AppPallete.success
+                                : AppPallete.warning,
+                          ),
+                          _InfoRow(
+                            icon: Icons.badge_rounded,
+                            label: 'Role',
+                            value: user.role.toUpperCase(),
+                          ),
+                          _InfoRow(
+                            icon: Icons.point_of_sale_rounded,
+                            label: 'Terminal',
+                            value: 'POS-01',
+                          ),
+                        ],
                       ),
-                      _InfoRow(
-                        icon: Icons.bolt_rounded,
-                        label: 'Status',
-                        value: hasActiveShift ? 'Open' : 'Closed',
-                        valueColor: hasActiveShift
-                            ? AppPallete.success
-                            : AppPallete.warning,
-                      ),
-                      _InfoRow(
-                        icon: Icons.badge_rounded,
-                        label: 'Role',
-                        value: user.role.toUpperCase(),
-                      ),
-                      _InfoRow(
-                        icon: Icons.point_of_sale_rounded,
-                        label: 'Terminal',
-                        value: 'POS-01',
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 14),
-                _SectionCard(
-                  title: 'Profile Information',
-                  child: Column(
-                    children: [
-                      _InfoRow(
-                        icon: Icons.person_rounded,
-                        label: 'Full Name',
-                        value: user.name,
-                      ),
-                      _InfoRow(
-                        icon: Icons.email_rounded,
-                        label: 'Email',
-                        value: user.email,
-                      ),
-                      _InfoRow(
-                        icon: Icons.fingerprint_rounded,
-                        label: 'User ID',
-                        value: user.id,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 18),
-                FilledButton.icon(
-                  onPressed: () async {
-                    final isShiftStillOpen = cashierShiftLocalService
-                        .hasActiveShift(user.id);
-
-                    if (isShiftStillOpen) {
-                      showSnackbar(
-                        context,
-                        'Shift is still open. Please close your shift before logging out.',
-                      );
-                      return;
-                    }
-
-                    final shouldLogout = await showLogoutDialog(
-                      context,
-                      accountLabel: 'cashier account',
-                    );
-
-                    if (!context.mounted || !shouldLogout) {
-                      return;
-                    }
-
-                    context.read<AuthBloc>().add(SignOutEvent());
-                  },
-                  icon: const Icon(Icons.logout_rounded),
-                  label: const Text('Logout'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppPallete.error,
-                    foregroundColor: AppPallete.onPrimary,
-                    minimumSize: const Size.fromHeight(50),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
                     ),
-                  ),
-                ),
-              ],
+                    const SizedBox(height: 14),
+                    _SectionCard(
+                      title: 'Profile Information',
+                      child: Column(
+                        children: [
+                          _InfoRow(
+                            icon: Icons.person_rounded,
+                            label: 'Full Name',
+                            value: user.name,
+                          ),
+                          _InfoRow(
+                            icon: Icons.email_rounded,
+                            label: 'Email',
+                            value: user.email,
+                          ),
+                          _InfoRow(
+                            icon: Icons.fingerprint_rounded,
+                            label: 'User ID',
+                            value: user.id,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    FilledButton.icon(
+                      onPressed: () async {
+                        final isShiftStillOpen = cashierShiftLocalService
+                            .hasActiveShift(user.id);
+
+                        if (isShiftStillOpen) {
+                          showSnackbar(
+                            context,
+                            'Shift is still open. Please close your shift before logging out.',
+                          );
+                          return;
+                        }
+
+                        final shouldLogout = await showLogoutDialog(
+                          context,
+                          accountLabel: 'cashier account',
+                        );
+
+                        if (!context.mounted || !shouldLogout) {
+                          return;
+                        }
+
+                        context.read<AuthBloc>().add(SignOutEvent());
+                      },
+                      icon: const Icon(Icons.logout_rounded),
+                      label: const Text('Logout'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppPallete.error,
+                        foregroundColor: AppPallete.onPrimary,
+                        minimumSize: const Size.fromHeight(50),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
             );
           },
         ),
