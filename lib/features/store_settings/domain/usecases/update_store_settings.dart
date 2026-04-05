@@ -18,6 +18,8 @@ class UpdateStoreSettings
       id: params.id,
       taxPercentage: params.taxPercentage,
       serviceChargePercentage: params.serviceChargePercentage,
+      storeName: params.storeName,
+      storeAddress: params.storeAddress,
     );
   }
 }
@@ -26,10 +28,14 @@ class UpdateStoreSettingsParams {
   final String? id;
   final double taxPercentage;
   final double serviceChargePercentage;
+  final String storeName;
+  final String storeAddress;
 
   const UpdateStoreSettingsParams({
     this.id,
     required this.taxPercentage,
     required this.serviceChargePercentage,
+    required this.storeName,
+    required this.storeAddress,
   });
 }

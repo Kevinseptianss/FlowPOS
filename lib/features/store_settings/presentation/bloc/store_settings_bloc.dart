@@ -47,6 +47,8 @@ class StoreSettingsBloc extends Bloc<StoreSettingsEvent, StoreSettingsState> {
         id: event.id,
         taxPercentage: event.taxPercentage,
         serviceChargePercentage: event.serviceChargePercentage,
+        storeName: event.storeName,
+        storeAddress: event.storeAddress,
       ),
     );
 

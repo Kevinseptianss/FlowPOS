@@ -8,5 +8,7 @@ abstract interface class StoreSettingsRepository {
     String? id,
     required double taxPercentage,
     required double serviceChargePercentage,
+    required String storeName,
+    required String storeAddress,
   });
 }

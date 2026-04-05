@@ -3,6 +3,7 @@ import 'package:flow_pos/core/utils/show_logout_dialog.dart';
 import 'package:flow_pos/core/utils/show_snackbar.dart';
 import 'package:flow_pos/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_modifier_group_create_page.dart';
+import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_store_profile_settings_page.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_store_settings_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -132,6 +133,40 @@ class OwnerSettingsPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
+              Container(
+                decoration: BoxDecoration(
+                  color: AppPallete.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppPallete.divider),
+                ),
+                margin: const EdgeInsets.only(bottom: 12),
+                child: ListTile(
+                  leading: const Icon(
+                    Icons.storefront_outlined,
+                    color: AppPallete.primary,
+                  ),
+                  title: Text(
+                    'Store Profile',
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: AppPallete.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Edit restaurant name and address',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppPallete.textPrimary,
+                    ),
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      OwnerStoreProfileSettingsPage.route(),
+                    );
+                  },
+                ),
+              ),
               Container(
                 decoration: BoxDecoration(
                   color: AppPallete.surface,

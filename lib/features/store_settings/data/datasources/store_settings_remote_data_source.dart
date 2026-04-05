@@ -7,6 +7,8 @@ abstract interface class StoreSettingsRemoteDataSource {
     String? id,
     required double taxPercentage,
     required double serviceChargePercentage,
+    required String storeName,
+    required String storeAddress,
   });
 }
 
@@ -36,10 +38,14 @@ class StoreSettingsRemoteDataSourceImpl
     String? id,
     required double taxPercentage,
     required double serviceChargePercentage,
+    required String storeName,
+    required String storeAddress,
   }) async {
     final payload = {
       'tax_percentage': taxPercentage,
       'service_charge_percentage': serviceChargePercentage,
+      'store_name': storeName,
+      'store_address': storeAddress,
       'updated_at': DateTime.now().toIso8601String(),
     };
 

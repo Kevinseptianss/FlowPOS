@@ -28,12 +28,16 @@ class StoreSettingsRepositoryImpl implements StoreSettingsRepository {
     String? id,
     required double taxPercentage,
     required double serviceChargePercentage,
+    required String storeName,
+    required String storeAddress,
   }) async {
     try {
       final updated = await storeSettingsRemoteDataSource.updateStoreSettings(
         id: id,
         taxPercentage: taxPercentage,
         serviceChargePercentage: serviceChargePercentage,
+        storeName: storeName,
+        storeAddress: storeAddress,
       );
 
       return right(updated);

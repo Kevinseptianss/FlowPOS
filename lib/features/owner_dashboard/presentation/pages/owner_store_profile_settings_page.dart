@@ -5,24 +5,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-class OwnerStoreSettingsPage extends StatefulWidget {
-  static MaterialPageRoute route() =>
-      MaterialPageRoute(builder: (context) => const OwnerStoreSettingsPage());
+class OwnerStoreProfileSettingsPage extends StatefulWidget {
+  static MaterialPageRoute route() => MaterialPageRoute(
+    builder: (context) => const OwnerStoreProfileSettingsPage(),
+  );
 
-  const OwnerStoreSettingsPage({super.key});
+  const OwnerStoreProfileSettingsPage({super.key});
 
   @override
-  State<OwnerStoreSettingsPage> createState() => _OwnerStoreSettingsPageState();
+  State<OwnerStoreProfileSettingsPage> createState() =>
+      _OwnerStoreProfileSettingsPageState();
 }
 
-class _OwnerStoreSettingsPageState extends State<OwnerStoreSettingsPage> {
+class _OwnerStoreProfileSettingsPageState
+    extends State<OwnerStoreProfileSettingsPage> {
   final _formKey = GlobalKey<FormState>();
-  final _taxController = TextEditingController();
-  final _serviceController = TextEditingController();
+  final _storeNameController = TextEditingController();
+  final _storeAddressController = TextEditingController();
 
   String? _currentSettingsId;
-  String _currentStoreName = 'FlowPOS';
-  String _currentStoreAddress = 'No Address';
+  double _currentTaxPercentage = 0;
+  double _currentServiceChargePercentage = 0;
   bool _didInitializeForm = false;
 
   @override
@@ -33,8 +36,8 @@ class _OwnerStoreSettingsPageState extends State<OwnerStoreSettingsPage> {
 
   @override
   void dispose() {
-    _taxController.dispose();
-    _serviceController.dispose();
+    _storeNameController.dispose();
+    _storeAddressController.dispose();
     super.dispose();
   }
 
@@ -43,7 +46,7 @@ class _OwnerStoreSettingsPageState extends State<OwnerStoreSettingsPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Tax & Service Charge',
+          'Store Profile',
           style: Theme.of(
             context,
           ).textTheme.titleLarge?.copyWith(color: AppPallete.onPrimary),
@@ -56,7 +59,7 @@ class _OwnerStoreSettingsPageState extends State<OwnerStoreSettingsPage> {
           }
 
           if (state is StoreSettingsUpdated) {
-            showSnackbar(context, 'Store settings updated successfully');
+            showSnackbar(context, 'Store profile updated successfully');
           }
 
           if (state is StoreSettingsLoaded || state is StoreSettingsUpdated) {
@@ -65,14 +68,12 @@ class _OwnerStoreSettingsPageState extends State<OwnerStoreSettingsPage> {
                 : (state as StoreSettingsUpdated).storeSettings;
 
             _currentSettingsId = settings.id.isEmpty ? null : settings.id;
-            _currentStoreName = settings.storeName;
-            _currentStoreAddress = settings.storeAddress;
+            _currentTaxPercentage = settings.taxPercentage;
+            _currentServiceChargePercentage = settings.serviceChargePercentage;
 
             if (!_didInitializeForm) {
-              _taxController.text = _formatInitial(settings.taxPercentage);
-              _serviceController.text = _formatInitial(
-                settings.serviceChargePercentage,
-              );
+              _storeNameController.text = settings.storeName;
+              _storeAddressController.text = settings.storeAddress;
               _didInitializeForm = true;
             }
           }
@@ -100,49 +101,41 @@ class _OwnerStoreSettingsPageState extends State<OwnerStoreSettingsPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Set percentage values used on cashier checkout.',
+                          'Set restaurant information shown in your business profile.',
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(color: AppPallete.textPrimary),
                         ),
                         const SizedBox(height: 16),
                         TextFormField(
-                          controller: _taxController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          inputFormatters: [
-                            FilteringTextInputFormatter.allow(
-                              RegExp(r'^\d{0,3}(\.\d{0,2})?$'),
-                            ),
-                          ],
+                          controller: _storeNameController,
                           style: Theme.of(context).textTheme.bodyLarge
                               ?.copyWith(color: AppPallete.textPrimary),
+                          inputFormatters: [
+                            LengthLimitingTextInputFormatter(25),
+                          ],
                           decoration: const InputDecoration(
-                            labelText: 'Tax Percentage',
-                            hintText: 'Example: 11.00',
-                            suffixText: '%',
+                            labelText: 'Restaurant Name',
+                            hintText: 'Example: FlowPOS Cafe',
+                            counterText: '',
                           ),
-                          validator: _validatePercentage,
+                          validator: _validateStoreName,
                         ),
                         const SizedBox(height: 14),
                         TextFormField(
-                          controller: _serviceController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
+                          controller: _storeAddressController,
+                          maxLines: 3,
+                          minLines: 2,
                           style: Theme.of(context).textTheme.bodyLarge
                               ?.copyWith(color: AppPallete.textPrimary),
                           inputFormatters: [
-                            FilteringTextInputFormatter.allow(
-                              RegExp(r'^\d{0,3}(\.\d{0,2})?$'),
-                            ),
+                            LengthLimitingTextInputFormatter(100),
                           ],
                           decoration: const InputDecoration(
-                            labelText: 'Service Charge Percentage',
-                            hintText: 'Example: 5.00',
-                            suffixText: '%',
+                            labelText: 'Store Address',
+                            hintText: 'Example: Jl. Merdeka No. 10, Jakarta',
+                            counterText: '',
                           ),
-                          validator: _validatePercentage,
+                          validator: _validateStoreAddress,
                         ),
                       ],
                     ),
@@ -166,7 +159,7 @@ class _OwnerStoreSettingsPageState extends State<OwnerStoreSettingsPage> {
                                 color: AppPallete.onPrimary,
                               ),
                             )
-                          : const Text('Save Settings'),
+                          : const Text('Save Profile'),
                     ),
                   ),
                 ],
@@ -178,18 +171,25 @@ class _OwnerStoreSettingsPageState extends State<OwnerStoreSettingsPage> {
     );
   }
 
-  String? _validatePercentage(String? value) {
+  String? _validateStoreName(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return 'Value is required';
+      return 'Restaurant name is required';
     }
 
-    final parsed = double.tryParse(value.trim());
-    if (parsed == null) {
-      return 'Invalid number';
+    if (value.trim().length > 25) {
+      return 'Maximum 25 characters';
     }
 
-    if (parsed < 0 || parsed > 100) {
-      return 'Value must be between 0 and 100';
+    return null;
+  }
+
+  String? _validateStoreAddress(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Store address is required';
+    }
+
+    if (value.trim().length > 100) {
+      return 'Maximum 100 characters';
     }
 
     return null;
@@ -200,25 +200,14 @@ class _OwnerStoreSettingsPageState extends State<OwnerStoreSettingsPage> {
       return;
     }
 
-    final tax = double.parse(_taxController.text.trim());
-    final service = double.parse(_serviceController.text.trim());
-
     context.read<StoreSettingsBloc>().add(
       UpdateStoreSettingsEvent(
         id: _currentSettingsId,
-        taxPercentage: tax,
-        serviceChargePercentage: service,
-        storeName: _currentStoreName,
-        storeAddress: _currentStoreAddress,
+        taxPercentage: _currentTaxPercentage,
+        serviceChargePercentage: _currentServiceChargePercentage,
+        storeName: _storeNameController.text.trim(),
+        storeAddress: _storeAddressController.text.trim(),
       ),
     );
-  }
-
-  String _formatInitial(double value) {
-    if (value == value.truncateToDouble()) {
-      return value.toStringAsFixed(0);
-    }
-
-    return value.toStringAsFixed(2);
   }
 }
