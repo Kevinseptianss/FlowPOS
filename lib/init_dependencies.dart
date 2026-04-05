@@ -1,5 +1,6 @@
 import 'package:flow_pos/core/common/bloc/user_bloc.dart';
 import 'package:flow_pos/core/services/cashier_shift_local_service.dart';
+import 'package:flow_pos/core/services/thermal_receipt_printer_service.dart';
 import 'package:flow_pos/core/secrets/app_secrets.dart';
 import 'package:flow_pos/features/auth/data/datasources/auth_remote_data_source.dart';
 import 'package:flow_pos/features/auth/data/repositories/auth_repository_impl.dart';
@@ -48,7 +49,6 @@ import 'package:flow_pos/features/store_settings/domain/usecases/get_store_setti
 import 'package:flow_pos/features/store_settings/domain/usecases/update_store_settings.dart';
 import 'package:flow_pos/features/store_settings/presentation/bloc/store_settings_bloc.dart';
 import 'package:get_it/get_it.dart';
-import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 

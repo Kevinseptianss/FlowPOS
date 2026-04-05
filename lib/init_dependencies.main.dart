@@ -20,6 +20,9 @@ Future<void> initDependencies() async {
   serviceLocator.registerLazySingleton(
     () => CashierShiftLocalService(serviceLocator()),
   );
+  serviceLocator.registerLazySingleton<ThermalReceiptPrinterService>(
+    () => ThermalReceiptPrinterServiceImpl(),
+  );
 
   final supabase = await Supabase.initialize(
     url: AppSecrets.supabaseURL,
