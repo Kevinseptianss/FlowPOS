@@ -26,7 +26,8 @@ class _OwnerStoreProfileSettingsPageState
   String? _currentSettingsId;
   double _currentTaxPercentage = 0;
   double _currentServiceChargePercentage = 0;
-  bool _didInitializeForm = false;
+  String _currentStoreName = 'FlowPOS';
+  String _currentStoreAddress = 'No Address';
 
   @override
   void initState() {
@@ -70,12 +71,8 @@ class _OwnerStoreProfileSettingsPageState
             _currentSettingsId = settings.id.isEmpty ? null : settings.id;
             _currentTaxPercentage = settings.taxPercentage;
             _currentServiceChargePercentage = settings.serviceChargePercentage;
-
-            if (!_didInitializeForm) {
-              _storeNameController.text = settings.storeName;
-              _storeAddressController.text = settings.storeAddress;
-              _didInitializeForm = true;
-            }
+            _currentStoreName = settings.storeName;
+            _currentStoreAddress = settings.storeAddress;
           }
         },
         builder: (context, state) {
@@ -101,7 +98,42 @@ class _OwnerStoreProfileSettingsPageState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Set restaurant information shown in your business profile.',
+                          'Current Profile',
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(
+                                color: AppPallete.textPrimary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Name: $_currentStoreName',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: AppPallete.textPrimary),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Address: $_currentStoreAddress',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: AppPallete.textPrimary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppPallete.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppPallete.divider),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Only fill fields you want to update.',
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(color: AppPallete.textPrimary),
                         ),
@@ -172,11 +204,13 @@ class _OwnerStoreProfileSettingsPageState
   }
 
   String? _validateStoreName(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Restaurant name is required';
+    final trimmedValue = value?.trim() ?? '';
+
+    if (trimmedValue.isEmpty) {
+      return null;
     }
 
-    if (value.trim().length > 25) {
+    if (trimmedValue.length > 25) {
       return 'Maximum 25 characters';
     }
 
@@ -184,11 +218,13 @@ class _OwnerStoreProfileSettingsPageState
   }
 
   String? _validateStoreAddress(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Store address is required';
+    final trimmedValue = value?.trim() ?? '';
+
+    if (trimmedValue.isEmpty) {
+      return null;
     }
 
-    if (value.trim().length > 100) {
+    if (trimmedValue.length > 100) {
       return 'Maximum 100 characters';
     }
 
@@ -200,14 +236,30 @@ class _OwnerStoreProfileSettingsPageState
       return;
     }
 
+    final updatedStoreName = _storeNameController.text.trim();
+    final updatedStoreAddress = _storeAddressController.text.trim();
+
+    if (updatedStoreName.isEmpty && updatedStoreAddress.isEmpty) {
+      showSnackbar(context, 'Fill at least one field to update profile');
+      return;
+    }
+
     context.read<StoreSettingsBloc>().add(
       UpdateStoreSettingsEvent(
         id: _currentSettingsId,
         taxPercentage: _currentTaxPercentage,
         serviceChargePercentage: _currentServiceChargePercentage,
-        storeName: _storeNameController.text.trim(),
-        storeAddress: _storeAddressController.text.trim(),
+        storeName: updatedStoreName.isEmpty
+            ? _currentStoreName
+            : updatedStoreName,
+        storeAddress: updatedStoreAddress.isEmpty
+            ? _currentStoreAddress
+            : updatedStoreAddress,
       ),
     );
+
+    _storeNameController.clear();
+    _storeAddressController.clear();
+    FocusScope.of(context).unfocus();
   }
 }
