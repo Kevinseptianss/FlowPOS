@@ -4,7 +4,6 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   app_links
-  print_bluetooth_thermal
   url_launcher_windows
 )
 

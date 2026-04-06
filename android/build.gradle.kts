@@ -3,6 +3,16 @@ allprojects {
         google()
         mavenCentral()
     }
+    beforeEvaluate {
+        pluginManager.withPlugin("com.android.library") {
+            extensions.configure<com.android.build.gradle.LibraryExtension> {
+                if (namespace == null) {
+                    namespace = group.toString()
+                }
+                compileSdk = 35  // ← pastikan ini ada
+            }
+        }
+    }
 }
 
 val newBuildDir: Directory =

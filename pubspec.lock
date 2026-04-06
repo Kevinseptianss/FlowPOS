@@ -65,6 +65,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "9.2.0"
+  blue_thermal_printer:
+    dependency: "direct main"
+    description:
+      name: blue_thermal_printer
+      sha256: "2b8a93f90be335494d2172dbc869c31b95638087f89591b4ad69fd9305eaf80b"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.2.3"
   boolean_selector:
     dependency: transitive
     description:
@@ -222,14 +230,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "9.1.1"
-  flutter_bluetooth_serial:
-    dependency: "direct main"
-    description:
-      name: flutter_bluetooth_serial
-      sha256: "85ae82c4099b2b1facdc54e75e1bcfa88dc7f719e55dc886bb0b648cb16636b1"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.4.0"
   flutter_lints:
     dependency: "direct dev"
     description:
@@ -576,14 +576,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.6.0"
-  print_bluetooth_thermal:
-    dependency: "direct main"
-    description:
-      name: print_bluetooth_thermal
-      sha256: "17b204a5340174c02acf5f6caf7279b5000344f1f1e1bcd01dbdbf912bce6e46"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.1.9"
   provider:
     dependency: transitive
     description:
@@ -877,14 +869,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.3"
-  win_ble:
-    dependency: transitive
-    description:
-      name: win_ble
-      sha256: "2a867e13c4b355b101fc2c6e2ac85eeebf965db34eca46856f8b478e93b41e96"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.1.1"
   xdg_directories:
     dependency: transitive
     description:

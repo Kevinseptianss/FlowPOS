@@ -1,14 +1,13 @@
-import 'dart:async';
 import 'dart:io' show Platform;
+import 'dart:typed_data';
 
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:flow_pos/core/utils/format_rupiah.dart';
 import 'package:flow_pos/features/order/domain/entities/order_entity.dart';
 import 'package:flow_pos/features/order/domain/entities/order_item.dart';
 import 'package:flow_pos/features/store_settings/domain/entities/store_settings.dart';
-import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
+import 'package:blue_thermal_printer/blue_thermal_printer.dart';
 import 'package:intl/intl.dart';
-import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 
 class PrinterDevice {
   final String name;
@@ -64,20 +63,20 @@ abstract interface class ThermalReceiptPrinterService {
 }
 
 class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
-  final FlutterBluetoothSerial _bluetoothSerial =
-      FlutterBluetoothSerial.instance;
+  final BlueThermalPrinter _blueThermalPrinter = BlueThermalPrinter.instance;
 
   @override
   Future<List<PrinterDevice>> getPairedDevices() async {
     _ensureAndroidOnly();
     await _ensureBluetoothReady();
 
-    final devices = await _bluetoothSerial.getBondedDevices();
+    final devices = await _blueThermalPrinter.getBondedDevices();
     return devices
+        .where((device) => (device.address ?? '').trim().isNotEmpty)
         .map(
           (device) => PrinterDevice(
             name: (device.name ?? '').trim(),
-            macAddress: device.address,
+            macAddress: (device.address ?? '').trim(),
             isPaired: true,
           ),
         )
@@ -88,85 +87,39 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
   Future<List<PrinterDevice>> discoverNearbyDevices({
     Duration timeout = const Duration(seconds: 8),
   }) async {
-    _ensureAndroidOnly();
-    await _ensureBluetoothReady();
-
-    final bondedDevices = await getPairedDevices();
-    final byAddress = <String, PrinterDevice>{
-      for (final device in bondedDevices) device.macAddress: device,
-    };
-
-    final stream = _bluetoothSerial.startDiscovery();
-    final completer = Completer<void>();
-
-    late final StreamSubscription<BluetoothDiscoveryResult> subscription;
-    subscription = stream.listen(
-      (result) {
-        final name = (result.device.name ?? '').trim();
-        byAddress[result.device.address] = PrinterDevice(
-          name: name,
-          macAddress: result.device.address,
-          isPaired: byAddress[result.device.address]?.isPaired ?? false,
-        );
-      },
-      onError: (_) {
-        if (!completer.isCompleted) {
-          completer.complete();
-        }
-      },
-      onDone: () {
-        if (!completer.isCompleted) {
-          completer.complete();
-        }
-      },
-      cancelOnError: false,
-    );
-
-    Timer? timeoutTimer;
-    timeoutTimer = Timer(timeout, () {
-      if (!completer.isCompleted) {
-        completer.complete();
-      }
-    });
-
-    await completer.future;
-    timeoutTimer.cancel();
-    await subscription.cancel();
-
-    final devices = byAddress.values.toList(growable: false)
-      ..sort((a, b) {
-        if (a.isPaired != b.isPaired) {
-          return a.isPaired ? -1 : 1;
-        }
-
-        final aName = a.name.isEmpty ? a.macAddress : a.name;
-        final bName = b.name.isEmpty ? b.macAddress : b.name;
-        return aName.toLowerCase().compareTo(bName.toLowerCase());
-      });
-
-    return devices;
+    // `blue_thermal_printer` exposes bonded devices only.
+    return getPairedDevices();
   }
 
   @override
   Future<bool> pairDevice({required String macAddress}) async {
-    _ensureAndroidOnly();
-    await _ensureBluetoothReady();
-
-    final paired = await _bluetoothSerial.bondDeviceAtAddress(macAddress);
-    return paired ?? false;
+    return false;
   }
 
   @override
-  Future<bool> get isConnected => PrintBluetoothThermal.connectionStatus;
+  Future<bool> get isConnected async {
+    final connected = await _blueThermalPrinter.isConnected;
+    return connected ?? false;
+  }
 
   @override
   Future<void> connect({required String macAddress}) async {
     _ensureAndroidOnly();
     await _ensureBluetoothReady();
-    final connected = await PrintBluetoothThermal.connect(
-      macPrinterAddress: macAddress,
-    );
 
+    final devices = await _blueThermalPrinter.getBondedDevices();
+    final target = devices
+        .where((device) => device.address == macAddress)
+        .cast<BluetoothDevice?>()
+        .firstWhere((device) => device != null, orElse: () => null);
+
+    if (target == null) {
+      throw Exception('Selected printer is not paired in system Bluetooth.');
+    }
+
+    await _blueThermalPrinter.connect(target);
+
+    final connected = await isConnected;
     if (!connected) {
       throw Exception('Failed to connect printer.');
     }
@@ -188,10 +141,7 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
       cashierName: cashierName,
     );
 
-    final printed = await PrintBluetoothThermal.writeBytes(bytes);
-    if (!printed) {
-      throw Exception('Failed to send print data.');
-    }
+    await _blueThermalPrinter.writeBytes(Uint8List.fromList(bytes));
   }
 
   @override
@@ -212,11 +162,7 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
       cashierName: cashierName,
     );
 
-    final printed = await PrintBluetoothThermal.writeBytes(bytes);
-
-    if (!printed) {
-      throw Exception('Failed to send print data.');
-    }
+    await _blueThermalPrinter.writeBytes(Uint8List.fromList(bytes));
   }
 
   @override
@@ -255,28 +201,12 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
       soldProducts: soldProducts,
     );
 
-    final printed = await PrintBluetoothThermal.writeBytes(bytes);
-    if (!printed) {
-      throw Exception('Failed to send print data.');
-    }
+    await _blueThermalPrinter.writeBytes(Uint8List.fromList(bytes));
   }
 
   Future<void> _ensureBluetoothReady() async {
-    final hasPermission =
-        await PrintBluetoothThermal.isPermissionBluetoothGranted;
-
-    if (!hasPermission) {
-      throw Exception('Bluetooth permission is not granted.');
-    }
-
-    final enabled = await PrintBluetoothThermal.bluetoothEnabled;
-
+    final enabled = await _blueThermalPrinter.isOn ?? false;
     if (!enabled) {
-      throw Exception('Bluetooth is turned off. Please enable it first.');
-    }
-
-    final serialEnabled = await _bluetoothSerial.isEnabled ?? false;
-    if (!serialEnabled) {
       throw Exception('Bluetooth is turned off. Please enable it first.');
     }
   }
