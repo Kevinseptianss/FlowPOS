@@ -638,14 +638,14 @@ class _BluetoothDeviceSearchSheetState
         return;
       }
 
-      if (state == BluetoothState.notPermitted) {
-        setState(() {
-          _isLoading = false;
-          _statusMessage =
-              'Bluetooth tidak diizinkan. Aktifkan Nearby devices di App Settings.';
-        });
-        return;
-      }
+      // if (state == BluetoothState.notPermitted) {
+      //   setState(() {
+      //     _isLoading = false;
+      //     _statusMessage =
+      //         'Bluetooth tidak diizinkan. Aktifkan Nearby devices di App Settings.';
+      //   });
+      //   return;
+      // }
 
       if (state != BluetoothState.enabled) {
         setState(() {
