@@ -600,6 +600,7 @@ class _BluetoothDeviceSearchSheetState
         Permission.bluetoothScan,
         Permission.bluetoothConnect,
         Permission.locationWhenInUse,
+        Permission.location,
       ].request();
 
       if (!mounted) {
