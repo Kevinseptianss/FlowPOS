@@ -60,4 +60,20 @@
             <data android:mimeType="text/plain"/>
         </intent>
     </queries>
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT"/>
+            <data android:mimeType="text/plain"/>
+        </intent>
+
+        <package android:name="ru.a402d.rawbtprinter" />
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="rawbt" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="intent" />
+        </intent>
+    </queries>
 </manifest>
