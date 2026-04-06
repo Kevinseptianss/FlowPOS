@@ -409,6 +409,7 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
       Permission.bluetoothScan,
       Permission.bluetoothConnect,
       Permission.locationWhenInUse,
+      Permission.location,
     ].request();
 
     final denied = statuses.values.any(
@@ -628,6 +629,8 @@ class _BluetoothDeviceSearchSheetState
         });
         return;
       }
+
+      await Future<void>.delayed(const Duration(milliseconds: 500));
 
       final state = await FlutterBluetoothPrinter.getState();
       if (!mounted) {
