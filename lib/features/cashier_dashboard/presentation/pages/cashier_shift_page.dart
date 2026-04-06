@@ -250,7 +250,12 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
         }
       }
 
+      if (!mounted) {
+        return;
+      }
+
       await _printerService.printShiftCloseReport(
+        context: context,
         storeSettings: _resolveStoreSettings(),
         cashierName: user.name,
         openedAt: shift.openedAt,
@@ -301,20 +306,9 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
     setState(() => _isConnectingPrinter = true);
 
     try {
-      // Langsung ambil paired devices, tidak perlu scan
-      final devices = await _printerService.getPairedDevices();
-
-      if (devices.isEmpty) {
-        throw Exception(
-          'Tidak ada printer yang terpasang. '
-          'Pastikan RPP02N sudah berstatus "Perangkat Terpasang" '
-          'di Settings Bluetooth Android.',
-        );
-      }
-
-      if (!mounted) return false;
-
-      final selectedDevice = await _pickPrinterDevice(devices);
+      final selectedDevice = await _printerService.selectDevice(
+        context: context,
+      );
       if (selectedDevice == null) return false;
 
       await _printerService.connect(macAddress: selectedDevice.macAddress);
@@ -372,7 +366,12 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
         }
       }
 
+      if (!mounted) {
+        return;
+      }
+
       await _printerService.printTestReceipt(
+        context: context,
         storeSettings: _resolveStoreSettings(),
         cashierName: user.name,
       );
@@ -412,56 +411,6 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
     }
 
     return const StoreSettings.zero();
-  }
-
-  Future<PrinterDevice?> _pickPrinterDevice(List<PrinterDevice> devices) {
-    return showModalBottomSheet<PrinterDevice>(
-      context: context,
-      showDragHandle: true,
-      backgroundColor: AppPallete.surface,
-      builder: (modalContext) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: Text(
-                  'Pilih Printer Bluetooth',
-                  style: Theme.of(modalContext).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: AppPallete.textPrimary,
-                  ),
-                ),
-              ),
-              Flexible(
-                child: ListView(
-                  shrinkWrap: true,
-                  children: devices
-                      .map(
-                        (device) => ListTile(
-                          leading: const Icon(Icons.print_rounded),
-                          title: Text(
-                            device.name.isEmpty
-                                ? 'Unknown Printer'
-                                : device.name,
-                          ),
-                          subtitle: Text(device.macAddress),
-                          trailing: const Icon(
-                            Icons.check_circle_rounded,
-                            color: Colors.green,
-                          ),
-                          onTap: () => Navigator.pop(modalContext, device),
-                        ),
-                      )
-                      .toList(),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
   }
 
   @override

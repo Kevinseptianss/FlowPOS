@@ -28,28 +28,26 @@ class CashierOrderDetailPage extends StatelessWidget {
 
     try {
       final connected = await printerService.isConnected;
+      if (!context.mounted) {
+        return;
+      }
+
       if (!connected) {
-        final devices = await printerService.getPairedDevices();
-
-        if (devices.isEmpty) {
-          throw Exception(
-            'No paired printer found. Please pair your printer first.',
-          );
-        }
-
-        if (!context.mounted) {
-          return;
-        }
-
-        final selectedDevice = await _pickPrinterDevice(context, devices);
+        final selectedDevice = await printerService.selectDevice(
+          context: context,
+        );
         if (selectedDevice == null) {
           return;
         }
 
         await printerService.connect(macAddress: selectedDevice.macAddress);
+        if (!context.mounted) {
+          return;
+        }
       }
 
       await printerService.printOrderReceipt(
+        context: context,
         order: order,
         storeSettings: storeSettings,
         cashierName: cashierName,
@@ -94,55 +92,6 @@ class CashierOrderDetailPage extends StatelessWidget {
     }
 
     return 'Cashier';
-  }
-
-  Future<PrinterDevice?> _pickPrinterDevice(
-    BuildContext context,
-    List<PrinterDevice> devices,
-  ) {
-    return showModalBottomSheet<PrinterDevice>(
-      context: context,
-      showDragHandle: true,
-      backgroundColor: AppPallete.surface,
-      builder: (modalContext) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: Text(
-                  'Select Printer',
-                  style: Theme.of(modalContext).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: AppPallete.textPrimary,
-                  ),
-                ),
-              ),
-              Flexible(
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: devices.length,
-                  separatorBuilder: (_, index) => const Divider(height: 1),
-                  itemBuilder: (_, index) {
-                    final device = devices[index];
-
-                    return ListTile(
-                      leading: const Icon(Icons.print_rounded),
-                      title: Text(
-                        device.name.isEmpty ? 'Unknown Printer' : device.name,
-                      ),
-                      subtitle: Text(device.macAddress),
-                      onTap: () => Navigator.pop(modalContext, device),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
   }
 
   @override
