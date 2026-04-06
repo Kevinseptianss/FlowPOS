@@ -296,43 +296,30 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
   }
 
   Future<bool> _scanAndConnectPrinter({bool showSuccessSnackbar = true}) async {
-    if (_isConnectingPrinter) {
-      return false;
-    }
+    if (_isConnectingPrinter) return false;
 
-    setState(() {
-      _isConnectingPrinter = true;
-    });
+    setState(() => _isConnectingPrinter = true);
 
     try {
-      final devices = await _printerService.discoverNearbyDevices();
+      // Langsung ambil paired devices, tidak perlu scan
+      final devices = await _printerService.getPairedDevices();
+
       if (devices.isEmpty) {
-        throw Exception('No nearby printer found. Please try scanning again.');
+        throw Exception(
+          'Tidak ada printer yang terpasang. '
+          'Pastikan RPP02N sudah berstatus "Perangkat Terpasang" '
+          'di Settings Bluetooth Android.',
+        );
       }
 
-      if (!mounted) {
-        return false;
-      }
+      if (!mounted) return false;
 
       final selectedDevice = await _pickPrinterDevice(devices);
-      if (selectedDevice == null) {
-        return false;
-      }
-
-      if (!selectedDevice.isPaired) {
-        final paired = await _printerService.pairDevice(
-          macAddress: selectedDevice.macAddress,
-        );
-        if (!paired) {
-          throw Exception('Failed to pair with selected printer.');
-        }
-      }
+      if (selectedDevice == null) return false;
 
       await _printerService.connect(macAddress: selectedDevice.macAddress);
 
-      if (!mounted) {
-        return false;
-      }
+      if (!mounted) return false;
 
       setState(() {
         _selectedPrinterDevice = selectedDevice;
@@ -341,37 +328,27 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
 
       await _saveSelectedPrinter(selectedDevice);
 
-      if (!mounted) {
-        return false;
-      }
+      if (!mounted) return false;
 
       if (showSuccessSnackbar) {
         showSnackbar(
           context,
-          'Connected to ${selectedDevice.name.isEmpty ? selectedDevice.macAddress : selectedDevice.name} (${selectedDevice.macAddress}).',
+          'Terhubung ke ${selectedDevice.name.isEmpty ? selectedDevice.macAddress : selectedDevice.name}.',
         );
       }
 
       return true;
     } catch (error) {
-      if (!mounted) {
-        return false;
-      }
+      if (!mounted) return false;
 
       final message = error is Exception
           ? error.toString().replaceFirst('Exception: ', '')
-          : 'Failed to connect printer.';
+          : 'Gagal menghubungkan printer.';
       showSnackbar(context, message);
-      setState(() {
-        _isPrinterConnected = false;
-      });
+      setState(() => _isPrinterConnected = false);
       return false;
     } finally {
-      if (mounted) {
-        setState(() {
-          _isConnectingPrinter = false;
-        });
-      }
+      if (mounted) setState(() => _isConnectingPrinter = false);
     }
   }
 
@@ -438,11 +415,6 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
   }
 
   Future<PrinterDevice?> _pickPrinterDevice(List<PrinterDevice> devices) {
-    final pairedDevices = devices.where((device) => device.isPaired).toList();
-    final availableDevices = devices
-        .where((device) => !device.isPaired)
-        .toList();
-
     return showModalBottomSheet<PrinterDevice>(
       context: context,
       showDragHandle: true,
@@ -455,7 +427,7 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                 child: Text(
-                  'Select Bluetooth Printer',
+                  'Pilih Printer Bluetooth',
                   style: Theme.of(modalContext).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                     color: AppPallete.textPrimary,
@@ -465,10 +437,8 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
               Flexible(
                 child: ListView(
                   shrinkWrap: true,
-                  children: [
-                    if (pairedDevices.isNotEmpty) ...[
-                      _DeviceSectionLabel(title: 'Paired'),
-                      ...pairedDevices.map(
+                  children: devices
+                      .map(
                         (device) => ListTile(
                           leading: const Icon(Icons.print_rounded),
                           title: Text(
@@ -477,30 +447,14 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
                                 : device.name,
                           ),
                           subtitle: Text(device.macAddress),
-                          trailing: const Icon(Icons.check_circle_rounded),
+                          trailing: const Icon(
+                            Icons.check_circle_rounded,
+                            color: Colors.green,
+                          ),
                           onTap: () => Navigator.pop(modalContext, device),
                         ),
-                      ),
-                    ],
-                    if (availableDevices.isNotEmpty) ...[
-                      _DeviceSectionLabel(title: 'Available'),
-                      ...availableDevices.map(
-                        (device) => ListTile(
-                          leading: const Icon(
-                            Icons.bluetooth_searching_rounded,
-                          ),
-                          title: Text(
-                            device.name.isEmpty
-                                ? 'Unknown Device'
-                                : device.name,
-                          ),
-                          subtitle: Text(device.macAddress),
-                          trailing: const Text('Tap to Pair'),
-                          onTap: () => Navigator.pop(modalContext, device),
-                        ),
-                      ),
-                    ],
-                  ],
+                      )
+                      .toList(),
                 ),
               ),
             ],
@@ -734,8 +688,8 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
                                       ),
                                 label: Text(
                                   _isConnectingPrinter
-                                      ? 'Scanning Bluetooth...'
-                                      : 'Scan & Connect Bluetooth Printer',
+                                      ? 'Memuat daftar printer...'
+                                      : 'Pilih & Hubungkan Printer',
                                 ),
                                 style: OutlinedButton.styleFrom(
                                   minimumSize: const Size.fromHeight(46),
@@ -1073,27 +1027,27 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
-class _DeviceSectionLabel extends StatelessWidget {
-  final String title;
+// class _DeviceSectionLabel extends StatelessWidget {
+//   final String title;
 
-  const _DeviceSectionLabel({required this.title});
+//   const _DeviceSectionLabel({required this.title});
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      color: AppPallete.surface,
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-      child: Text(
-        title,
-        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-          color: AppPallete.primary,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
+//   @override
+//   Widget build(BuildContext context) {
+//     return Container(
+//       width: double.infinity,
+//       color: AppPallete.surface,
+//       padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+//       child: Text(
+//         title,
+//         style: Theme.of(context).textTheme.labelLarge?.copyWith(
+//           color: AppPallete.primary,
+//           fontWeight: FontWeight.w700,
+//         ),
+//       ),
+//     );
+//   }
+// }
 
 String _extractInitials(String name) {
   final parts = name.trim().split(RegExp(r'\s+'));
