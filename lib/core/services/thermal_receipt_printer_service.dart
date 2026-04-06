@@ -289,37 +289,30 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
       throw Exception('Printer is not connected.');
     }
 
-    final intentUri = _buildIntentUri(content);
     final rawTextUri = _buildRawTextUri(content);
     final rawBase64Uri = _buildRawBase64Uri(content);
 
-    if (await launchUrl(intentUri, mode: LaunchMode.externalApplication)) {
-      return;
-    }
+    try {
+      if (await launchUrl(rawBase64Uri, mode: LaunchMode.externalApplication)) {
+        return;
+      }
+    } catch (_) {}
 
-    if (await launchUrl(rawBase64Uri, mode: LaunchMode.externalApplication)) {
-      return;
-    }
-
-    if (await launchUrl(rawTextUri, mode: LaunchMode.externalApplication)) {
-      return;
-    }
+    try {
+      if (await launchUrl(rawTextUri, mode: LaunchMode.externalApplication)) {
+        return;
+      }
+    } catch (_) {}
 
     final marketUri = Uri.parse('market://details?id=$_rawBtPackageId');
-    if (await canLaunchUrl(marketUri)) {
-      await launchUrl(marketUri, mode: LaunchMode.externalApplication);
-    }
+    try {
+      if (await launchUrl(marketUri, mode: LaunchMode.externalApplication)) {
+        return;
+      }
+    } catch (_) {}
 
     throw Exception(
       'RawBT app is not available. Install RawBT first and set it as default print service.',
-    );
-  }
-
-  Uri _buildIntentUri(String content) {
-    final encoded = Uri.encodeComponent(content);
-
-    return Uri.parse(
-      'intent:$encoded#Intent;scheme=rawbt;package=$_rawBtPackageId;end',
     );
   }
 
