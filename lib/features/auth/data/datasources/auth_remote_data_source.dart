@@ -1,5 +1,6 @@
 import 'package:flow_pos/core/error/server_exception.dart';
 import 'package:flow_pos/features/auth/data/models/user_model.dart';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 abstract interface class AuthRemoteDataSource {
@@ -71,29 +72,48 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
   Future<UserModel> _resolveUserData(User authUser) async {
     final metadata = authUser.userMetadata ?? const <String, dynamic>{};
+    dynamic profile;
 
     try {
-      final profile = await supabaseClient
+      debugPrint('Fetching profile for User ID: ${authUser.id}');
+      profile = await supabaseClient
           .from('profiles')
           .select()
           .eq('id', authUser.id)
           .maybeSingle();
 
       if (profile != null) {
+        debugPrint('Found DB Profile: $profile');
         return UserModel.fromJson(profile).copyWith(
           email: authUser.email,
           name: profile['name']?.toString() ?? metadata['name']?.toString(),
           role: profile['role']?.toString() ?? metadata['role']?.toString(),
         );
+      } else {
+        debugPrint('No profile row found for ID: ${authUser.id}');
       }
-    } catch (_) {
-      // Fallback to auth payload when profile is not yet available.
+    } on PostgrestException catch (e) {
+      debugPrint('Database Error fetching profile: ${e.message}');
+      if (e.code != 'PGRST116') {
+        throw ServerException('Database Error: ${e.message}');
+      }
+    } catch (e) {
+      debugPrint('System Error fetching profile: $e');
+      throw ServerException('System Error: $e');
     }
+
+    final name = (profile != null ? profile['name']?.toString() : null) ??
+        metadata['name']?.toString() ??
+        'User';
+
+    final role = (profile != null ? profile['role']?.toString() : null) ??
+        metadata['role']?.toString() ??
+        'cashier';
 
     return UserModel.fromJson(authUser.toJson()).copyWith(
       email: authUser.email,
-      name: metadata['name']?.toString(),
-      role: metadata['role']?.toString(),
+      name: name,
+      role: role,
     );
   }
 
@@ -101,19 +121,29 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   Future<UserModel?> getCurrentUserData() async {
     try {
       if (currentUserSession != null) {
-        final user = await supabaseClient
+        final profile = await supabaseClient
             .from('profiles')
             .select()
-            .eq('id', currentUserSession!.user.id);
+            .eq('id', currentUserSession!.user.id)
+            .maybeSingle();
 
-        return UserModel.fromJson(
-          user.first,
-        ).copyWith(email: currentUserSession!.user.email);
+        if (profile != null) {
+          return UserModel.fromJson(profile).copyWith(
+            email: currentUserSession!.user.email,
+          );
+        }
+
+        // Fallback: If profile row is missing, use session data temporarily
+        return UserModel.fromJson(currentUserSession!.user.toJson()).copyWith(
+          email: currentUserSession!.user.email,
+          name: currentUserSession!.user.userMetadata?['name']?.toString(),
+          role: currentUserSession!.user.userMetadata?['role']?.toString(),
+        );
       }
 
       return null;
     } catch (e) {
-      throw ServerException(e.toString());
+      throw ServerException('Failed to fetch user data: $e');
     }
   }
 

@@ -512,6 +512,75 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
                     ),
                     const SizedBox(height: 14),
                     _SectionCard(
+                      title: 'Printing Settings',
+                      child: Column(
+                        children: [
+                          _InfoRow(
+                            icon: Icons.bluetooth_connected_rounded,
+                            label: 'Bluetooth Printer',
+                            value: _selectedPrinterDevice == null
+                                ? 'Not Connected'
+                                : '${_selectedPrinterDevice!.name.isEmpty ? 'Unknown Printer' : _selectedPrinterDevice!.name} (${_selectedPrinterDevice!.macAddress})',
+                            valueColor: _selectedPrinterDevice == null
+                                ? AppPallete.warning
+                                : (_isPrinterConnected
+                                      ? AppPallete.success
+                                      : AppPallete.warning),
+                          ),
+                          const SizedBox(height: 10),
+                          OutlinedButton.icon(
+                            onPressed: _isConnectingPrinter
+                                ? null
+                                : () => _scanAndConnectPrinter(),
+                            icon: _isConnectingPrinter
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.bluetooth_searching_rounded,
+                                  ),
+                            label: Text(
+                              _isConnectingPrinter
+                                  ? 'Memuat daftar printer...'
+                                  : 'Pilih & Hubungkan Printer',
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size.fromHeight(46),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          if (_selectedPrinterDevice != null)
+                             OutlinedButton.icon(
+                              onPressed: _isPrintingTestReceipt
+                                  ? null
+                                  : () => _printTestReceipt(user: user),
+                              icon: _isPrintingTestReceipt
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.receipt_rounded),
+                              label: Text(
+                                _isPrintingTestReceipt
+                                    ? 'Printing Test...'
+                                    : 'Test Print',
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size.fromHeight(46),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _SectionCard(
                       title: 'Last Closed Shift (Database)',
                       trailing: IconButton(
                         onPressed: () => _refreshLatestClosedShift(user.id),
@@ -549,18 +618,6 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
 
                           return Column(
                             children: [
-                              _InfoRow(
-                                icon: Icons.bluetooth_connected_rounded,
-                                label: 'Bluetooth Printer',
-                                value: _selectedPrinterDevice == null
-                                    ? 'Not Connected'
-                                    : '${_selectedPrinterDevice!.name.isEmpty ? 'Unknown Printer' : _selectedPrinterDevice!.name} (${_selectedPrinterDevice!.macAddress})',
-                                valueColor: _selectedPrinterDevice == null
-                                    ? AppPallete.warning
-                                    : (_isPrinterConnected
-                                          ? AppPallete.success
-                                          : AppPallete.warning),
-                              ),
                               _InfoRow(
                                 icon: Icons.login_rounded,
                                 label: 'Waktu Buka',
@@ -620,54 +677,6 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
                                 value: '${closedShift.totalTransactions}',
                               ),
                               const SizedBox(height: 10),
-                              OutlinedButton.icon(
-                                onPressed: _isConnectingPrinter
-                                    ? null
-                                    : () => _scanAndConnectPrinter(),
-                                icon: _isConnectingPrinter
-                                    ? const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : const Icon(
-                                        Icons.bluetooth_searching_rounded,
-                                      ),
-                                label: Text(
-                                  _isConnectingPrinter
-                                      ? 'Memuat daftar printer...'
-                                      : 'Pilih & Hubungkan Printer',
-                                ),
-                                style: OutlinedButton.styleFrom(
-                                  minimumSize: const Size.fromHeight(46),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              OutlinedButton.icon(
-                                onPressed: _isPrintingTestReceipt
-                                    ? null
-                                    : () => _printTestReceipt(user: user),
-                                icon: _isPrintingTestReceipt
-                                    ? const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : const Icon(Icons.receipt_rounded),
-                                label: Text(
-                                  _isPrintingTestReceipt
-                                      ? 'Printing Test...'
-                                      : 'Test Print',
-                                ),
-                                style: OutlinedButton.styleFrom(
-                                  minimumSize: const Size.fromHeight(46),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
                               FilledButton.icon(
                                 onPressed: _isPrintingShiftReport
                                     ? null

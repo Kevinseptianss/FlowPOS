@@ -1,13 +1,14 @@
-import 'dart:convert';
 import 'dart:io' show Platform;
+import 'dart:typed_data';
 
+import 'package:blue_thermal_printer/blue_thermal_printer.dart';
+import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:flow_pos/core/utils/format_rupiah.dart';
 import 'package:flow_pos/features/order/domain/entities/order_entity.dart';
-import 'package:flow_pos/features/order/domain/entities/order_item.dart';
 import 'package:flow_pos/features/store_settings/domain/entities/store_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class PrinterDevice {
   final String name;
@@ -37,6 +38,7 @@ abstract interface class ThermalReceiptPrinterService {
   Future<bool> pairDevice({required String macAddress});
   Future<bool> get isConnected;
   Future<void> connect({required String macAddress});
+  Future<void> disconnect();
   Future<void> printTestReceipt({
     required BuildContext context,
     required StoreSettings storeSettings,
@@ -67,62 +69,124 @@ abstract interface class ThermalReceiptPrinterService {
 }
 
 class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
-  static const String _rawBtPackageId = 'ru.a402d.rawbtprinter';
-  static const String _rawBtVirtualAddress = 'rawbt://service';
-  static const int _lineWidth = 32;
-
-  PrinterDevice? _selectedDevice;
+  final BlueThermalPrinter _bluetooth = BlueThermalPrinter.instance;
 
   @override
   Future<PrinterDevice?> selectDevice({required BuildContext context}) async {
     _ensureAndroidOnly();
 
-    return const PrinterDevice(
-      name: 'RawBT',
-      macAddress: _rawBtVirtualAddress,
-      isPaired: true,
+    final hasPermission = await _requestPermissions();
+    if (!hasPermission) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Izin Bluetooth diperlukan untuk mencari printer.')),
+        );
+      }
+      return null;
+    }
+
+    final List<BluetoothDevice> pairedDevices = await _bluetooth.getBondedDevices();
+    final devices = pairedDevices
+        .map(
+          (d) => PrinterDevice(
+            name: d.name ?? 'Unknown',
+            macAddress: d.address ?? '',
+            isPaired: true,
+          ),
+        )
+        .toList();
+
+    if (!context.mounted) return null;
+
+    final result = await showDialog<PrinterDevice>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Pilih Printer Bluetooth'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: devices.isEmpty
+                ? const Text('Tidak ada printer berpasangan ditemukan.')
+                : ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: devices.length,
+                    itemBuilder: (context, index) {
+                      final device = devices[index];
+                      return ListTile(
+                        leading: const Icon(Icons.print_rounded),
+                        title: Text(device.name),
+                        subtitle: Text(device.macAddress),
+                        onTap: () => Navigator.pop(context, device),
+                      );
+                    },
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Batal'),
+            ),
+          ],
+        );
+      },
     );
+
+    return result;
   }
 
   @override
   Future<List<PrinterDevice>> getPairedDevices() async {
     _ensureAndroidOnly();
-
-    return const [
-      PrinterDevice(
-        name: 'RawBT',
-        macAddress: _rawBtVirtualAddress,
-        isPaired: true,
-      ),
-    ];
+    if (!await _requestPermissions()) return [];
+    final paired = await _bluetooth.getBondedDevices();
+    return paired
+        .map(
+          (d) => PrinterDevice(
+            name: d.name ?? 'Unknown',
+            macAddress: d.address ?? '',
+            isPaired: true,
+          ),
+        )
+        .toList();
   }
 
   @override
   Future<List<PrinterDevice>> discoverNearbyDevices({
     Duration timeout = const Duration(seconds: 8),
-  }) {
+  }) async {
+    if (!await _requestPermissions()) return [];
+    // blue_thermal_printer focus on paired devices usually
     return getPairedDevices();
   }
 
   @override
   Future<bool> pairDevice({required String macAddress}) async {
-    return true;
+    return true; // Use system bluetooth settings for pairing
   }
 
   @override
   Future<bool> get isConnected async {
-    return _selectedDevice != null;
+    return await _bluetooth.isConnected ?? false;
   }
 
   @override
   Future<void> connect({required String macAddress}) async {
     _ensureAndroidOnly();
+    final isConnected = await _bluetooth.isConnected ?? false;
+    if (isConnected) return;
 
-    _selectedDevice = const PrinterDevice(
-      name: 'RawBT',
-      macAddress: _rawBtVirtualAddress,
-      isPaired: true,
+    final devices = await _bluetooth.getBondedDevices();
+    final device = devices.firstWhere(
+      (d) => d.address == macAddress,
+      orElse: () => throw Exception('Printer tidak ditemukan dipasang.'),
     );
+
+    await _bluetooth.connect(device);
+  }
+
+  @override
+  Future<void> disconnect() async {
+    await _bluetooth.disconnect();
   }
 
   @override
@@ -133,22 +197,25 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
   }) async {
     final now = DateFormat('dd MMM yyyy, HH:mm').format(DateTime.now());
 
-    final receipt = <String>[
-      _center(storeSettings.storeName),
-      _center(storeSettings.storeAddress),
-      _divider('='),
-      _center('TEST PRINT'),
-      _center('Jika teks ini tercetak'),
-      _center('printer siap dipakai.'),
-      _divider(),
-      'Kasir: $cashierName',
-      'Waktu: $now',
-      _divider('='),
-      _center('FLOW POS'),
-      '',
-    ].join('\n');
+    final profile = await CapabilityProfile.load();
+    final generator = Generator(PaperSize.mm58, profile);
+    List<int> bytes = [];
 
-    await _printRawText(receipt);
+    bytes += generator.setStyles(const PosStyles(bold: true, align: PosAlign.center, height: PosTextSize.size2));
+    bytes += generator.text(storeSettings.storeName, styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.setStyles(const PosStyles(align: PosAlign.center));
+    bytes += generator.text(storeSettings.storeAddress, styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.feed(1);
+    bytes += generator.text('--------------------------------', styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text('TEST PRINT', styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text('Printer siap digunakan!', styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text('--------------------------------', styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text('Kasir: $cashierName');
+    bytes += generator.text('Waktu: $now');
+    bytes += generator.feed(2);
+    bytes += generator.cut();
+
+    await _printBytes(bytes);
   }
 
   @override
@@ -158,58 +225,71 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
     required StoreSettings storeSettings,
     required String cashierName,
   }) async {
+    final profile = await CapabilityProfile.load();
+    final generator = Generator(PaperSize.mm58, profile);
+    List<int> bytes = [];
+
     final subtotal = order.items.fold<int>(
       0,
       (sum, item) => sum + (item.quantity * item.unitPrice),
     );
     final taxAmount = ((subtotal * storeSettings.taxPercentage) / 100).round();
-    final serviceAmount =
-        ((subtotal * storeSettings.serviceChargePercentage) / 100).round();
+    final serviceAmount = ((subtotal * storeSettings.serviceChargePercentage) / 100).round();
 
-    final lines = <String>[
-      _center(storeSettings.storeName),
-      _center(storeSettings.storeAddress),
-      _divider(),
-      'Tanggal: ${DateFormat('dd/MM/yyyy HH:mm').format(order.createdAt)}',
-      'Kasir  : $cashierName',
-      'Table  : T${order.tableNumber}',
-      _divider(),
-    ];
+    bytes += generator.text(storeSettings.storeName, styles: const PosStyles(align: PosAlign.center, bold: true));
+    bytes += generator.text(storeSettings.storeAddress, styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text('--------------------------------');
+    bytes += generator.text('No: ${order.orderNumber}');
+    bytes += generator.text('Meja: ${order.tableNumber}');
+    bytes += generator.text('Kasir: $cashierName');
+    bytes += generator.text('Waktu: ${DateFormat('dd MMM yyyy, HH:mm').format(order.createdAt)}');
+    bytes += generator.text('--------------------------------');
 
     for (final item in order.items) {
-      lines.addAll(_buildOrderItemLines(item));
+      bytes += generator.text(item.menuName, styles: const PosStyles(bold: true));
+      if (item.modifierSnapshot != null && item.modifierSnapshot!.isNotEmpty) {
+        bytes += generator.text(' - ${item.modifierSnapshot}', styles: const PosStyles(fontType: PosFontType.fontB));
+      }
+      bytes += generator.row([
+        PosColumn(text: '${item.quantity} x ${formatRupiah(item.unitPrice)}', width: 6),
+        PosColumn(text: formatRupiah(item.quantity * item.unitPrice), width: 6, styles: const PosStyles(align: PosAlign.right)),
+      ]);
     }
 
-    lines.add(_divider());
-    lines.add(_kv('Sub Total', formatRupiah(subtotal)));
-    lines.add(
-      _kv(
-        'Tax (${_formatPercentage(storeSettings.taxPercentage)})',
-        formatRupiah(taxAmount),
-      ),
-    );
-
+    bytes += generator.text('--------------------------------');
+    bytes += generator.row([
+      PosColumn(text: 'Subtotal', width: 6),
+      PosColumn(text: formatRupiah(subtotal), width: 6, styles: const PosStyles(align: PosAlign.right)),
+    ]);
+    bytes += generator.row([
+      PosColumn(text: 'Pajak (${storeSettings.taxPercentage.toInt()}%)', width: 6),
+      PosColumn(text: formatRupiah(taxAmount), width: 6, styles: const PosStyles(align: PosAlign.right)),
+    ]);
     if (serviceAmount > 0) {
-      lines.add(
-        _kv(
-          'Service (${_formatPercentage(storeSettings.serviceChargePercentage)})',
-          formatRupiah(serviceAmount),
-        ),
-      );
+      bytes += generator.row([
+        PosColumn(text: 'Layanan (${storeSettings.serviceChargePercentage.toInt()}%)', width: 6),
+        PosColumn(text: formatRupiah(serviceAmount), width: 6, styles: const PosStyles(align: PosAlign.right)),
+      ]);
     }
+    bytes += generator.row([
+      PosColumn(text: 'Total', width: 6, styles: const PosStyles(bold: true)),
+      PosColumn(text: formatRupiah(order.total), width: 6, styles: const PosStyles(align: PosAlign.right, bold: true)),
+    ]);
+    bytes += generator.text('--------------------------------');
+    bytes += generator.row([
+      PosColumn(text: order.payment.method.toUpperCase(), width: 6),
+      PosColumn(text: formatRupiah(order.payment.amountPaid), width: 6, styles: const PosStyles(align: PosAlign.right)),
+    ]);
+    bytes += generator.row([
+      PosColumn(text: 'Kembali', width: 6),
+      PosColumn(text: formatRupiah(order.payment.changeGiven), width: 6, styles: const PosStyles(align: PosAlign.right)),
+    ]);
+    bytes += generator.feed(1);
+    bytes += generator.text('Terima Kasih', styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.feed(2);
+    bytes += generator.cut();
 
-    lines.add(
-      _kv(
-        'Bayar (${order.payment.method.toUpperCase()})',
-        formatRupiah(order.payment.amountPaid),
-      ),
-    );
-    lines.add(_kv('Kembali', formatRupiah(order.payment.changeGiven)));
-    lines.add(_divider('='));
-    lines.add(_center('Terima kasih'));
-    lines.add('');
-
-    await _printRawText(lines.join('\n'));
+    await _printBytes(bytes);
   }
 
   @override
@@ -228,238 +308,82 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
     required int totalTransactions,
     required List<ShiftSoldProductSummary> soldProducts,
   }) async {
-    final totalPenerimaan = totalCashSales + totalQrisSales + totalCashIn;
-    final saldoAkhir = totalPenerimaan + openingBalance - closingBalance;
-    final totalProdukTerjual = soldProducts.fold<int>(
-      0,
-      (sum, item) => sum + item.quantity,
-    );
+    final profile = await CapabilityProfile.load();
+    final generator = Generator(PaperSize.mm58, profile);
+    List<int> bytes = [];
 
-    final lines = <String>[
-      _center(storeSettings.storeName),
-      _center(storeSettings.storeAddress),
-      _divider('='),
-      _center('LAPORAN TUTUP KASIR'),
-      _center('TRANSAKSI PENJUALAN'),
-      _divider(),
-      'Kasir      : $cashierName',
-      'Waktu Buka : ${_formatShiftDateTime(openedAt)}',
-      'Waktu Tutup: ${_formatShiftDateTime(closedAt)}',
-      _divider(),
-      _kv('Modal Awal', formatRupiah(openingBalance)),
-      _kv('CASH', formatRupiah(totalCashSales)),
-      _kv('QRIS', formatRupiah(totalQrisSales)),
-      if (totalCashIn > 0) _kv('Kas Masuk', formatRupiah(totalCashIn)),
-      if (totalCashOut > 0) _kv('Kas Keluar', formatRupiah(totalCashOut)),
-      _kv('Total Penerimaan', formatRupiah(totalPenerimaan)),
-      _kv('Saldo Akhir', formatRupiah(saldoAkhir)),
-      _kv('Transaksi masuk', '$totalTransactions'),
-      _divider('='),
-      '',
-      _center('LAPORAN TUTUP KASIR'),
-      _center('PENJUALAN MENU'),
-      _divider(),
-      'Kasir      : $cashierName',
-      'Waktu Buka : ${_formatShiftDateTime(openedAt)}',
-      'Waktu Tutup: ${_formatShiftDateTime(closedAt)}',
-      _divider(),
-      'Produk Terjual',
-      _divider(),
-    ];
+    bytes += generator.text(storeSettings.storeName, styles: const PosStyles(align: PosAlign.center, bold: true));
+    bytes += generator.text('LAPORAN TUTUP KASIR', styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text('--------------------------------');
+    bytes += generator.text('Kasir: $cashierName');
+    bytes += generator.text('Buka : ${DateFormat('dd/MM HH:mm').format(openedAt)}');
+    bytes += generator.text('Tutup: ${DateFormat('dd/MM HH:mm').format(closedAt)}');
+    bytes += generator.text('--------------------------------');
+    bytes += generator.row([
+      PosColumn(text: 'Saldo Awal', width: 6),
+      PosColumn(text: formatRupiah(openingBalance), width: 6, styles: const PosStyles(align: PosAlign.right)),
+    ]);
+    bytes += generator.row([
+      PosColumn(text: 'Total CASH', width: 6),
+      PosColumn(text: formatRupiah(totalCashSales), width: 6, styles: const PosStyles(align: PosAlign.right)),
+    ]);
+    bytes += generator.row([
+      PosColumn(text: 'Total QRIS', width: 6),
+      PosColumn(text: formatRupiah(totalQrisSales), width: 6, styles: const PosStyles(align: PosAlign.right)),
+    ]);
+    bytes += generator.text('--------------------------------');
+    bytes += generator.row([
+      PosColumn(text: 'Saldo Akhir', width: 6, styles: const PosStyles(bold: true)),
+      PosColumn(text: formatRupiah(closingBalance), width: 6, styles: const PosStyles(align: PosAlign.right, bold: true)),
+    ]);
+    bytes += generator.feed(1);
+    bytes += generator.text('RINGKASAN MENU', styles: const PosStyles(align: PosAlign.center, bold: true));
 
-    if (soldProducts.isEmpty) {
-      lines.add('Tidak ada data penjualan menu');
-    } else {
-      for (final item in soldProducts) {
-        lines.add(_kv(item.name, '[${item.quantity}]'));
-      }
+    for (final item in soldProducts) {
+      bytes += generator.row([
+        PosColumn(text: item.name, width: 8),
+        PosColumn(text: 'x ${item.quantity}', width: 4, styles: const PosStyles(align: PosAlign.right)),
+      ]);
     }
+    bytes += generator.feed(2);
+    bytes += generator.cut();
 
-    lines.add(_divider());
-    lines.add(_kv('Total', '[$totalProdukTerjual]'));
-    lines.add('');
-
-    await _printRawText(lines.join('\n'));
+    await _printBytes(bytes);
   }
 
-  Future<void> _printRawText(String content) async {
+  Future<void> _printBytes(List<int> bytes) async {
     _ensureAndroidOnly();
-
-    if (_selectedDevice == null) {
-      throw Exception('Printer is not connected.');
+    final isConnected = await _bluetooth.isConnected ?? false;
+    if (!isConnected) {
+      throw Exception('Printer tidak terhubung.');
     }
 
-    final rawTextUri = _buildRawTextUri(content);
-    final rawBase64Uri = _buildRawBase64Uri(content);
-
-    try {
-      if (await launchUrl(rawBase64Uri, mode: LaunchMode.externalApplication)) {
-        return;
-      }
-    } catch (_) {}
-
-    try {
-      if (await launchUrl(rawTextUri, mode: LaunchMode.externalApplication)) {
-        return;
-      }
-    } catch (_) {}
-
-    final marketUri = Uri.parse('market://details?id=$_rawBtPackageId');
-    try {
-      if (await launchUrl(marketUri, mode: LaunchMode.externalApplication)) {
-        return;
-      }
-    } catch (_) {}
-
-    throw Exception(
-      'RawBT app is not available. Install RawBT first and set it as default print service.',
-    );
-  }
-
-  Uri _buildRawTextUri(String content) {
-    return Uri.parse('rawbt:${Uri.encodeComponent(content)}');
-  }
-
-  Uri _buildRawBase64Uri(String content) {
-    final base64Content = base64Encode(utf8.encode(content));
-    return Uri.parse('rawbt:base64,$base64Content');
+    await _bluetooth.writeBytes(Uint8List.fromList(bytes));
   }
 
   void _ensureAndroidOnly() {
     if (!Platform.isAndroid) {
-      throw Exception('RawBT printing is currently supported on Android only.');
+      throw Exception('Pencetakan thermal saat ini hanya didukung di Android.');
     }
   }
 
-  List<String> _buildOrderItemLines(OrderItem item) {
-    final lines = <String>[];
-    final itemName = item.menuName.trim();
-    lines.addAll(_wrap(itemName.isEmpty ? 'Unknown menu' : itemName));
+  Future<bool> _requestPermissions() async {
+    if (!Platform.isAndroid) return true;
 
-    final modifier = (item.modifierSnapshot ?? '').trim();
-    if (modifier.isNotEmpty) {
-      lines.addAll(_wrap('Modifier: $modifier'));
-    }
+    // For Android 12 (API 31) and higher
+    // Needs BLUETOOTH_SCAN, BLUETOOTH_CONNECT
+    // For older versions, needs ACCESS_FINE_LOCATION
+    
+    final Map<Permission, PermissionStatus> statuses = await [
+      Permission.bluetoothScan,
+      Permission.bluetoothConnect,
+      Permission.location,
+    ].request();
 
-    final notes = (item.notes ?? '').trim();
-    if (notes.isNotEmpty) {
-      lines.addAll(_wrap('Notes: $notes'));
-    }
-
-    final subtotal = item.quantity * item.unitPrice;
-    final compactPrice = _toCompactRupiah(item.unitPrice);
-    lines.add(_kv('${item.quantity}x$compactPrice', formatRupiah(subtotal)));
-
-    return lines;
-  }
-
-  String _center(String text) {
-    final trimmed = text.trim();
-    if (trimmed.isEmpty) {
-      return '';
-    }
-
-    if (trimmed.length >= _lineWidth) {
-      return trimmed;
-    }
-
-    final totalPadding = _lineWidth - trimmed.length;
-    final left = totalPadding ~/ 2;
-    final right = totalPadding - left;
-
-    return '${' ' * left}$trimmed${' ' * right}';
-  }
-
-  String _divider([String char = '-']) {
-    return List<String>.filled(_lineWidth, char).join();
-  }
-
-  String _kv(String left, String right) {
-    final cleanLeft = left.trim();
-    final cleanRight = right.trim();
-
-    if (cleanRight.isEmpty) {
-      return cleanLeft;
-    }
-
-    final reservedSpacing = 1;
-    final maxLeftWidth = _lineWidth - cleanRight.length - reservedSpacing;
-    if (maxLeftWidth <= 0) {
-      return '$cleanLeft $cleanRight';
-    }
-
-    final fitLeft = cleanLeft.length > maxLeftWidth
-        ? '${cleanLeft.substring(0, maxLeftWidth - 1)}…'
-        : cleanLeft;
-
-    final spaces = _lineWidth - fitLeft.length - cleanRight.length;
-    return '$fitLeft${' ' * spaces}$cleanRight';
-  }
-
-  List<String> _wrap(String value) {
-    final text = value.trim();
-    if (text.isEmpty) {
-      return const [];
-    }
-
-    final words = text.split(RegExp(r'\s+'));
-    final wrapped = <String>[];
-    var current = '';
-
-    for (final word in words) {
-      if (word.length >= _lineWidth) {
-        if (current.isNotEmpty) {
-          wrapped.add(current);
-          current = '';
-        }
-
-        var remaining = word;
-        while (remaining.length > _lineWidth) {
-          wrapped.add(remaining.substring(0, _lineWidth));
-          remaining = remaining.substring(_lineWidth);
-        }
-
-        if (remaining.isNotEmpty) {
-          current = remaining;
-        }
-        continue;
-      }
-
-      if (current.isEmpty) {
-        current = word;
-        continue;
-      }
-
-      final candidate = '$current $word';
-      if (candidate.length <= _lineWidth) {
-        current = candidate;
-      } else {
-        wrapped.add(current);
-        current = word;
-      }
-    }
-
-    if (current.isNotEmpty) {
-      wrapped.add(current);
-    }
-
-    return wrapped;
-  }
-
-  String _toCompactRupiah(int value) {
-    return formatRupiah(value).replaceFirst('Rp ', '');
-  }
-
-  String _formatShiftDateTime(DateTime value) {
-    return DateFormat('dd MMM yyyy, HH:mm').format(value.toLocal());
-  }
-
-  String _formatPercentage(double percentage) {
-    if (percentage == percentage.toInt()) {
-      return '${percentage.toInt()}%';
-    }
-
-    final normalized = percentage.toStringAsFixed(2);
-    return '${normalized.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '')}%';
+    // For Android 12+, bluetoothConnect is the primary permission for bonded devices
+    // For older versions, location is often required for Bluetooth operations
+    return statuses[Permission.bluetoothConnect]?.isGranted == true || 
+           statuses[Permission.location]?.isGranted == true ||
+           statuses[Permission.bluetoothScan]?.isGranted == true;
   }
 }

@@ -13,16 +13,30 @@ Future<void> initDependencies() async {
   _initOrder();
   _initStoreSettings();
 
-  final supabase = await Supabase.initialize(
-    url: AppSecrets.supabaseURL,
-    anonKey: AppSecrets.supabaseKey,
-  );
-  serviceLocator.registerLazySingleton(() => supabase.client);
+  try {
+    debugPrint('Initializing Supabase...');
+    final supabase = await Supabase.initialize(
+      url: AppSecrets.supabaseURL,
+      anonKey: AppSecrets.supabaseKey,
+    ).timeout(const Duration(seconds: 15));
+    serviceLocator.registerLazySingleton(() => supabase.client);
+  } catch (e) {
+    debugPrint('Supabase Initialization Error: $e');
+    // If Supabase fails, we still register a dummy client to avoid crashes elsewhere
+    // but the app should show the error caught in main.dart
+    rethrow; 
+  }
 
-  await Hive.initFlutter();
-  final cashierShiftBox = await Hive.openBox<dynamic>('cashier_shift_box');
+  try {
+    debugPrint('Initializing Hive...');
+    await Hive.initFlutter();
+    final cashierShiftBox = await Hive.openBox<dynamic>('cashier_shift_box');
+    serviceLocator.registerLazySingleton<Box<dynamic>>(() => cashierShiftBox);
+  } catch (e) {
+    debugPrint('Hive Initialization Error: $e');
+    rethrow;
+  }
 
-  serviceLocator.registerLazySingleton<Box<dynamic>>(() => cashierShiftBox);
   serviceLocator.registerLazySingleton(
     () => CashierShiftLocalService(serviceLocator(), serviceLocator()),
   );

@@ -17,23 +17,42 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await initDependencies();
-  runApp(
-    MultiBlocProvider(
-      providers: [
-        BlocProvider(create: (_) => serviceLocator<UserBloc>()),
-        BlocProvider(create: (_) => serviceLocator<AuthBloc>()),
-        BlocProvider(create: (_) => serviceLocator<CategoryBloc>()),
-        BlocProvider(create: (_) => serviceLocator<MenuItemBloc>()),
-        BlocProvider(create: (_) => serviceLocator<ModifierOptionBloc>()),
-        BlocProvider(create: (_) => serviceLocator<CartBloc>()),
-        BlocProvider(create: (_) => serviceLocator<TableBloc>()),
-        BlocProvider(create: (_) => serviceLocator<OrderBloc>()),
-        BlocProvider(create: (_) => serviceLocator<StoreSettingsBloc>()),
-      ],
-      child: const MyApp(),
-    ),
-  );
+  try {
+    await initDependencies();
+    runApp(
+      MultiBlocProvider(
+        providers: [
+          BlocProvider(create: (_) => serviceLocator<UserBloc>()),
+          BlocProvider(create: (_) => serviceLocator<AuthBloc>()),
+          BlocProvider(create: (_) => serviceLocator<CategoryBloc>()),
+          BlocProvider(create: (_) => serviceLocator<MenuItemBloc>()),
+          BlocProvider(create: (_) => serviceLocator<ModifierOptionBloc>()),
+          BlocProvider(create: (_) => serviceLocator<CartBloc>()),
+          BlocProvider(create: (_) => serviceLocator<TableBloc>()),
+          BlocProvider(create: (_) => serviceLocator<OrderBloc>()),
+          BlocProvider(create: (_) => serviceLocator<StoreSettingsBloc>()),
+        ],
+        child: const MyApp(),
+      ),
+    );
+  } catch (e) {
+    runApp(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Text(
+                'Failed to initialize app:\n$e',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.red),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class MyApp extends StatefulWidget {
@@ -61,14 +80,23 @@ class _MyAppState extends State<MyApp> {
           if (state is UserLoggedIn) {
             if (state.user.role == 'cashier') {
               return const CashierPage();
-            } else if (state.user.role == 'owner') {
+            } else if (state.user.role == 'owner' || state.user.role == 'admin') {
               return const OwnerDashboardPage();
             }
-
-            return const Scaffold(body: Center(child: Text('Unknown role')));
           }
 
-          return const SignInPage();
+          // While we wait for Auth to confirm if the user is already logged in, show a loading screen
+          return Scaffold(
+            backgroundColor: AppTheme.lightThemeMode.scaffoldBackgroundColor,
+            body: BlocBuilder<AuthBloc, AuthState>(
+              builder: (context, authState) {
+                if (authState is AuthLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                return const SignInPage();
+              },
+            ),
+          );
         },
       ),
     );

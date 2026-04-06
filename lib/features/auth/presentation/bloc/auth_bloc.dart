@@ -73,7 +73,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     result.fold(
       (l) => emit(AuthFailure(l.message)),
-      (r) => _emitSuccess(emit, r),
+      (r) {
+        _emitSuccess(emit, r);
+        // Force the app to transition to AuthSuccess after updating UserBloc
+        emit(AuthSuccess());
+      },
     );
   }
 

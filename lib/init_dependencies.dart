@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flow_pos/core/common/bloc/user_bloc.dart';
 import 'package:flow_pos/core/services/cashier_shift_local_service.dart';
 import 'package:flow_pos/core/services/thermal_receipt_printer_service.dart';
