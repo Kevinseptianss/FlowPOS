@@ -633,7 +633,7 @@ class _BluetoothDeviceSearchSheetState
 
       await Future<void>.delayed(const Duration(milliseconds: 500));
 
-      final state = await FlutterBluetoothPrinter.getState();
+      // final state = await FlutterBluetoothPrinter.getState();
       if (!mounted) {
         return;
       }
@@ -647,14 +647,14 @@ class _BluetoothDeviceSearchSheetState
       //   return;
       // }
 
-      if (state != BluetoothState.enabled) {
-        setState(() {
-          _isLoading = false;
-          _statusMessage =
-              'Bluetooth sedang nonaktif. Silakan aktifkan Bluetooth.';
-        });
-        return;
-      }
+      // if (state != BluetoothState.enabled) {
+      //   setState(() {
+      //     _isLoading = false;
+      //     _statusMessage =
+      //         'Bluetooth sedang nonaktif. Silakan aktifkan Bluetooth.';
+      //   });
+      //   return;
+      // }
 
       _discoverySubscription = FlutterBluetoothPrinter.discovery.listen((
         state,
@@ -701,14 +701,14 @@ class _BluetoothDeviceSearchSheetState
           return;
         }
 
-        if (state is PermissionRestrictedState) {
-          setState(() {
-            _isLoading = false;
-            _statusMessage =
-                'Bluetooth tidak diizinkan. Aktifkan Nearby devices di App Settings.';
-          });
-          return;
-        }
+        // if (state is PermissionRestrictedState) {
+        //   setState(() {
+        //     _isLoading = false;
+        //     _statusMessage =
+        //         'Bluetooth tidak diizinkan. Aktifkan Nearby devices di App Settings.';
+        //   });
+        //   return;
+        // }
 
         if (state is BluetoothDisabledState) {
           setState(() {
