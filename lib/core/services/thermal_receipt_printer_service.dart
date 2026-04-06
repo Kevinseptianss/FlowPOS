@@ -8,6 +8,7 @@ import 'package:flow_pos/features/store_settings/domain/entities/store_settings.
 import 'package:flutter/material.dart';
 import 'package:flutter_bluetooth_printer/flutter_bluetooth_printer.dart';
 import 'package:intl/intl.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class PrinterDevice {
   final String name;
@@ -70,17 +71,16 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
   String? _connectedAddress;
 
   @override
-  Future<PrinterDevice?> selectDevice({required BuildContext context}) async {
+  Future<PrinterDevice?> selectDevice({required BuildContext context}) {
     _ensureAndroidOnly();
-    final selected = await FlutterBluetoothPrinter.selectDevice(context);
-    if (selected == null) {
-      return null;
-    }
-
-    return PrinterDevice(
-      name: (selected.name ?? '').trim(),
-      macAddress: selected.address.trim(),
-      isPaired: true,
+    return showModalBottomSheet<PrinterDevice>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (modalContext) {
+        return const _BluetoothDeviceSearchSheet();
+      },
     );
   }
 
@@ -94,6 +94,7 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
     Duration timeout = const Duration(seconds: 8),
   }) async {
     _ensureAndroidOnly();
+    await _ensureBluetoothPermissionsGranted();
     await _ensureBluetoothReady();
 
     final discovered = <String, PrinterDevice>{};
@@ -149,6 +150,7 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
   @override
   Future<void> connect({required String macAddress}) async {
     _ensureAndroidOnly();
+    await _ensureBluetoothPermissionsGranted();
     await _ensureBluetoothReady();
 
     final connected = await FlutterBluetoothPrinter.connect(macAddress);
@@ -386,8 +388,47 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
 
   Future<void> _ensureBluetoothReady() async {
     final state = await FlutterBluetoothPrinter.getState();
-    if (state is! BluetoothEnabledState) {
+    if (state == BluetoothState.notPermitted) {
+      throw Exception(
+        'Bluetooth permission is not permitted. '
+        'Please allow Nearby devices permission for this app.',
+      );
+    }
+
+    if (state != BluetoothState.enabled) {
       throw Exception('Bluetooth is turned off. Please enable it first.');
+    }
+  }
+
+  Future<void> _ensureBluetoothPermissionsGranted() async {
+    if (!Platform.isAndroid) {
+      return;
+    }
+
+    final statuses = await <Permission>[
+      Permission.bluetoothScan,
+      Permission.bluetoothConnect,
+      Permission.locationWhenInUse,
+    ].request();
+
+    final denied = statuses.values.any(
+      (status) => status.isDenied || status.isRestricted,
+    );
+    if (denied) {
+      throw Exception(
+        'Bluetooth permission is not permitted. '
+        'Please allow Nearby devices permission.',
+      );
+    }
+
+    final permanentlyDenied = statuses.values.any(
+      (status) => status.isPermanentlyDenied,
+    );
+    if (permanentlyDenied) {
+      throw Exception(
+        'Bluetooth permission is permanently denied. '
+        'Open app settings and allow Nearby devices permission.',
+      );
     }
   }
 
@@ -516,6 +557,464 @@ class _ReceiptLayout extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [...sections, const SizedBox(height: 12)],
+    );
+  }
+}
+
+class _BluetoothDeviceSearchSheet extends StatefulWidget {
+  const _BluetoothDeviceSearchSheet();
+
+  @override
+  State<_BluetoothDeviceSearchSheet> createState() =>
+      _BluetoothDeviceSearchSheetState();
+}
+
+class _BluetoothDeviceSearchSheetState
+    extends State<_BluetoothDeviceSearchSheet> {
+  StreamSubscription<dynamic>? _discoverySubscription;
+  final TextEditingController _searchController = TextEditingController();
+  final Map<String, PrinterDevice> _devicesByAddress =
+      <String, PrinterDevice>{};
+
+  bool _isLoading = true;
+  String _query = '';
+  String? _statusMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(_onSearchChanged);
+    _startDiscovery();
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _query = _searchController.text.trim().toLowerCase();
+    });
+  }
+
+  void _startDiscovery() {
+    Future<void>(() async {
+      final statuses = await <Permission>[
+        Permission.bluetoothScan,
+        Permission.bluetoothConnect,
+        Permission.locationWhenInUse,
+      ].request();
+
+      if (!mounted) {
+        return;
+      }
+
+      final permanentlyDenied = statuses.values.any(
+        (status) => status.isPermanentlyDenied,
+      );
+      if (permanentlyDenied) {
+        setState(() {
+          _isLoading = false;
+          _statusMessage =
+              'Izin Bluetooth ditolak permanen. Buka Settings lalu izinkan Nearby devices.';
+        });
+        return;
+      }
+
+      final denied = statuses.values.any(
+        (status) => status.isDenied || status.isRestricted,
+      );
+      if (denied) {
+        setState(() {
+          _isLoading = false;
+          _statusMessage =
+              'Bluetooth tidak diizinkan. Berikan izin Nearby devices untuk melanjutkan.';
+        });
+        return;
+      }
+
+      final state = await FlutterBluetoothPrinter.getState();
+      if (!mounted) {
+        return;
+      }
+
+      if (state == BluetoothState.notPermitted) {
+        setState(() {
+          _isLoading = false;
+          _statusMessage =
+              'Bluetooth tidak diizinkan. Aktifkan Nearby devices di App Settings.';
+        });
+        return;
+      }
+
+      if (state != BluetoothState.enabled) {
+        setState(() {
+          _isLoading = false;
+          _statusMessage =
+              'Bluetooth sedang nonaktif. Silakan aktifkan Bluetooth.';
+        });
+        return;
+      }
+
+      _discoverySubscription = FlutterBluetoothPrinter.discovery.listen((
+        state,
+      ) {
+        if (!mounted) {
+          return;
+        }
+
+        if (state is DiscoveryResult) {
+          for (final device in state.devices) {
+            final address = device.address.trim();
+            if (address.isEmpty) {
+              continue;
+            }
+
+            _devicesByAddress[address] = PrinterDevice(
+              name: (device.name ?? '').trim(),
+              macAddress: address,
+              isPaired: true,
+            );
+          }
+
+          setState(() {
+            _isLoading = false;
+            _statusMessage = null;
+          });
+          return;
+        }
+
+        if (state is BluetoothDevice) {
+          final address = state.address.trim();
+          if (address.isNotEmpty) {
+            _devicesByAddress[address] = PrinterDevice(
+              name: (state.name ?? '').trim(),
+              macAddress: address,
+              isPaired: true,
+            );
+
+            setState(() {
+              _isLoading = false;
+              _statusMessage = null;
+            });
+          }
+          return;
+        }
+
+        if (state is PermissionRestrictedState) {
+          setState(() {
+            _isLoading = false;
+            _statusMessage =
+                'Bluetooth tidak diizinkan. Aktifkan Nearby devices di App Settings.';
+          });
+          return;
+        }
+
+        if (state is BluetoothDisabledState) {
+          setState(() {
+            _isLoading = false;
+            _statusMessage =
+                'Bluetooth sedang nonaktif. Silakan aktifkan Bluetooth.';
+          });
+          return;
+        }
+
+        if (state is UnsupportedBluetoothState) {
+          setState(() {
+            _isLoading = false;
+            _statusMessage = 'Perangkat ini tidak mendukung Bluetooth printer.';
+          });
+          return;
+        }
+
+        if (state is UnknownState) {
+          setState(() {
+            _isLoading = false;
+            _statusMessage = 'Memindai perangkat Bluetooth...';
+          });
+        }
+      });
+    });
+
+    Future<void>.delayed(const Duration(seconds: 7), () {
+      if (!mounted) {
+        return;
+      }
+
+      if (_isLoading) {
+        setState(() {
+          _isLoading = false;
+          _statusMessage ??= 'Tidak menemukan perangkat. Coba scan ulang.';
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _discoverySubscription?.cancel();
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final devices =
+        _devicesByAddress.values
+            .where((device) {
+              if (_query.isEmpty) {
+                return true;
+              }
+
+              final name = device.name.toLowerCase();
+              final address = device.macAddress.toLowerCase();
+              return name.contains(_query) || address.contains(_query);
+            })
+            .toList(growable: false)
+          ..sort((a, b) {
+            final byName = a.name.toLowerCase().compareTo(b.name.toLowerCase());
+            if (byName != 0) {
+              return byName;
+            }
+            return a.macAddress.compareTo(b.macAddress);
+          });
+
+    return Container(
+      decoration: const BoxDecoration(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        gradient: LinearGradient(
+          colors: [Color(0xFFF8FAFC), Color(0xFFF3F6FB)],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 44,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFCBD5E1),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A),
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(30),
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withAlpha(22),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.bluetooth_searching_rounded,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Cari Printer Bluetooth',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Pilih perangkat untuk mulai mencetak invoice',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: Colors.white.withAlpha(210),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  hintText: 'Cari nama printer / MAC address',
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Flexible(child: _buildDeviceBody(devices)),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        await openAppSettings();
+                      },
+                      icon: const Icon(Icons.settings_rounded),
+                      label: const Text('Open Settings'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close_rounded),
+                      label: const Text('Tutup'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDeviceBody(List<PrinterDevice> devices) {
+    if (_isLoading) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 26,
+              height: 26,
+              child: CircularProgressIndicator(strokeWidth: 2.5),
+            ),
+            SizedBox(height: 10),
+            Text('Memindai perangkat...'),
+          ],
+        ),
+      );
+    }
+
+    if (devices.isEmpty) {
+      return Center(
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFFBEB),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFFDE68A)),
+          ),
+          child: Text(
+            _statusMessage ??
+                'Belum ada printer ditemukan. Pastikan printer sudah menyala dan dalam mode pairing.',
+            style: const TextStyle(color: Color(0xFF92400E), height: 1.3),
+          ),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      itemCount: devices.length,
+      separatorBuilder: (_, itemIndex) => const SizedBox(height: 8),
+      itemBuilder: (context, index) {
+        final device = devices[index];
+        final displayName = device.name.isEmpty
+            ? 'Unknown Printer'
+            : device.name;
+
+        return Material(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () => Navigator.pop(context, device),
+            child: Ink(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.print_rounded,
+                      color: Color(0xFF1D4ED8),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          displayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          device.macAddress,
+                          style: const TextStyle(
+                            color: Color(0xFF475569),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: Color(0xFF64748B),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
