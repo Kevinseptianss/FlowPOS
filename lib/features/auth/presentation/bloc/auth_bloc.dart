@@ -44,6 +44,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         name: event.name,
         email: event.email,
         password: event.password,
+        role: event.role,
       ),
     );
 
@@ -72,7 +73,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final result = await _currentUser(NoParams());
 
     result.fold(
-      (l) => emit(AuthFailure(l.message)),
+      (l) {
+        if (l.message == 'No user logged in') {
+          emit(AuthInitial());
+        } else {
+          emit(AuthFailure(l.message));
+        }
+      },
       (r) {
         _emitSuccess(emit, r);
         // Force the app to transition to AuthSuccess after updating UserBloc

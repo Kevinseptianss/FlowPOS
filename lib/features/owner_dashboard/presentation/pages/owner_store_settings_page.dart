@@ -43,7 +43,7 @@ class _OwnerStoreSettingsPageState extends State<OwnerStoreSettingsPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Tax & Service Charge',
+          'Pajak & Biaya Layanan',
           style: Theme.of(
             context,
           ).textTheme.titleLarge?.copyWith(color: AppPallete.onPrimary),
@@ -56,7 +56,7 @@ class _OwnerStoreSettingsPageState extends State<OwnerStoreSettingsPage> {
           }
 
           if (state is StoreSettingsUpdated) {
-            showSnackbar(context, 'Store settings updated successfully');
+            showSnackbar(context, 'Pengaturan toko berhasil diperbarui');
           }
 
           if (state is StoreSettingsLoaded || state is StoreSettingsUpdated) {
@@ -100,7 +100,7 @@ class _OwnerStoreSettingsPageState extends State<OwnerStoreSettingsPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Set percentage values used on cashier checkout.',
+                          'Atur nilai persentase yang digunakan pada kasir.',
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(color: AppPallete.textPrimary),
                         ),
@@ -118,8 +118,8 @@ class _OwnerStoreSettingsPageState extends State<OwnerStoreSettingsPage> {
                           style: Theme.of(context).textTheme.bodyLarge
                               ?.copyWith(color: AppPallete.textPrimary),
                           decoration: const InputDecoration(
-                            labelText: 'Tax Percentage',
-                            hintText: 'Example: 11.00',
+                            labelText: 'Persentase Pajak',
+                            hintText: 'Contoh: 11.00',
                             suffixText: '%',
                           ),
                           validator: _validatePercentage,
@@ -138,8 +138,8 @@ class _OwnerStoreSettingsPageState extends State<OwnerStoreSettingsPage> {
                             ),
                           ],
                           decoration: const InputDecoration(
-                            labelText: 'Service Charge Percentage',
-                            hintText: 'Example: 5.00',
+                            labelText: 'Persentase Biaya Layanan',
+                            hintText: 'Contoh: 5.00',
                             suffixText: '%',
                           ),
                           validator: _validatePercentage,
@@ -166,7 +166,7 @@ class _OwnerStoreSettingsPageState extends State<OwnerStoreSettingsPage> {
                                 color: AppPallete.onPrimary,
                               ),
                             )
-                          : const Text('Save Settings'),
+                          : const Text('Simpan Pengaturan'),
                     ),
                   ),
                 ],
@@ -180,16 +180,16 @@ class _OwnerStoreSettingsPageState extends State<OwnerStoreSettingsPage> {
 
   String? _validatePercentage(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return 'Value is required';
+      return 'Nilai wajib diisi';
     }
 
     final parsed = double.tryParse(value.trim());
     if (parsed == null) {
-      return 'Invalid number';
+      return 'Angka tidak valid';
     }
 
     if (parsed < 0 || parsed > 100) {
-      return 'Value must be between 0 and 100';
+      return 'Nilai harus antara 0 dan 100';
     }
 
     return null;

@@ -66,7 +66,7 @@ class OrderCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '$datetime - $totalItems items',
+                    '$datetime - $totalItems item',
                     style: Theme.of(
                       context,
                     ).textTheme.bodyMedium?.copyWith(color: AppPallete.primary),

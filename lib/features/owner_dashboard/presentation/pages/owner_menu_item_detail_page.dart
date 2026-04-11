@@ -85,7 +85,7 @@ class _OwnerMenuItemDetailPageState extends State<OwnerMenuItemDetailPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Menu Detail',
+          'Detail Menu',
           style: Theme.of(
             context,
           ).textTheme.titleLarge?.copyWith(color: AppPallete.onPrimary),
@@ -222,8 +222,8 @@ class _OwnerMenuItemDetailPageState extends State<OwnerMenuItemDetailPage> {
                                       const SizedBox(width: 6),
                                       Text(
                                         widget.menuItem.enabled
-                                            ? 'Available'
-                                            : 'Unavailable',
+                                            ? 'Tersedia'
+                                            : 'Habis',
                                         style: Theme.of(context)
                                             .textTheme
                                             .bodyMedium
@@ -245,7 +245,7 @@ class _OwnerMenuItemDetailPageState extends State<OwnerMenuItemDetailPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Modifier Groups',
+                              'Grup Tambahan',
                               style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(
                                     color: AppPallete.primary,
@@ -254,14 +254,14 @@ class _OwnerMenuItemDetailPageState extends State<OwnerMenuItemDetailPage> {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              'Check a modifier group to connect it with this menu item. Options inside the group will follow automatically.',
+                              'Pilih grup tambahan untuk menghubungkannya dengan menu ini. Pilihan di dalam grup akan otomatis mengikuti.',
                               style: Theme.of(context).textTheme.bodyMedium
                                   ?.copyWith(color: AppPallete.textPrimary),
                             ),
                             const SizedBox(height: 14),
                             if (groupedOptions.isEmpty)
                               Text(
-                                'No modifier groups available.',
+                                'Tidak ada grup tambahan tersedia.',
                                 style: Theme.of(context).textTheme.bodyMedium
                                     ?.copyWith(color: AppPallete.textPrimary),
                               )
@@ -292,7 +292,7 @@ class _OwnerMenuItemDetailPageState extends State<OwnerMenuItemDetailPage> {
                                           ),
                                     ),
                                     subtitle: Text(
-                                      '${options.length} option(s)',
+                                      '${options.length} pilihan',
                                     ),
                                     onChanged: _isSaving
                                         ? null
@@ -353,7 +353,7 @@ class _OwnerMenuItemDetailPageState extends State<OwnerMenuItemDetailPage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Selected Modifier',
+                            'Tambahan Terpilih',
                             style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(color: AppPallete.textPrimary),
                           ),
@@ -372,7 +372,7 @@ class _OwnerMenuItemDetailPageState extends State<OwnerMenuItemDetailPage> {
                         Align(
                           alignment: Alignment.centerLeft,
                           child: Text(
-                            'No modifier group selected.',
+                            'Tidak ada grup tambahan terpilih.',
                             style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(color: AppPallete.textPrimary),
                           ),

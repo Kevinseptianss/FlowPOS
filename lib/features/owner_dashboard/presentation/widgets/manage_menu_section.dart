@@ -25,67 +25,63 @@ class _ManageMenuSectionState extends State<ManageMenuSection> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Header
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(color: AppPallete.textPrimary.withAlpha(127)),
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+      ),
+      child: Column(
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Manajemen Menu',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                IconButton(
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => const AddMenuDialog(),
+                    );
+                  },
+                  icon: const Icon(Icons.add_circle, color: AppPallete.primary, size: 32),
+                ),
+              ],
             ),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Menu Management',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              GestureDetector(
-                onTap: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => AddMenuDialog(),
-                  );
-                },
-                child: Container(
-                  padding: EdgeInsetsGeometry.all(5),
-                  decoration: BoxDecoration(
-                    color: AppPallete.primary,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(Icons.add, color: AppPallete.onPrimary),
-                ),
-              ),
-            ],
-          ),
-        ),
-        // Menu List
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12),
+          const Divider(height: 1),
+          // Menu List
+          Expanded(
             child: BlocBuilder<MenuItemBloc, MenuItemState>(
               builder: (context, state) {
                 if (state is MenuItemLoading) {
-                  return Center(child: CircularProgressIndicator());
+                  return const Center(child: CircularProgressIndicator());
                 } else if (state is MenuItemFailure) {
                   return Center(
                     child: Text(
-                      'Failed to load menu items',
-                      style: Theme.of(context).textTheme.bodyMedium,
+                      'Gagal memuat menu',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: AppPallete.error,
+                          ),
                     ),
                   );
                 } else if (state is MenuItemLoaded) {
                   return RefreshIndicator(
                     onRefresh: () async {
                       context.read<MenuItemBloc>().add(GetAllMenuItemsEvent());
-
                       await Future.delayed(const Duration(seconds: 1));
                     },
-                    child: ListView.builder(
+                    child: ListView.separated(
+                      padding: const EdgeInsets.all(16),
                       physics: const AlwaysScrollableScrollPhysics(),
                       itemCount: state.menuItems.length,
+                      separatorBuilder: (context, index) => const SizedBox(height: 12),
                       itemBuilder: (context, index) {
                         final menuItem = state.menuItems[index];
                         return MenuCard(
@@ -102,11 +98,11 @@ class _ManageMenuSectionState extends State<ManageMenuSection> {
                           },
                           onEnabledChanged: (value) {
                             context.read<MenuItemBloc>().add(
-                              UpdateMenuItemAvailabilityEvent(
-                                menuItemId: menuItem.id,
-                                enabled: value,
-                              ),
-                            );
+                                  UpdateMenuItemAvailabilityEvent(
+                                    menuItemId: menuItem.id,
+                                    enabled: value,
+                                  ),
+                                );
                           },
                           image: Image.asset('assets/images/default-food.jpg'),
                         );
@@ -119,8 +115,8 @@ class _ManageMenuSectionState extends State<ManageMenuSection> {
               },
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

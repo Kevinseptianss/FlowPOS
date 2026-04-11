@@ -1,10 +1,7 @@
 import 'package:flow_pos/core/theme/app_pallete.dart';
-import 'package:flow_pos/core/utils/datetime_formatter.dart';
-import 'package:flow_pos/core/utils/show_snackbar.dart';
 import 'package:flow_pos/features/order/domain/entities/order_entity.dart';
 import 'package:flow_pos/features/order/presentation/bloc/order_bloc.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_order_detail_page.dart';
-import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_settings_page.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/widgets/analytic_section.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/widgets/manage_menu_section.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/widgets/order_section.dart';
@@ -20,15 +17,11 @@ class OwnerDashboardIpadPage extends StatefulWidget {
 
 class _OwnerDashboardIpadPageState extends State<OwnerDashboardIpadPage> {
   List<OrderEntity> _orders = [];
-  late final OrderBloc _orderBloc;
 
   @override
   void initState() {
     super.initState();
-    _orderBloc = context.read<OrderBloc>();
-
-    _orderBloc.add(GetMonthlyRevenueEvent(month: DateTime.now()));
-    _orderBloc.add(GetAllOrdersEvent());
+    context.read<OrderBloc>().add(GetAllOrdersEvent());
   }
 
   @override
@@ -39,102 +32,47 @@ class _OwnerDashboardIpadPageState extends State<OwnerDashboardIpadPage> {
           setState(() {
             _orders = state.orders;
           });
-        } else if (state is OrderFailure) {
-          showSnackbar(context, state.message);
         }
       },
-      child: Scaffold(
-        appBar: AppBar(
-          centerTitle: false,
-          title: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 3,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'FlowPOS',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: AppPallete.onPrimary,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  const SizedBox(
-                    height: 24,
-                    width: 2,
-                    child: VerticalDivider(
-                      color: AppPallete.divider,
-                      thickness: 2,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Owner Dashboard',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: AppPallete.onPrimary,
+                  const AnalyticSection(),
+                  const SizedBox(height: 40),
+                  SizedBox(
+                    height: 600, // Fixed height for order list area
+                    child: OrderSection(
+                      orders: _orders,
+                      onOrderTap: (order) {
+                        Navigator.push(
+                          context,
+                          OwnerOrderDetailPage.route(order),
+                        );
+                      },
                     ),
                   ),
                 ],
               ),
-              Text(
-                DatetimeFormatter.formatDateYear(),
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: AppPallete.textSecondary,
-                ),
-              ),
-            ],
+            ),
           ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.settings, color: AppPallete.onPrimary),
-              onPressed: () {
-                Navigator.push(context, OwnerSettingsPage.route());
-              },
-            ),
-          ],
-        ),
-        body: Row(
-          children: [
-            Expanded(
-              flex: 3,
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(color: AppPallete.background),
-                child: Column(
-                  children: [
-                    const AnalyticSection(),
-                    const SizedBox(height: 24),
-                    Expanded(
-                      child: OrderSection(
-                        orders: _orders,
-                        onOrderTap: (order) {
-                          Navigator.push(
-                            context,
-                            OwnerOrderDetailPage.route(order),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
+          Container(
+            width: 320,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                left: BorderSide(color: AppPallete.divider.withAlpha(100)),
               ),
             ),
-            Expanded(
-              flex: 1,
-              child: Container(
-                height: double.infinity,
-                decoration: BoxDecoration(
-                  color: AppPallete.surface,
-                  border: Border(
-                    left: BorderSide(
-                      color: AppPallete.textPrimary.withAlpha(127),
-                    ),
-                  ),
-                ),
-                child: const ManageMenuSection(),
-              ),
-            ),
-          ],
-        ),
+            child: const ManageMenuSection(),
+          ),
+        ],
       ),
     );
   }

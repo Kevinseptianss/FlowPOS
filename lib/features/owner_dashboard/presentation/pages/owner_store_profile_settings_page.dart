@@ -47,7 +47,7 @@ class _OwnerStoreProfileSettingsPageState
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Store Profile',
+          'Profil Toko',
           style: Theme.of(
             context,
           ).textTheme.titleLarge?.copyWith(color: AppPallete.onPrimary),
@@ -60,7 +60,7 @@ class _OwnerStoreProfileSettingsPageState
           }
 
           if (state is StoreSettingsUpdated) {
-            showSnackbar(context, 'Store profile updated successfully');
+            showSnackbar(context, 'Profil toko berhasil diperbarui');
           }
 
           if (state is StoreSettingsLoaded || state is StoreSettingsUpdated) {
@@ -98,7 +98,7 @@ class _OwnerStoreProfileSettingsPageState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Current Profile',
+                          'Profil Saat Ini',
                           style: Theme.of(context).textTheme.titleSmall
                               ?.copyWith(
                                 color: AppPallete.textPrimary,
@@ -107,13 +107,13 @@ class _OwnerStoreProfileSettingsPageState
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          'Name: $_currentStoreName',
+                          'Nama: $_currentStoreName',
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(color: AppPallete.textPrimary),
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Address: $_currentStoreAddress',
+                          'Alamat: $_currentStoreAddress',
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(color: AppPallete.textPrimary),
                         ),
@@ -133,7 +133,7 @@ class _OwnerStoreProfileSettingsPageState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Only fill fields you want to update.',
+                          'Hanya isi kolom yang ingin diubah.',
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(color: AppPallete.textPrimary),
                         ),
@@ -146,8 +146,8 @@ class _OwnerStoreProfileSettingsPageState
                             LengthLimitingTextInputFormatter(25),
                           ],
                           decoration: const InputDecoration(
-                            labelText: 'Restaurant Name',
-                            hintText: 'Example: FlowPOS Cafe',
+                            labelText: 'Nama Restoran',
+                            hintText: 'Contoh: FlowPOS Cafe',
                             counterText: '',
                           ),
                           validator: _validateStoreName,
@@ -163,8 +163,8 @@ class _OwnerStoreProfileSettingsPageState
                             LengthLimitingTextInputFormatter(100),
                           ],
                           decoration: const InputDecoration(
-                            labelText: 'Store Address',
-                            hintText: 'Example: Jl. Merdeka No. 10, Jakarta',
+                            labelText: 'Alamat Toko',
+                            hintText: 'Contoh: Jl. Merdeka No. 10, Jakarta',
                             counterText: '',
                           ),
                           validator: _validateStoreAddress,
@@ -191,7 +191,7 @@ class _OwnerStoreProfileSettingsPageState
                                 color: AppPallete.onPrimary,
                               ),
                             )
-                          : const Text('Save Profile'),
+                          : const Text('Simpan Profil'),
                     ),
                   ),
                 ],
@@ -211,7 +211,7 @@ class _OwnerStoreProfileSettingsPageState
     }
 
     if (trimmedValue.length > 25) {
-      return 'Maximum 25 characters';
+      return 'Maksimal 25 karakter';
     }
 
     return null;
@@ -225,7 +225,7 @@ class _OwnerStoreProfileSettingsPageState
     }
 
     if (trimmedValue.length > 100) {
-      return 'Maximum 100 characters';
+      return 'Maksimal 100 karakter';
     }
 
     return null;
@@ -240,7 +240,7 @@ class _OwnerStoreProfileSettingsPageState
     final updatedStoreAddress = _storeAddressController.text.trim();
 
     if (updatedStoreName.isEmpty && updatedStoreAddress.isEmpty) {
-      showSnackbar(context, 'Fill at least one field to update profile');
+      showSnackbar(context, 'Isi setidaknya satu kolom untuk memperbarui profil');
       return;
     }
 

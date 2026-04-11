@@ -40,13 +40,15 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<Either<Failure, User>> signUpWithEmailAndPassword(
     String name,
     String email,
-    String password,
-  ) {
+    String password, {
+    String role = 'owner',
+  }) {
     return _getUser(
       () async => await authRemoteDataSource.signUpWithEmailAndPassword(
         name,
         email,
         password,
+        role: role,
       ),
     );
   }

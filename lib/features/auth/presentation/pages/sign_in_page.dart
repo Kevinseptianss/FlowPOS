@@ -70,7 +70,7 @@ class _SignInPageState extends State<SignInPage> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Sign in to continue your business operations.',
+                          'Masuk untuk melanjutkan operasional bisnis Anda.',
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(color: AppPallete.onPrimary),
                         ),
@@ -93,7 +93,7 @@ class _SignInPageState extends State<SignInPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Sign In',
+                              'Masuk',
                               style: Theme.of(context).textTheme.titleLarge
                                   ?.copyWith(
                                     color: AppPallete.textPrimary,
@@ -108,7 +108,7 @@ class _SignInPageState extends State<SignInPage> {
                             const SizedBox(height: 12),
                             AuthTextField(
                               controller: _passwordController,
-                              label: 'Password',
+                              label: 'Kata Sandi',
                               isPassword: true,
                             ),
                             const SizedBox(height: 10),
@@ -120,7 +120,7 @@ class _SignInPageState extends State<SignInPage> {
                                   foregroundColor: AppPallete.secondary,
                                   padding: EdgeInsets.zero,
                                 ),
-                                child: const Text('Forgot Password?'),
+                                child: const Text('Lupa Kata Sandi?'),
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -148,7 +148,7 @@ class _SignInPageState extends State<SignInPage> {
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                 ),
-                                child: const Text('Sign In'),
+                                child: const Text('Masuk'),
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -156,7 +156,7 @@ class _SignInPageState extends State<SignInPage> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
-                                  'Don\'t have an account?',
+                                  'Belum punya akun?',
                                   style: Theme.of(context).textTheme.bodyMedium
                                       ?.copyWith(color: AppPallete.textPrimary),
                                 ),
@@ -167,7 +167,7 @@ class _SignInPageState extends State<SignInPage> {
                                   style: TextButton.styleFrom(
                                     foregroundColor: AppPallete.secondary,
                                   ),
-                                  child: const Text('Sign Up'),
+                                  child: const Text('Daftar'),
                                 ),
                               ],
                             ),

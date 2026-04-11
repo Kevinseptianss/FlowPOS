@@ -19,7 +19,7 @@ class OwnerOrderDetailPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Order Detail',
+          'Detail Pesanan',
           style: Theme.of(
             context,
           ).textTheme.titleLarge?.copyWith(color: AppPallete.onPrimary),
@@ -34,14 +34,14 @@ class OwnerOrderDetailPage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _InfoRow(
-                  label: 'Date',
+                  label: 'Tanggal',
                   value: DatetimeFormatter.formatDateTime(order.createdAt),
                 ),
-                _InfoRow(label: 'Table', value: '${order.tableNumber}'),
-                _InfoRow(label: 'Payment', value: order.payment.method),
-                _InfoRow(label: 'Total Items', value: '${order.items.length}'),
+                _InfoRow(label: 'Meja', value: '${order.tableNumber}'),
+                _InfoRow(label: 'Pembayaran', value: order.payment.method),
+                _InfoRow(label: 'Total Item', value: '${order.items.length}'),
                 _InfoRow(
-                  label: 'Total Payment',
+                  label: 'Total Pembayaran',
                   value: formatRupiah(order.total),
                   isHighlighted: true,
                 ),
@@ -50,20 +50,20 @@ class OwnerOrderDetailPage extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           _SectionCard(
-            title: 'Payment Summary',
+            title: 'Ringkasan Pembayaran',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _InfoRow(
-                  label: 'Amount Due',
+                  label: 'Total Tagihan',
                   value: formatRupiah(order.payment.amountDue),
                 ),
                 _InfoRow(
-                  label: 'Amount Paid',
+                  label: 'Jumlah Bayar',
                   value: formatRupiah(order.payment.amountPaid),
                 ),
                 _InfoRow(
-                  label: 'Change',
+                  label: 'Kembalian',
                   value: formatRupiah(order.payment.changeGiven),
                 ),
               ],
@@ -71,10 +71,10 @@ class OwnerOrderDetailPage extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           _SectionCard(
-            title: 'Order Items (${order.items.length})',
+            title: 'Item Pesanan (${order.items.length})',
             child: order.items.isEmpty
                 ? Text(
-                    'No items found',
+                    'Item tidak ditemukan',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: AppPallete.textPrimary,
                     ),
@@ -204,7 +204,7 @@ class _OrderItemTile extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Menu Name: ${item.menuName}',
+            'Nama Menu: ${item.menuName}',
             style: Theme.of(
               context,
             ).textTheme.bodySmall?.copyWith(color: AppPallete.textPrimary),
@@ -212,7 +212,7 @@ class _OrderItemTile extends StatelessWidget {
           if (item.notes != null && item.notes!.trim().isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
-              'Notes: ${item.notes}',
+              'Catatan: ${item.notes}',
               style: Theme.of(
                 context,
               ).textTheme.bodySmall?.copyWith(color: AppPallete.textPrimary),
@@ -222,7 +222,7 @@ class _OrderItemTile extends StatelessWidget {
               item.modifierSnapshot!.trim().isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
-              'Modifier: ${item.modifierSnapshot}',
+              'Tambahan: ${item.modifierSnapshot}',
               style: Theme.of(
                 context,
               ).textTheme.bodySmall?.copyWith(color: AppPallete.textPrimary),

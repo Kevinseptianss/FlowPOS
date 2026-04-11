@@ -20,33 +20,38 @@ class OrderSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Text(
-            'Recent Orders',
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Pesanan Terbaru',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppPallete.textPrimary,
+                    ),
+              ),
+              TextButton(
+                onPressed: () {
+                  // TODO: Go to all orders
+                },
+                child: const Text('Lihat Semua'),
+              ),
+            ],
           ),
         ),
         Expanded(
           child: orders.isEmpty
-              ? Center(
-                  child: Text(
-                    "Order is empty",
-                    style: Theme.of(
-                      context,
-                    ).textTheme.titleLarge?.copyWith(color: AppPallete.primary),
-                  ),
-                )
+              ? _buildEmptyState(context)
               : RefreshIndicator(
                   onRefresh: () async {
                     context.read<OrderBloc>().add(GetAllOrdersEvent());
-
                     await Future.delayed(const Duration(seconds: 1));
                   },
-                  child: ListView.builder(
+                  child: ListView.separated(
                     physics: const AlwaysScrollableScrollPhysics(),
                     itemCount: orders.length,
+                    separatorBuilder: (context, index) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final order = orders[index];
                       return OrderCard(
@@ -64,6 +69,28 @@ class OrderSection extends StatelessWidget {
                 ),
         ),
       ],
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.receipt_long_outlined,
+            size: 64,
+            color: AppPallete.primary.withAlpha(50),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            "Belum ada pesanan",
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: AppPallete.textSecondary,
+                ),
+          ),
+        ],
+      ),
     );
   }
 }

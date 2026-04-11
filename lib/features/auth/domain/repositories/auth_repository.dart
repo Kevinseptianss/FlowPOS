@@ -6,8 +6,9 @@ abstract interface class AuthRepository {
   Future<Either<Failure, User>> signUpWithEmailAndPassword(
     String name,
     String email,
-    String password,
-  );
+    String password, {
+    String role,
+  });
   Future<Either<Failure, User>> signInWithEmailAndPassword(
     String email,
     String password,
