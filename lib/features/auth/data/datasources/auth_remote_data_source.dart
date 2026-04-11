@@ -8,8 +8,9 @@ abstract interface class AuthRemoteDataSource {
   Future<UserModel> signUpWithEmailAndPassword(
     String name,
     String email,
-    String password,
-  );
+    String password, {
+    String role,
+  });
   Future<UserModel> signInWithEmailAndPassword(String email, String password);
   Future<UserModel?> getCurrentUserData();
   Future<void> signOut();
@@ -26,13 +27,14 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   Future<UserModel> signUpWithEmailAndPassword(
     String name,
     String email,
-    String password,
-  ) async {
+    String password, {
+    String role = 'owner',
+  }) async {
     try {
       final response = await supabaseClient.auth.signUp(
         password: password,
         email: email,
-        data: {'name': name, 'role': 'cashier'},
+        data: {'name': name, 'role': role},
       );
 
       if (response.user == null) {
@@ -108,7 +110,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
     final role = (profile != null ? profile['role']?.toString() : null) ??
         metadata['role']?.toString() ??
-        'cashier';
+        'owner';
 
     return UserModel.fromJson(authUser.toJson()).copyWith(
       email: authUser.email,

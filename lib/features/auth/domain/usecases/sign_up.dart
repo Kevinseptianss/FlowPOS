@@ -14,6 +14,7 @@ class SignUp implements UseCase<User, SignUpParams> {
       params.name,
       params.email,
       params.password,
+      role: params.role,
     );
   }
 }
@@ -22,10 +23,12 @@ class SignUpParams {
   final String name;
   final String email;
   final String password;
+  final String role;
 
   const SignUpParams({
     required this.name,
     required this.email,
     required this.password,
+    required this.role,
   });
 }

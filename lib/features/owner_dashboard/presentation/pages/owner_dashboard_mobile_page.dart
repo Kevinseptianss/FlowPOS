@@ -8,7 +8,6 @@ import 'package:flow_pos/features/order/domain/entities/order_entity.dart';
 import 'package:flow_pos/features/order/presentation/bloc/order_bloc.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_order_detail_page.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_menu_item_detail_page.dart';
-import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_settings_page.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/widgets/add_menu_dialog.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/widgets/menu_card.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/widgets/order_card.dart';
@@ -66,328 +65,310 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
           showSnackbar(context, state.message);
         }
       },
-      child: Scaffold(
-        appBar: AppBar(
-          centerTitle: false,
-          backgroundColor: AppPallete.primary,
-          elevation: 0,
-          toolbarHeight: 84,
-          titleSpacing: 16,
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'Owner Dashboard',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(color: AppPallete.onPrimary),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                DatetimeFormatter.formatDateYear(),
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppPallete.onPrimary.withAlpha(220),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            IconButton(
-              onPressed: () {
-                Navigator.push(context, OwnerSettingsPage.route());
-              },
-              icon: const Icon(Icons.settings_outlined),
-              color: AppPallete.onPrimary,
-            ),
-          ],
-        ),
-        body: Column(
-          children: [
-            Container(
+      child: Column(
+        children: [
+          _buildHeader(context),
+          _buildStatsCard(context),
+          _buildTabSection(context),
+          Expanded(
+            child: Container(
               width: double.infinity,
-              color: AppPallete.primary,
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppPallete.surface,
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withAlpha(18),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.trending_up,
-                          color: AppPallete.success,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Total Revenue',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(color: AppPallete.textPrimary),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    BlocBuilder<OrderBloc, OrderState>(
-                      builder: (context, state) {
-                        if (state is OrderRevenueLoading) {
-                          return const SizedBox(
-                            height: 28,
-                            width: 28,
-                            child: CircularProgressIndicator(strokeWidth: 2.5),
-                          );
-                        }
-
-                        return Text(
-                          formatRupiah(_totalRevenue),
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(
-                                color: AppPallete.primary,
-                                fontWeight: FontWeight.w700,
-                              ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.qr_code,
-                                color: AppPallete.primary,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 6),
-                              Flexible(
-                                child: Text(
-                                  formatRupiah(_qrisRevenue),
-                                  style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(color: AppPallete.primary),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.money,
-                                color: AppPallete.primary,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 6),
-                              Flexible(
-                                child: Text(
-                                  formatRupiah(_cashRevenue),
-                                  style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(color: AppPallete.primary),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      '$_totalOrders orders in this month',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: AppPallete.primary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              color: AppPallete.background,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _isOrderHistorySelected
+                  ? _buildOrderHistory(context)
+                  : _buildMenuSettings(context),
             ),
-            Container(
-              color: AppPallete.surface,
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-              child: Row(
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 48, 20, 32),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [AppPallete.primary, Color(0xFF6B48FF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: _OwnerTabButton(
-                      label: 'Order History',
-                      selected: _isOrderHistorySelected,
-                      onTap: () {
-                        setState(() {
-                          _isOrderHistorySelected = true;
-                        });
-                      },
-                    ),
+                  Text(
+                    'Selamat Datang,',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: Colors.white.withAlpha(200),
+                        ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _OwnerTabButton(
-                      label: 'Menu Settings',
-                      selected: !_isOrderHistorySelected,
-                      onTap: () {
-                        setState(() {
-                          _isOrderHistorySelected = false;
-                        });
-                      },
-                    ),
+                  Text(
+                    'Dashboard Pemilik',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                   ),
                 ],
               ),
+              const CircleAvatar(
+                backgroundColor: Colors.white24,
+                child: Icon(Icons.person_outline, color: Colors.white),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            DatetimeFormatter.formatDateYear(),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.white.withAlpha(180),
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatsCard(BuildContext context) {
+    return Transform.translate(
+      offset: const Offset(0, -20),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(20),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Total Pendapatan',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: AppPallete.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              BlocBuilder<OrderBloc, OrderState>(
+                builder: (context, state) {
+                  return Text(
+                    formatRupiah(_totalRevenue),
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          color: AppPallete.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildMiniStat(
+                    context,
+                    label: 'QRIS',
+                    value: formatRupiah(_qrisRevenue),
+                    color: Colors.blueAccent,
+                  ),
+                  _buildMiniStat(
+                    context,
+                    label: 'Tunai',
+                    value: formatRupiah(_cashRevenue),
+                    color: AppPallete.success,
+                  ),
+                  _buildMiniStat(
+                    context,
+                    label: 'Pesanan',
+                    value: '$_totalOrders',
+                    color: Colors.orangeAccent,
+                    isCount: true,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMiniStat(BuildContext context,
+      {required String label,
+      required String value,
+      required Color color,
+      bool isCount = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppPallete.textSecondary,
+                  ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: AppPallete.textPrimary,
+              ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTabSection(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: AppPallete.divider.withAlpha(50),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: _OwnerTabButton(
+                label: 'Pesanan',
+                selected: _isOrderHistorySelected,
+                onTap: () => setState(() => _isOrderHistorySelected = true),
+              ),
             ),
             Expanded(
-              child: Container(
-                width: double.infinity,
-                color: AppPallete.surface,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _isOrderHistorySelected
-                    ? BlocBuilder<OrderBloc, OrderState>(
-                        builder: (context, state) {
-                          if (state is OrdersLoading) {
-                            return const Center(
-                              child: CircularProgressIndicator(),
-                            );
-                          } else if (state is OrderFailure) {
-                            return Center(
-                              child: Text(
-                                'Failed to load orders',
-                                style: Theme.of(context).textTheme.titleMedium
-                                    ?.copyWith(color: AppPallete.error),
-                              ),
-                            );
-                          } else {
-                            return RefreshIndicator(
-                              onRefresh: () async {
-                                context.read<OrderBloc>().add(
-                                  GetMonthlyRevenueEvent(month: DateTime.now()),
-                                );
-                                context.read<OrderBloc>().add(
-                                  GetAllOrdersEvent(),
-                                );
-
-                                await Future.delayed(
-                                  const Duration(seconds: 1),
-                                );
-                              },
-                              child: ListView.builder(
-                                physics: const AlwaysScrollableScrollPhysics(),
-                                itemCount: _orders.length,
-                                itemBuilder: (context, index) {
-                                  final order = _orders[index];
-                                  return OrderCard(
-                                    orderId: order.orderNumber,
-                                    paymentType: order.payment.method,
-                                    datetime: DatetimeFormatter.formatDateTime(
-                                      order.createdAt,
-                                    ),
-                                    totalItems: order.items.length,
-                                    totalPayment: formatRupiah(order.total),
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        OwnerOrderDetailPage.route(order),
-                                      );
-                                    },
-                                  );
-                                },
-                              ),
-                            );
-                          }
-                        },
-                      )
-                    : BlocBuilder<MenuItemBloc, MenuItemState>(
-                        builder: (context, state) {
-                          if (state is MenuItemLoading) {
-                            return const Center(
-                              child: CircularProgressIndicator(),
-                            );
-                          } else if (state is MenuItemFailure) {
-                            return Center(
-                              child: Text(
-                                'Failed to load menu items',
-                                style: Theme.of(context).textTheme.titleMedium
-                                    ?.copyWith(color: AppPallete.error),
-                              ),
-                            );
-                          } else if (state is MenuItemLoaded) {
-                            return RefreshIndicator(
-                              onRefresh: () async {
-                                context.read<MenuItemBloc>().add(
-                                  GetAllMenuItemsEvent(),
-                                );
-
-                                await Future.delayed(
-                                  const Duration(seconds: 1),
-                                );
-                              },
-                              child: ListView.builder(
-                                physics: const AlwaysScrollableScrollPhysics(),
-                                itemCount: state.menuItems.length + 1,
-                                itemBuilder: (context, index) {
-                                  if (index == 0) {
-                                    return _AddMenuOrCategoryCard(
-                                      onTap: () {
-                                        showDialog(
-                                          context: context,
-                                          builder: (context) =>
-                                              const AddMenuDialog(),
-                                        );
-                                      },
-                                    );
-                                  }
-
-                                  final menuItem = state.menuItems[index - 1];
-                                  return MenuCard(
-                                    key: ValueKey(menuItem.id),
-                                    title: menuItem.name,
-                                    price: menuItem.price,
-                                    category: menuItem.category.name,
-                                    enabled: menuItem.enabled,
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        OwnerMenuItemDetailPage.route(menuItem),
-                                      );
-                                    },
-                                    onEnabledChanged: (value) {
-                                      context.read<MenuItemBloc>().add(
-                                        UpdateMenuItemAvailabilityEvent(
-                                          menuItemId: menuItem.id,
-                                          enabled: value,
-                                        ),
-                                      );
-                                    },
-                                    image: Image.asset(
-                                      'assets/images/default-food.jpg',
-                                    ),
-                                  );
-                                },
-                              ),
-                            );
-                          }
-
-                          return const SizedBox();
-                        },
-                      ),
+              child: _OwnerTabButton(
+                label: 'Menu',
+                selected: !_isOrderHistorySelected,
+                onTap: () => setState(() => _isOrderHistorySelected = false),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildOrderHistory(BuildContext context) {
+    return BlocBuilder<OrderBloc, OrderState>(
+      builder: (context, state) {
+        if (state is OrdersLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        return RefreshIndicator(
+          onRefresh: () async {
+            _orderBloc.add(GetMonthlyRevenueEvent(month: DateTime.now()));
+            _orderBloc.add(GetAllOrdersEvent());
+          },
+          child: ListView.separated(
+            padding: const EdgeInsets.only(top: 8, bottom: 24),
+            itemCount: _orders.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 12),
+            itemBuilder: (context, index) {
+              final order = _orders[index];
+              return OrderCard(
+                orderId: order.orderNumber,
+                paymentType: order.payment.method,
+                datetime: DatetimeFormatter.formatDateTime(order.createdAt),
+                totalItems: order.items.length,
+                totalPayment: formatRupiah(order.total),
+                onTap: () {
+                  Navigator.push(context, OwnerOrderDetailPage.route(order));
+                },
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMenuSettings(BuildContext context) {
+    return BlocBuilder<MenuItemBloc, MenuItemState>(
+      builder: (context, state) {
+        if (state is MenuItemLoading) {
+          return const Center(child: CircularProgressIndicator());
+        } else if (state is MenuItemLoaded) {
+          return RefreshIndicator(
+            onRefresh: () async {
+              _menuItemBloc.add(GetAllMenuItemsEvent());
+            },
+            child: ListView.separated(
+              padding: const EdgeInsets.only(top: 8, bottom: 24),
+              itemCount: state.menuItems.length + 1,
+              separatorBuilder: (context, index) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  return _AddMenuOrCategoryCard(
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => const AddMenuDialog(),
+                      );
+                    },
+                  );
+                }
+                final menuItem = state.menuItems[index - 1];
+                return MenuCard(
+                  key: ValueKey(menuItem.id),
+                  title: menuItem.name,
+                  price: menuItem.price,
+                  category: menuItem.category.name,
+                  enabled: menuItem.enabled,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      OwnerMenuItemDetailPage.route(menuItem),
+                    );
+                  },
+                  onEnabledChanged: (value) {
+                    _menuItemBloc.add(UpdateMenuItemAvailabilityEvent(
+                      menuItemId: menuItem.id,
+                      enabled: value,
+                    ));
+                  },
+                  image: Image.asset('assets/images/default-food.jpg'),
+                );
+              },
+            ),
+          );
+        }
+        return const SizedBox();
+      },
     );
   }
 }
@@ -407,23 +388,30 @@ class _OwnerTabButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        height: 42,
+      borderRadius: BorderRadius.circular(12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        height: 48,
         decoration: BoxDecoration(
-          color: selected ? AppPallete.primary : AppPallete.background,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: selected ? AppPallete.primary : AppPallete.divider,
-          ),
+          color: selected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withAlpha(10),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         child: Center(
           child: Text(
             label,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: selected ? AppPallete.onPrimary : AppPallete.textPrimary,
-              fontWeight: FontWeight.w600,
-            ),
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: selected ? AppPallete.primary : AppPallete.textSecondary,
+                  fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                ),
           ),
         ),
       ),
@@ -440,36 +428,39 @@ class _AddMenuOrCategoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return DottedBorder(
       options: RoundedRectDottedBorderOptions(
-        radius: const Radius.circular(12),
+        radius: const Radius.circular(16),
         color: AppPallete.primary,
-        strokeWidth: 2,
-        dashPattern: const [10, 4],
+        strokeWidth: 1.5,
+        dashPattern: const [8, 4],
         strokeCap: StrokeCap.round,
-        padding: EdgeInsets.all(3),
+        padding: const EdgeInsets.all(2),
       ),
-      child: Card(
-        elevation: 2,
-        margin: EdgeInsets.zero,
-        color: AppPallete.background,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: SizedBox(
-            height: 72,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.add_circle_outline, color: AppPallete.primary),
-                const SizedBox(width: 8),
-                Text(
-                  'Add Menu or Category',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppPallete.primary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          height: 80,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.add_circle,
+                color: AppPallete.primary,
+                size: 28,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Tambah Menu / Kategori',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: AppPallete.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+            ],
           ),
         ),
       ),

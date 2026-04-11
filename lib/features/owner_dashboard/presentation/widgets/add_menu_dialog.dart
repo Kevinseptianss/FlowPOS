@@ -81,13 +81,13 @@ class _AddMenuDialogState extends State<AddMenuDialog> {
 
     if (_formType == 'menu') {
       if (_selectedCategoryId == null) {
-        showSnackbar(context, 'Please select a category first.');
+        showSnackbar(context, 'Silakan pilih kategori terlebih dahulu.');
         return;
       }
 
       final parsedPrice = int.tryParse(_priceController.text.trim());
       if (parsedPrice == null || parsedPrice <= 0) {
-        showSnackbar(context, 'Price must be a valid number greater than 0.');
+        showSnackbar(context, 'Harga harus berupa angka valid lebih besar dari 0.');
         return;
       }
 
@@ -137,7 +137,7 @@ class _AddMenuDialogState extends State<AddMenuDialog> {
                 _isSubmitting = false;
                 _submittingType = null;
               });
-              showSnackbar(context, 'Menu has been created.');
+              showSnackbar(context, 'Menu berhasil dibuat.');
               Navigator.pop(context);
             }
           },
@@ -152,7 +152,7 @@ class _AddMenuDialogState extends State<AddMenuDialog> {
                   _isSubmitting = false;
                   _submittingType = null;
                 });
-                showSnackbar(context, 'Category has been created.');
+                showSnackbar(context, 'Kategori berhasil dibuat.');
                 context.read<MenuItemBloc>().add(GetAllMenuItemsEvent());
                 Navigator.pop(context);
               }
@@ -267,7 +267,7 @@ class _AddMenuDialogState extends State<AddMenuDialog> {
                               const SizedBox(height: 12),
                               if (_categoryOptions.isEmpty)
                                 Text(
-                                  'No categories found. Create a category first.',
+                                  'Kategori tidak ditemukan. Buat kategori terlebih dahulu.',
                                   style: Theme.of(context).textTheme.bodyMedium
                                       ?.copyWith(
                                         color: AppPallete.textSecondary,

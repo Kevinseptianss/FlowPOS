@@ -1,3 +1,5 @@
+import 'package:flow_pos/core/theme/app_pallete.dart';
+import 'package:flow_pos/core/utils/format_rupiah.dart';
 import 'package:flow_pos/core/utils/show_snackbar.dart';
 import 'package:flow_pos/features/order/presentation/bloc/order_bloc.dart';
 import 'package:flutter/material.dart';
@@ -18,21 +20,6 @@ class _AnalyticSectionState extends State<AnalyticSection> {
   int _totalOrders = 0;
   int _qrisRevenue = 0;
   int _cashRevenue = 0;
-
-  String _formatThousands(int value) {
-    final digits = value.toString();
-    final buffer = StringBuffer();
-
-    for (var i = 0; i < digits.length; i++) {
-      final reverseIndex = digits.length - i;
-      buffer.write(digits[i]);
-      if (reverseIndex > 1 && reverseIndex % 3 == 1) {
-        buffer.write('.');
-      }
-    }
-
-    return buffer.toString();
-  }
 
   @override
   void initState() {
@@ -64,47 +51,55 @@ class _AnalyticSectionState extends State<AnalyticSection> {
               : (_totalRevenue ~/ _totalOrders);
 
           return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
                   Expanded(
                     child: AnalyticCard(
-                      icon: Icons.trending_up,
-                      title: 'Revenue',
-                      value: _formatThousands(_totalRevenue),
+                      icon: Icons.trending_up_rounded,
+                      title: 'Pendapatan',
+                      value: formatRupiah(_totalRevenue),
+                      color: AppPallete.primary,
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 20),
                   Expanded(
                     child: AnalyticCard(
-                      icon: Icons.shopping_cart,
-                      title: 'Orders',
+                      icon: Icons.shopping_bag_outlined,
+                      title: 'Pesanan',
                       value: '$_totalOrders',
+                      color: Colors.orangeAccent,
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 20),
                   Expanded(
                     child: AnalyticCard(
-                      icon: Icons.calculate,
-                      title: 'Avg/Orders',
-                      value: _formatThousands(avgOrder),
+                      icon: Icons.analytics_outlined,
+                      title: 'Rata-rata/Pesanan',
+                      value: formatRupiah(avgOrder),
+                      color: Colors.indigoAccent,
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 20),
                   Expanded(
                     child: AnalyticCard(
-                      icon: Icons.inventory,
-                      title: 'Active Items',
+                      icon: Icons.restaurant_menu_rounded,
+                      title: 'Menu Aktif',
                       value: '12',
+                      color: AppPallete.success,
                     ),
                   ),
                 ],
               ),
               if (state is OrderRevenueLoading) ...[
-                const SizedBox(height: 10),
-                const LinearProgressIndicator(),
+                const SizedBox(height: 12),
+                const LinearProgressIndicator(
+                  borderRadius: BorderRadius.all(Radius.circular(10)),
+                  minHeight: 6,
+                ),
               ],
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
               IncomeCard(qrisRevenue: _qrisRevenue, cashRevenue: _cashRevenue),
             ],
           );

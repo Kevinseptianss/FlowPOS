@@ -14,102 +14,114 @@ class IncomeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 4,
-      color: AppPallete.surface,
-      child: SizedBox(
-        width: double.infinity,
-        height: 80,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8.0),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(10),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Metode Pembayaran',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: AppPallete.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+          const SizedBox(height: 20),
+          Row(
             children: [
               Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8.0),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppPallete.background,
-                        ),
-                        child: Icon(
-                          Icons.qr_code,
-                          color: AppPallete.primary,
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'QRIS',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(color: Colors.black),
-                          ),
-                          Text(
-                            formatRupiah(qrisRevenue),
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                child: _PaymentMethodStat(
+                  icon: Icons.qr_code_2_rounded,
+                  label: 'QRIS',
+                  value: formatRupiah(qrisRevenue),
+                  color: Colors.blueAccent,
                 ),
               ),
               Container(
                 width: 1,
-                height: double.infinity,
+                height: 40,
+                margin: const EdgeInsets.symmetric(horizontal: 24),
                 color: AppPallete.divider,
               ),
               Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8.0),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppPallete.background,
-                        ),
-                        child: Icon(
-                          Icons.money,
-                          color: AppPallete.primary,
-                          size: 20,
-                        ),
+                child: _PaymentMethodStat(
+                  icon: Icons.payments_outlined,
+                  label: 'Tunai',
+                  value: formatRupiah(cashRevenue),
+                  color: AppPallete.success,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PaymentMethodStat extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  const _PaymentMethodStat({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: color.withAlpha(20),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: color, size: 28),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: AppPallete.textSecondary,
+                    ),
+              ),
+              const SizedBox(height: 4),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  value,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppPallete.textPrimary,
                       ),
-                      const SizedBox(width: 8),
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Cash',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(color: Colors.black),
-                          ),
-                          Text(
-                            formatRupiah(cashRevenue),
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
                 ),
               ),
             ],
           ),
         ),
-      ),
+      ],
     );
   }
 }

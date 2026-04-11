@@ -72,7 +72,7 @@ class _OwnerModifierGroupCreatePageState
       if (name.isEmpty || additionalPrice == null || additionalPrice < 0) {
         showSnackbar(
           context,
-          'Please provide a valid name and non-negative price for every option.',
+          'Silakan masukkan nama dan harga yang valid untuk setiap pilihan.',
         );
         return;
       }
@@ -83,7 +83,7 @@ class _OwnerModifierGroupCreatePageState
     }
 
     if (options.isEmpty) {
-      showSnackbar(context, 'Add at least one modifier option.');
+      showSnackbar(context, 'Tambahkan setidaknya satu pilihan tambahan.');
       return;
     }
 
@@ -116,7 +116,7 @@ class _OwnerModifierGroupCreatePageState
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'New Modifier Group',
+          'Grup Tambahan Baru',
           style: Theme.of(
             context,
           ).textTheme.titleLarge?.copyWith(color: AppPallete.onPrimary),
@@ -136,7 +136,7 @@ class _OwnerModifierGroupCreatePageState
               _isSubmitting = false;
             });
             _resetForm();
-            showSnackbar(context, 'Modifier group has been created.');
+            showSnackbar(context, 'Grup tambahan berhasil dibuat.');
           }
         },
         child: Form(
@@ -149,7 +149,7 @@ class _OwnerModifierGroupCreatePageState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Group Information',
+                      'Informasi Grup',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: AppPallete.primary,
                         fontWeight: FontWeight.w700,
@@ -163,12 +163,12 @@ class _OwnerModifierGroupCreatePageState
                         color: AppPallete.textPrimary,
                       ),
                       decoration: const InputDecoration(
-                        labelText: 'Modifier Group Name',
-                        hintText: 'Ex: Topping, Sugar Level, Size',
+                        labelText: 'Nama Grup Tambahan',
+                        hintText: 'Contoh: Topping, Level Gula, Ukuran',
                       ),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
-                          return 'Modifier group name is required.';
+                          return 'Nama grup tambahan wajib diisi.';
                         }
                         return null;
                       },
@@ -185,7 +185,7 @@ class _OwnerModifierGroupCreatePageState
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Modifier Options',
+                          'Pilihan Tambahan',
                           style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(
                                 color: AppPallete.primary,
@@ -195,7 +195,7 @@ class _OwnerModifierGroupCreatePageState
                         TextButton.icon(
                           onPressed: _isSubmitting ? null : _addOptionRow,
                           icon: const Icon(Icons.add),
-                          label: const Text('Add Option'),
+                          label: const Text('Tambah Pilihan'),
                         ),
                       ],
                     ),
@@ -217,12 +217,12 @@ class _OwnerModifierGroupCreatePageState
                                 style: Theme.of(context).textTheme.bodyMedium
                                     ?.copyWith(color: AppPallete.textPrimary),
                                 decoration: InputDecoration(
-                                  labelText: 'Option ${index + 1} Name',
-                                  hintText: 'Ex: Extra Cheese',
+                                  labelText: 'Nama Pilihan ${index + 1}',
+                                  hintText: 'Contoh: Ekstra Keju',
                                 ),
                                 validator: (value) {
                                   if (value == null || value.trim().isEmpty) {
-                                    return 'Required';
+                                    return 'Wajib diisi';
                                   }
                                   return null;
                                 },
@@ -238,15 +238,15 @@ class _OwnerModifierGroupCreatePageState
                                 style: Theme.of(context).textTheme.bodyMedium
                                     ?.copyWith(color: AppPallete.textPrimary),
                                 decoration: const InputDecoration(
-                                  labelText: 'Price',
-                                  hintText: 'Ex: 5000',
+                                  labelText: 'Harga',
+                                  hintText: 'Contoh: 5000',
                                 ),
                                 validator: (value) {
                                   final price = int.tryParse(
                                     value?.trim() ?? '',
                                   );
                                   if (price == null || price < 0) {
-                                    return 'Invalid';
+                                    return 'Tidak valid';
                                   }
                                   return null;
                                 },
@@ -284,7 +284,7 @@ class _OwnerModifierGroupCreatePageState
                           color: AppPallete.onPrimary,
                         ),
                       )
-                    : const Text('Save Modifier Group'),
+                    : const Text('Simpan Grup Tambahan'),
               ),
             ],
           ),

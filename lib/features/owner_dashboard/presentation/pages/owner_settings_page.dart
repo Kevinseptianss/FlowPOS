@@ -9,202 +9,176 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class OwnerSettingsPage extends StatelessWidget {
-  static MaterialPageRoute route() =>
-      MaterialPageRoute(builder: (context) => const OwnerSettingsPage());
-
   const OwnerSettingsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Settings',
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(color: AppPallete.onPrimary),
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) {
+        if (state is AuthFailure) {
+          showSnackbar(context, state.message);
+        } else if (state is AuthInitial) {
+          Navigator.popUntil(context, (route) => route.isFirst);
+        }
+      },
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Pengaturan',
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppPallete.textPrimary,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Kelola akun dan konfigurasi toko Anda',
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: AppPallete.textSecondary,
+                  ),
+            ),
+            const SizedBox(height: 40),
+
+            _buildSectionHeader(context, 'Akun'),
+            _buildSettingCard(
+              context,
+              icon: Icons.logout_rounded,
+              title: 'Keluar',
+              subtitle: 'Keluar dari akun pemilik saat ini',
+              color: AppPallete.error,
+              onTap: () async {
+                final shouldLogout = await showLogoutDialog(
+                  context,
+                  accountLabel: 'akun pemilik',
+                );
+                if (shouldLogout && context.mounted) {
+                  context.read<AuthBloc>().add(SignOutEvent());
+                }
+              },
+            ),
+
+            const SizedBox(height: 32),
+            _buildSectionHeader(context, 'Menu & Produk'),
+            _buildSettingCard(
+              context,
+              icon: Icons.auto_awesome_motion_rounded,
+              title: 'Grup Tambahan',
+              subtitle: 'Kelola topping, level pedas, atau pilihan lainnya',
+              iconColor: Colors.deepPurple,
+              onTap: () => Navigator.push(context, OwnerModifierGroupCreatePage.route()),
+            ),
+
+            const SizedBox(height: 32),
+            _buildSectionHeader(context, 'Toko'),
+            _buildSettingCard(
+              context,
+              icon: Icons.store_rounded,
+              title: 'Profil Toko',
+              subtitle: 'Ubah nama, alamat, dan informasi kontak toko',
+              iconColor: Colors.blue,
+              onTap: () => Navigator.push(context, OwnerStoreProfileSettingsPage.route()),
+            ),
+            const SizedBox(height: 12),
+            _buildSettingCard(
+              context,
+              icon: Icons.receipt_long_rounded,
+              title: 'Pajak & Biaya Layanan',
+              subtitle: 'Atur persentase pajak dan biaya tambahan',
+              iconColor: Colors.orange,
+              onTap: () => Navigator.push(context, OwnerStoreSettingsPage.route()),
+            ),
+          ],
         ),
       ),
-      body: BlocListener<AuthBloc, AuthState>(
-        listener: (context, state) {
-          if (state is AuthFailure) {
-            showSnackbar(context, state.message);
-          } else if (state is AuthInitial) {
-            // User logged out, navigate back to sign in
-            Navigator.popUntil(context, (route) => route.isFirst);
-          }
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Account Settings',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: AppPallete.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                decoration: BoxDecoration(
-                  color: AppPallete.surface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppPallete.divider),
-                ),
-                child: ListTile(
-                  leading: const Icon(Icons.logout, color: AppPallete.error),
-                  title: Text(
-                    'Logout',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: AppPallete.error,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  subtitle: Text(
-                    'Sign out from your account',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppPallete.textPrimary,
-                    ),
-                  ),
-                  onTap: () async {
-                    final shouldLogout = await showLogoutDialog(
-                      context,
-                      accountLabel: 'owner account',
-                    );
+    );
+  }
 
-                    if (!context.mounted || !shouldLogout) {
-                      return;
-                    }
+  Widget _buildSectionHeader(BuildContext context, String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 12),
+      child: Text(
+        title.toUpperCase(),
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: AppPallete.textSecondary,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.2,
+            ),
+      ),
+    );
+  }
 
-                    context.read<AuthBloc>().add(SignOutEvent());
-                  },
-                ),
-              ),
-              const SizedBox(height: 32),
-              Text(
-                'Menu Configuration',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: AppPallete.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                decoration: BoxDecoration(
-                  color: AppPallete.surface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppPallete.divider),
-                ),
-                child: ListTile(
-                  leading: const Icon(
-                    Icons.tune_outlined,
-                    color: AppPallete.primary,
+  Widget _buildSettingCard(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    Color? color,
+    Color? iconColor,
+  }) {
+    final titleColor = color ?? AppPallete.textPrimary;
+    final primaryIconColor = color ?? iconColor ?? AppPallete.primary;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(5),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: primaryIconColor.withAlpha(20),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  title: Text(
-                    'Add Modifier Group',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: AppPallete.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  subtitle: Text(
-                    'Create a modifier group and its modifier options',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppPallete.textPrimary,
-                    ),
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      OwnerModifierGroupCreatePage.route(),
-                    );
-                  },
+                  child: Icon(icon, color: primaryIconColor, size: 28),
                 ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Store Configuration',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: AppPallete.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                decoration: BoxDecoration(
-                  color: AppPallete.surface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppPallete.divider),
-                ),
-                margin: const EdgeInsets.only(bottom: 12),
-                child: ListTile(
-                  leading: const Icon(
-                    Icons.storefront_outlined,
-                    color: AppPallete.primary,
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: titleColor,
+                            ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: AppPallete.textSecondary,
+                            ),
+                      ),
+                    ],
                   ),
-                  title: Text(
-                    'Store Profile',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: AppPallete.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  subtitle: Text(
-                    'Edit restaurant name and address',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppPallete.textPrimary,
-                    ),
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      OwnerStoreProfileSettingsPage.route(),
-                    );
-                  },
                 ),
-              ),
-              Container(
-                decoration: BoxDecoration(
-                  color: AppPallete.surface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppPallete.divider),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppPallete.textSecondary.withAlpha(100),
                 ),
-                child: ListTile(
-                  leading: const Icon(
-                    Icons.receipt_long_outlined,
-                    color: AppPallete.primary,
-                  ),
-                  title: Text(
-                    'Tax & Service Charge',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: AppPallete.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  subtitle: Text(
-                    'Configure checkout tax and service percentages',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppPallete.textPrimary,
-                    ),
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.push(context, OwnerStoreSettingsPage.route());
-                  },
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'More options will be added here',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppPallete.textSecondary,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

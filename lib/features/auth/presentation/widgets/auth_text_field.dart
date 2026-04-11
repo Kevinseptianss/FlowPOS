@@ -57,11 +57,11 @@ class _AuthTextFieldState extends State<AuthTextField> {
       ),
       validator: (value) {
         if (value == null || value.isEmpty) {
-          return 'Please enter ${widget.label}';
+          return 'Silakan masukkan ${widget.label}';
         }
 
         if (widget.isPassword && value.length < 6) {
-          return 'Password must be at least 6 characters';
+          return 'Kata sandi harus minimal 6 karakter';
         }
 
         if (widget.validator != null) {

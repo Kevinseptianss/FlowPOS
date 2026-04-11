@@ -64,7 +64,7 @@ class _SignUpPageState extends State<SignUpPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Create Account',
+                          'Buat Akun',
                           style: Theme.of(context).textTheme.headlineSmall
                               ?.copyWith(
                                 color: AppPallete.onPrimary,
@@ -73,7 +73,7 @@ class _SignUpPageState extends State<SignUpPage> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Set up your owner or cashier account in minutes.',
+                          'Siapkan akun pemilik Anda dalam hitungan menit.',
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(color: AppPallete.onPrimary),
                         ),
@@ -96,7 +96,7 @@ class _SignUpPageState extends State<SignUpPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Sign Up',
+                              'Daftar',
                               style: Theme.of(context).textTheme.titleLarge
                                   ?.copyWith(
                                     color: AppPallete.textPrimary,
@@ -106,7 +106,7 @@ class _SignUpPageState extends State<SignUpPage> {
                             const SizedBox(height: 16),
                             AuthTextField(
                               controller: _nameController,
-                              label: 'Name',
+                              label: 'Nama',
                             ),
                             const SizedBox(height: 12),
                             AuthTextField(
@@ -116,17 +116,17 @@ class _SignUpPageState extends State<SignUpPage> {
                             const SizedBox(height: 12),
                             AuthTextField(
                               controller: _passwordController,
-                              label: 'Password',
+                              label: 'Kata Sandi',
                               isPassword: true,
                             ),
                             const SizedBox(height: 12),
                             AuthTextField(
                               controller: _confirmPasswordController,
-                              label: 'Confirm Password',
+                              label: 'Konfirmasi Kata Sandi',
                               isPassword: true,
                               validator: (value) {
                                 if (value != _passwordController.text) {
-                                  return 'Passwords do not match';
+                                  return 'Kata sandi tidak cocok';
                                 }
 
                                 return null;
@@ -144,6 +144,7 @@ class _SignUpPageState extends State<SignUpPage> {
                                         name: _nameController.text,
                                         email: _emailController.text,
                                         password: _passwordController.text,
+                                        role: 'owner',
                                       ),
                                     );
                                   }
@@ -158,7 +159,7 @@ class _SignUpPageState extends State<SignUpPage> {
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                 ),
-                                child: const Text('Create Account'),
+                                child: const Text('Buat Akun'),
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -166,7 +167,7 @@ class _SignUpPageState extends State<SignUpPage> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
-                                  'Already have an account?',
+                                  'Sudah punya akun?',
                                   style: Theme.of(context).textTheme.bodyMedium
                                       ?.copyWith(color: AppPallete.textPrimary),
                                 ),
@@ -177,7 +178,7 @@ class _SignUpPageState extends State<SignUpPage> {
                                   style: TextButton.styleFrom(
                                     foregroundColor: AppPallete.secondary,
                                   ),
-                                  child: const Text('Sign In'),
+                                  child: const Text('Masuk'),
                                 ),
                               ],
                             ),
