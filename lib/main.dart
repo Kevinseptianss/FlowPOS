@@ -1,4 +1,5 @@
 import 'package:flow_pos/core/common/bloc/user_bloc.dart';
+import 'package:flow_pos/core/theme/app_pallete.dart';
 import 'package:flow_pos/core/theme/app_theme.dart';
 import 'package:flow_pos/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:flow_pos/features/auth/presentation/pages/sign_in_page.dart';
@@ -75,6 +76,7 @@ class _MyAppState extends State<MyApp> {
       title: 'FlowPOS',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightThemeMode,
+      themeMode: ThemeMode.light,
       home: BlocBuilder<UserBloc, UserState>(
         builder: (context, state) {
           if (state is UserLoggedIn) {
@@ -87,7 +89,7 @@ class _MyAppState extends State<MyApp> {
 
           // While we wait for Auth to confirm if the user is already logged in, show a loading screen
           return Scaffold(
-            backgroundColor: AppTheme.lightThemeMode.scaffoldBackgroundColor,
+            backgroundColor: AppPallete.background,
             body: BlocBuilder<AuthBloc, AuthState>(
               builder: (context, authState) {
                 if (authState is AuthLoading) {

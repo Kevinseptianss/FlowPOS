@@ -10,10 +10,20 @@ abstract interface class MenuItemRemoteDataSource {
     required String name,
     required int price,
     required String categoryId,
+    required String unit,
+    required List<Map<String, dynamic>> options,
   });
   Future<MenuItemModel> updateMenuItemAvailability({
     required String menuItemId,
     required bool enabled,
+  });
+  Future<MenuItemModel> updateMenuItem({
+    required String id,
+    required String name,
+    required int price,
+    required String categoryId,
+    required String unit,
+    required List<Map<String, dynamic>> options,
   });
 }
 
@@ -28,7 +38,7 @@ class MenuItemRemoteDataSourceImpl implements MenuItemRemoteDataSource {
     try {
       final response = await supabaseClient
           .from('menu_items')
-          .select("*, categories!category_id(id, name)")
+          .select("*, categories!category_id(id, name), menu_item_variants(*)")
           .order('name', ascending: true);
 
       return response
@@ -44,7 +54,7 @@ class MenuItemRemoteDataSourceImpl implements MenuItemRemoteDataSource {
     try {
       final response = await supabaseClient
           .from('menu_items')
-          .select("*, categories!category_id(id, name)")
+          .select("*, categories!category_id(id, name), menu_item_variants(*)")
           .eq('is_available', true)
           .order('name', ascending: true);
 
@@ -61,25 +71,48 @@ class MenuItemRemoteDataSourceImpl implements MenuItemRemoteDataSource {
     required String name,
     required int price,
     required String categoryId,
+    required String unit,
+    required List<Map<String, dynamic>> options,
   }) async {
     try {
-      final insertedMenuItem = await supabaseClient
-          .from('menu_items')
-          .insert({
-            'id': _uuid.v4(),
-            'name': name,
-            'price': price,
-            'category_id': categoryId,
-            'is_available': true,
-          })
-          .select('id')
-          .single();
+      final menuItemId = _uuid.v4();
+      
+      await supabaseClient.from('menu_items').insert({
+        'id': menuItemId,
+        'name': name,
+        'price': price,
+        'category_id': categoryId,
+        'unit': unit,
+        'is_available': true,
+      });
 
-      final menuItemId = insertedMenuItem['id'] as String;
+      if (options.isNotEmpty) {
+        final List<Map<String, dynamic>> variantPayload = [];
+        
+        for (final option in options) {
+          final optionName = option['option_name'] as String;
+          final variants = option['variants'] as List<dynamic>;
+          
+          for (final variant in variants) {
+            variantPayload.add({
+              'id': _uuid.v4(),
+              'menu_item_id': menuItemId,
+              'option_name': optionName,
+              'variant_name': variant['name'] as String,
+              'price': variant['price'] as int,
+              'unit': variant['unit'] as String,
+            });
+          }
+        }
+
+        if (variantPayload.isNotEmpty) {
+          await supabaseClient.from('menu_item_variants').insert(variantPayload);
+        }
+      }
 
       final menuItem = await supabaseClient
           .from('menu_items')
-          .select('*, categories!category_id(id, name)')
+          .select('*, categories!category_id(id, name), menu_item_variants(*)')
           .eq('id', menuItemId)
           .single();
 
@@ -95,14 +128,77 @@ class MenuItemRemoteDataSourceImpl implements MenuItemRemoteDataSource {
     required bool enabled,
   }) async {
     try {
-      final menuItem = await supabaseClient
+      final response = await supabaseClient
           .from('menu_items')
           .update({'is_available': enabled})
           .eq('id', menuItemId)
-          .select('*, categories!category_id(id, name)')
+          .select("*, categories!category_id(id, name), menu_item_variants(*)")
           .single();
 
-      return MenuItemModel.fromJson(menuItem);
+      return MenuItemModel.fromJson(response);
+    } catch (e) {
+      throw ServerException(e.toString());
+    }
+  }
+
+  @override
+  Future<MenuItemModel> updateMenuItem({
+    required String id,
+    required String name,
+    required int price,
+    required String categoryId,
+    required String unit,
+    required List<Map<String, dynamic>> options,
+  }) async {
+    try {
+      // 1. Update main record
+      await supabaseClient.from('menu_items').update({
+        'name': name,
+        'price': price,
+        'category_id': categoryId,
+        'unit': unit,
+      }).eq('id', id);
+
+      // 2. Delete existing variants
+      await supabaseClient
+          .from('menu_item_variants')
+          .delete()
+          .eq('menu_item_id', id);
+
+      // 3. Insert new variants
+      if (options.isNotEmpty) {
+        final List<Map<String, dynamic>> variantPayload = [];
+        for (final option in options) {
+          final optionName = option['option_name'] as String;
+          final variants = option['variants'] as List<dynamic>;
+
+          for (final variant in variants) {
+            variantPayload.add({
+              'id': _uuid.v4(),
+              'menu_item_id': id,
+              'option_name': optionName,
+              'variant_name': variant['name'] as String,
+              'price': variant['price'] as int,
+              'unit': variant['unit'] as String,
+            });
+          }
+        }
+
+        if (variantPayload.isNotEmpty) {
+          await supabaseClient
+              .from('menu_item_variants')
+              .insert(variantPayload);
+        }
+      }
+
+      // 4. Return updated record
+      final response = await supabaseClient
+          .from('menu_items')
+          .select("*, categories!category_id(id, name), menu_item_variants(*)")
+          .eq('id', id)
+          .single();
+
+      return MenuItemModel.fromJson(response);
     } catch (e) {
       throw ServerException(e.toString());
     }

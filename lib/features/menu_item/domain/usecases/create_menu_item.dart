@@ -17,8 +17,8 @@ class CreateMenuItem implements UseCase<MenuItem, CreateMenuItemParams> {
       return left(const Failure('Menu name cannot be empty.'));
     }
 
-    if (params.price <= 0) {
-      return left(const Failure('Price must be greater than 0.'));
+    if (params.price < 0) {
+      return left(const Failure('Price cannot be negative.'));
     }
 
     if (params.categoryId.trim().isEmpty) {
@@ -29,6 +29,8 @@ class CreateMenuItem implements UseCase<MenuItem, CreateMenuItemParams> {
       name: trimmedName,
       price: params.price,
       categoryId: params.categoryId,
+      unit: params.unit,
+      options: params.options,
     );
   }
 }
@@ -37,10 +39,14 @@ class CreateMenuItemParams {
   final String name;
   final int price;
   final String categoryId;
+  final String unit;
+  final List<Map<String, dynamic>> options;
 
   const CreateMenuItemParams({
     required this.name,
     required this.price,
     required this.categoryId,
+    this.unit = 'pcs',
+    this.options = const [],
   });
 }

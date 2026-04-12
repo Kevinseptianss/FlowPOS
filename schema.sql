@@ -21,7 +21,19 @@ CREATE TABLE IF NOT EXISTS public.menu_items (
     name TEXT NOT NULL,
     price BIGINT NOT NULL DEFAULT 0,
     category_id UUID REFERENCES public.categories(id) ON DELETE SET NULL,
+    unit TEXT NOT NULL DEFAULT 'pcs',
     is_available BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 3.1 Menu Item Variants
+CREATE TABLE IF NOT EXISTS public.menu_item_variants (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    menu_item_id UUID NOT NULL REFERENCES public.menu_items(id) ON DELETE CASCADE,
+    option_name TEXT NOT NULL,
+    variant_name TEXT NOT NULL,
+    price BIGINT NOT NULL DEFAULT 0,
+    unit TEXT NOT NULL DEFAULT 'pcs',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -191,6 +203,7 @@ CREATE TABLE IF NOT EXISTS public.shifts (
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.menu_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.menu_item_variants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
@@ -200,6 +213,7 @@ ALTER TABLE public.store_settings ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Enable ALL for Authenticated" ON public.profiles FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Enable ALL for Authenticated" ON public.categories FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Enable ALL for Authenticated" ON public.menu_items FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Enable ALL for Authenticated" ON public.menu_item_variants FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Enable ALL for Authenticated" ON public.orders FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Enable ALL for Authenticated" ON public.order_items FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Enable ALL for Authenticated" ON public.payments FOR ALL TO authenticated USING (true) WITH CHECK (true);

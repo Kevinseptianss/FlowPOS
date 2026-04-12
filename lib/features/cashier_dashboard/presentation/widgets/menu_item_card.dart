@@ -1,4 +1,5 @@
 import 'package:flow_pos/core/theme/app_pallete.dart';
+import 'package:flow_pos/core/utils/format_rupiah.dart';
 import 'package:flutter/material.dart';
 
 class MenuItemCard extends StatelessWidget {
@@ -44,14 +45,18 @@ class MenuItemCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(
                   context,
-                ).textTheme.titleSmall?.copyWith(color: AppPallete.textPrimary),
+                ).textTheme.titleSmall?.copyWith(
+                    color: AppPallete.textPrimary,
+                    fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 4),
               Text(
-                'Rp $price',
+                price == 0 ? 'Gratis' : formatRupiah(price),
                 style: Theme.of(
                   context,
-                ).textTheme.bodySmall?.copyWith(color: AppPallete.primary),
+                ).textTheme.bodySmall?.copyWith(
+                    color: AppPallete.primary,
+                    fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 28),
             ],

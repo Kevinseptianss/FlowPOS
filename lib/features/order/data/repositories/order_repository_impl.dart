@@ -61,6 +61,22 @@ class OrderRepositoryImpl implements OrderRepository {
   }
 
   @override
+  Future<Either<Failure, MonthlyRevenue>> getRevenueRange({
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    try {
+      final revenue = await orderRemoteDataSource.getRevenueRange(
+        startDate: startDate,
+        endDate: endDate,
+      );
+      return right(revenue);
+    } on ServerException catch (e) {
+      return left(Failure(e.message));
+    }
+  }
+
+  @override
   Future<Either<Failure, List<OrderEntity>>> getAllOrders() async {
     try {
       final orders = await orderRemoteDataSource.getAllOrders();

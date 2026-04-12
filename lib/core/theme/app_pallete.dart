@@ -20,12 +20,7 @@ class AppPallete {
     0xFFFFFFFF,
   ); // Teks di atas warna primary
   static const Color textPrimary = Color(0xFF2C3E50); // Teks utama
-  static const Color textSecondary = Color.fromARGB(
-    170,
-    255,
-    255,
-    255,
-  ); // Teks sekunder / placeholder
+  static const Color textSecondary = Color(0xFF64748B); // Teks sekunder / placeholder
   static const Color divider = Color(0xFFECEFF1);
   static const Color success = Color(0xFF27AE60); // Status berhasil, order paid
   static const Color warning = Color(0xFFF39C12); // Status pending, perhatian

@@ -57,3 +57,16 @@ final class GetMonthlyRevenueEvent extends OrderEvent {
 }
 
 final class GetAllOrdersEvent extends OrderEvent {}
+
+final class GetRevenueRangeEvent extends OrderEvent {
+  final DateTime startDate;
+  final DateTime endDate;
+
+  const GetRevenueRangeEvent({
+    required this.startDate,
+    required this.endDate,
+  });
+
+  @override
+  List<Object> get props => [startDate, endDate];
+}

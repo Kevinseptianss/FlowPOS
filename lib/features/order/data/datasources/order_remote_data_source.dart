@@ -24,6 +24,11 @@ abstract interface class OrderRemoteDataSource {
 
   Future<MonthlyRevenue> getMonthlyRevenue({required DateTime month});
 
+  Future<MonthlyRevenue> getRevenueRange({
+    required DateTime startDate,
+    required DateTime endDate,
+  });
+
   Future<List<OrderModel>> getAllOrders();
 }
 
@@ -32,6 +37,77 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
   final Uuid _uuid = const Uuid();
 
   OrderRemoteDataSourceImpl(this.supabaseClient);
+
+  @override
+  Future<MonthlyRevenue> getRevenueRange({
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    try {
+      // Normalize dates to start and end of day
+      final start = DateTime(
+        startDate.year,
+        startDate.month,
+        startDate.day,
+        0,
+        0,
+        0,
+      );
+      final end = DateTime(
+        endDate.year,
+        endDate.month,
+        endDate.day,
+        23,
+        59,
+        59,
+      );
+
+      final orderRows = await supabaseClient
+          .from('orders')
+          .select('id')
+          .gte('created_at', start.toIso8601String())
+          .lte('created_at', end.toIso8601String());
+
+      if (orderRows.isEmpty) {
+        return const MonthlyRevenue.empty();
+      }
+
+      final orderIds = orderRows
+          .map((row) => row['id'] as String)
+          .toList(growable: false);
+
+      final paymentRows = await supabaseClient
+          .from('payments')
+          .select('method, amount_due')
+          .inFilter('order_id', orderIds);
+
+      int totalRevenue = 0;
+      int totalQrisRevenue = 0;
+      int totalCashRevenue = 0;
+
+      for (final row in paymentRows) {
+        final amountDue = (row['amount_due'] as num?)?.toInt() ?? 0;
+        final method = (row['method'] as String? ?? '').trim().toUpperCase();
+
+        totalRevenue += amountDue;
+
+        if (method == 'QRIS') {
+          totalQrisRevenue += amountDue;
+        } else if (method == 'CASH') {
+          totalCashRevenue += amountDue;
+        }
+      }
+
+      return MonthlyRevenue(
+        totalRevenue: totalRevenue,
+        totalQrisRevenue: totalQrisRevenue,
+        totalCashRevenue: totalCashRevenue,
+        totalOrders: orderIds.length,
+      );
+    } catch (e) {
+      throw ServerException(e.toString());
+    }
+  }
 
   @override
   Future<OrderModel> createOrder({

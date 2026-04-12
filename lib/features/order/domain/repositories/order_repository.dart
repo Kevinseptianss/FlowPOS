@@ -22,5 +22,10 @@ abstract interface class OrderRepository {
     required DateTime month,
   });
 
+  Future<Either<Failure, MonthlyRevenue>> getRevenueRange({
+    required DateTime startDate,
+    required DateTime endDate,
+  });
+
   Future<Either<Failure, List<OrderEntity>>> getAllOrders();
 }

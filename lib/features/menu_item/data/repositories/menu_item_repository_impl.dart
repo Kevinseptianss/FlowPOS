@@ -35,12 +35,16 @@ class MenuItemRepositoryImpl implements MenuItemRepository {
     required String name,
     required int price,
     required String categoryId,
+    required String unit,
+    required List<Map<String, dynamic>> options,
   }) async {
     try {
       final menuItem = await menuItemRemoteDataSource.createMenuItem(
         name: name,
         price: price,
         categoryId: categoryId,
+        unit: unit,
+        options: options,
       );
       return right(menuItem);
     } on ServerException catch (e) {
@@ -57,6 +61,30 @@ class MenuItemRepositoryImpl implements MenuItemRepository {
       final updatedMenuItem = await menuItemRemoteDataSource
           .updateMenuItemAvailability(menuItemId: menuItemId, enabled: enabled);
       return right(updatedMenuItem);
+    } on ServerException catch (e) {
+      return left(Failure(e.message));
+    }
+  }
+
+  @override
+  Future<Either<Failure, MenuItem>> updateMenuItem({
+    required String id,
+    required String name,
+    required int price,
+    required String categoryId,
+    required String unit,
+    required List<Map<String, dynamic>> options,
+  }) async {
+    try {
+      final menuItem = await menuItemRemoteDataSource.updateMenuItem(
+        id: id,
+        name: name,
+        price: price,
+        categoryId: categoryId,
+        unit: unit,
+        options: options,
+      );
+      return right(menuItem);
     } on ServerException catch (e) {
       return left(Failure(e.message));
     }
