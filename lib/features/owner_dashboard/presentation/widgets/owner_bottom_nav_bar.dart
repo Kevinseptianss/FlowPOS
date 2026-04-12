@@ -83,6 +83,9 @@ class _BottomNavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final inactiveColor = AppPallete.textSecondary;
+    final activeColor = AppPallete.primary;
+
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -93,12 +96,13 @@ class _BottomNavItem extends StatelessWidget {
             duration: const Duration(milliseconds: 200),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
-              color: isSelected ? AppPallete.primary.withAlpha(40) : Colors.transparent,
+              color:
+                  isSelected ? activeColor.withAlpha(40) : Colors.transparent,
               borderRadius: BorderRadius.circular(20),
             ),
             child: Icon(
               icon,
-              color: isSelected ? AppPallete.primary : AppPallete.textSecondary,
+              color: isSelected ? activeColor : inactiveColor,
               size: 24,
             ),
           ),
@@ -106,7 +110,7 @@ class _BottomNavItem extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: isSelected ? AppPallete.primary : AppPallete.textSecondary,
+                  color: isSelected ? activeColor : inactiveColor,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 ),
           ),

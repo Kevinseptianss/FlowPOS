@@ -2,21 +2,21 @@ import 'package:flow_pos/core/theme/app_pallete.dart';
 import 'package:flow_pos/features/cashier_dashboard/domain/entities/selected_modifier.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/modifier_option_row.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/qty_button.dart';
-import 'package:flow_pos/features/modifier_option/domain/entities/modifier_option.dart';
-import 'package:flow_pos/features/modifier_option/presentation/bloc/modifier_option_bloc.dart';
+import 'package:flow_pos/features/menu_item/domain/entities/menu_item_variant.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 
 class ModifierDialog extends StatefulWidget {
   final String menuId;
   final String itemName;
   final int price;
+  final List<MenuItemVariant> variants;
 
   const ModifierDialog({
     super.key,
     required this.menuId,
     required this.itemName,
     required this.price,
+    required this.variants,
   });
 
   @override
@@ -25,34 +25,41 @@ class ModifierDialog extends StatefulWidget {
 
 class _ModifierDialogState extends State<ModifierDialog> {
   int quantity = 1;
-  static const double _fixedSectionsHeight = 250;
   final Map<String, SelectedModifier?> selectedModifierByGroup = {};
-
-  int _selectedModifiersPrice(List<ModifierOption> options) {
-    final selectedOptionIds = selectedModifierByGroup.values
-        .whereType<SelectedModifier>()
-        .map((modifier) => modifier.id)
-        .toSet();
-
-    return options
-        .where((option) => selectedOptionIds.contains(option.id))
-        .fold(0, (sum, option) => sum + option.additionalPrice);
-  }
 
   @override
   void initState() {
     super.initState();
-    context.read<ModifierOptionBloc>().add(
-      GetAllModifierOptionsEvent(menuId: widget.menuId),
-    );
+  }
+
+  int _calculateModifiersPrice() {
+    int total = 0;
+    for (var group in selectedModifierByGroup.values) {
+      if (group != null) {
+        // Find the variant to get its price
+        final variant = widget.variants.firstWhere((v) => v.id == group.id);
+        total += variant.price;
+      }
+    }
+    return total;
   }
 
   @override
   Widget build(BuildContext context) {
+    final groupedOptions = <String, List<MenuItemVariant>>{};
+    for (final variant in widget.variants) {
+      groupedOptions
+          .putIfAbsent(variant.optionName, () => [])
+          .add(variant);
+    }
+
+    final modifiersTotal = _calculateModifiersPrice();
+    final totalPrice = (widget.price + modifiersTotal) * quantity;
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
-        width: MediaQuery.of(context).size.width * 0.8,
+        width: MediaQuery.of(context).size.width * 0.85,
         constraints: BoxConstraints(
           maxHeight: MediaQuery.of(context).size.height * 0.82,
         ),
@@ -61,230 +68,189 @@ class _ModifierDialogState extends State<ModifierDialog> {
           color: AppPallete.surface,
           borderRadius: BorderRadius.circular(16),
         ),
-        child: BlocBuilder<ModifierOptionBloc, ModifierOptionState>(
-          builder: (context, state) {
-            if (state is ModifierOptionInitial ||
-                state is ModifierOptionLoading) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            if (state is ModifierOptionFailure) {
-              return Center(child: Text('Error: ${state.message}'));
-            }
-
-            if (state is ModifierOptionLoaded) {
-              final groupedOptions = <String, List<ModifierOption>>{};
-              final groupNames = <String, String>{};
-
-              for (final option in state.modifierOptions) {
-                groupedOptions
-                    .putIfAbsent(option.modifierGroupId, () => [])
-                    .add(option);
-                groupNames[option.modifierGroupId] = option.modifierGroupName;
-              }
-
-              final modifiersTotal = _selectedModifiersPrice(
-                state.modifierOptions,
-              );
-              final totalPrice = (widget.price + modifiersTotal) * quantity;
-              final maxListHeight =
-                  MediaQuery.of(context).size.height * 0.82 -
-                  _fixedSectionsHeight;
-
-              return Stack(
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.itemName,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(color: AppPallete.textPrimary),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Rp ${widget.price}',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppPallete.primary,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          QtyButton(
-                            icon: Icons.remove,
-                            onTap: () {
-                              setState(() {
-                                if (quantity > 1) {
-                                  quantity -= 1;
-                                }
-                              });
-                            },
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.itemName,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            color: AppPallete.textPrimary,
+                            fontWeight: FontWeight.bold,
                           ),
-                          const SizedBox(width: 12),
-                          Text(
-                            '$quantity',
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(color: AppPallete.textPrimary),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Harga Dasar: Rp ${widget.price}',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: AppPallete.textSecondary,
                           ),
-                          const SizedBox(width: 12),
-                          QtyButton(
-                            icon: Icons.add,
-                            onTap: () {
-                              setState(() {
-                                quantity += 1;
-                              });
-                            },
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxHeight: maxListHeight > 120 ? maxListHeight : 120,
-                        ),
-                        child: SingleChildScrollView(
-                          child: groupedOptions.isEmpty
-                              ? Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                  ),
-                                  child: Text(
-                                    'No modifier options available.',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium
-                                        ?.copyWith(
-                                          color: AppPallete.textPrimary,
-                                        ),
-                                  ),
-                                )
-                              : Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: groupedOptions.entries.expand((
-                                    entry,
-                                  ) {
-                                    final groupId = entry.key;
-                                    final groupName =
-                                        groupNames[groupId] ?? 'Modifier';
-                                    final options = entry.value;
-
-                                    return [
-                                      Text(
-                                        groupName,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleSmall
-                                            ?.copyWith(
-                                              color: AppPallete.textPrimary,
-                                            ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      ...options.map((modifier) {
-                                        final isSelected =
-                                            selectedModifierByGroup[groupId]
-                                                ?.id ==
-                                            modifier.id;
-
-                                        return ModifierOptionRow(
-                                          label: modifier.name,
-                                          additionalPrice:
-                                              modifier.additionalPrice,
-                                          isSelected: isSelected,
-                                          onTap: () {
-                                            setState(() {
-                                              selectedModifierByGroup[groupId] =
-                                                  SelectedModifier(
-                                                    id: modifier.id,
-                                                    name: modifier.name,
-                                                  );
-                                            });
-                                          },
-                                        );
-                                      }),
-                                      const SizedBox(height: 16),
-                                    ];
-                                  }).toList(),
-                                ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.only(top: 8),
-                      decoration: BoxDecoration(
-                        color: AppPallete.surface,
-                        borderRadius: const BorderRadius.only(
-                          bottomLeft: Radius.circular(16),
-                          bottomRight: Radius.circular(16),
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Divider(color: AppPallete.divider),
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Total Price',
-                                style: Theme.of(context).textTheme.titleSmall
-                                    ?.copyWith(color: AppPallete.textPrimary),
-                              ),
-                              Text(
-                                'Rp $totalPrice',
-                                style: Theme.of(context).textTheme.titleSmall
-                                    ?.copyWith(
-                                      color: AppPallete.primary,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: AppPallete.primary,
-                                ),
-                                child: const Text('Cancel'),
-                              ),
-                              const SizedBox(width: 8),
-                              ElevatedButton(
-                                onPressed: () => Navigator.pop(context, {
-                                  'totalPrice': totalPrice,
-                                  'selectedModifiers':
-                                      Map<String, SelectedModifier?>.from(
-                                        selectedModifierByGroup,
-                                      ),
-                                  'quantity': quantity,
-                                }),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppPallete.primary,
-                                  foregroundColor: AppPallete.onPrimary,
-                                ),
-                                child: const Text('Add'),
-                              ),
-                            ],
-                          ),
-                        ],
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Kuantitas',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: AppPallete.textPrimary,
                       ),
                     ),
-                  ),
-                ],
-              );
-            }
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        QtyButton(
+                          icon: Icons.remove,
+                          onTap: () {
+                            setState(() {
+                              if (quantity > 1) {
+                                quantity -= 1;
+                              }
+                            });
+                          },
+                        ),
+                        const SizedBox(width: 20),
+                        Text(
+                          '$quantity',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                color: AppPallete.textPrimary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                        const SizedBox(width: 20),
+                        QtyButton(
+                          icon: Icons.add,
+                          onTap: () {
+                            setState(() {
+                              quantity += 1;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    if (groupedOptions.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Text(
+                          'Note: Produk ini tidak memiliki varian tambahan.',
+                          style: TextStyle(color: AppPallete.textSecondary, fontStyle: FontStyle.italic),
+                        ),
+                      )
+                    else
+                      ...groupedOptions.entries.map((entry) {
+                        final groupName = entry.key;
+                        final options = entry.value;
 
-            return const SizedBox();
-          },
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              groupName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: AppPallete.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            ...options.map((variant) {
+                              final isSelected =
+                                  selectedModifierByGroup[groupName]?.id ==
+                                      variant.id;
+
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: ModifierOptionRow(
+                                  label: variant.variantName,
+                                  additionalPrice: variant.price,
+                                  isSelected: isSelected,
+                                  onTap: () {
+                                    setState(() {
+                                      // If already selected, deselect it
+                                      if (isSelected) {
+                                        selectedModifierByGroup[groupName] = null;
+                                      } else {
+                                        selectedModifierByGroup[groupName] =
+                                            SelectedModifier(
+                                          id: variant.id,
+                                          name: variant.variantName,
+                                        );
+                                      }
+                                    });
+                                  },
+                                ),
+                              );
+                            }),
+                            const SizedBox(height: 20),
+                          ],
+                        );
+                      }).toList(),
+                  ],
+                ),
+              ),
+            ),
+            const Divider(height: 32),
+            Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Total Harga',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppPallete.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      'Rp $totalPrice',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: AppPallete.primary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          side: const BorderSide(color: AppPallete.primary),
+                        ),
+                        child: const Text('Batal'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context, {
+                          'totalPrice': totalPrice,
+                          'selectedModifiers': Map<String, SelectedModifier?>.from(
+                            selectedModifierByGroup,
+                          ),
+                          'quantity': quantity,
+                        }),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppPallete.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: const Text('Tambah ke Keranjang'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

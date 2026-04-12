@@ -1,27 +1,24 @@
 class DatetimeFormatter {
   static DateTime get now => DateTime.now();
 
-  static List<String> month = [
-    'January',
-    'February',
-    'March',
+  static List<String> monthsId = [
+    'Januari',
+    'Februari',
+    'Maret',
     'April',
-    'May',
-    'June',
-    'July',
-    'August',
+    'Mei',
+    'Juni',
+    'Juli',
+    'Agustus',
     'September',
-    'October',
+    'Oktober',
     'November',
-    'December',
+    'Desember',
   ];
 
-  static String formatDateYear([DateTime? date]) {
-    if (date == null) {
-      return "${month[now.month - 1]} ${now.year}";
-    }
-
-    return "${month[date.month - 1]} ${date.year}";
+  static String formatDateYear(DateTime? date) {
+    final d = date ?? DateTime.now();
+    return "${d.day} ${monthsId[d.month - 1]} ${d.year}";
   }
 
   static String formatDateTime(DateTime date) {

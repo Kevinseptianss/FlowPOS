@@ -35,11 +35,7 @@ class OwnerSidebar extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppPallete.primary, Color(0xFF6B48FF)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                    color: AppPallete.primary,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(
@@ -128,7 +124,7 @@ class OwnerSidebar extends StatelessWidget {
                         Text(
                           'Owner Account',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: AppPallete.textSecondary,
+                                color: const Color(0xFF64748B),
                               ),
                         ),
                       ],
@@ -160,6 +156,9 @@ class _SidebarItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const inactiveColor = Color(0xFF64748B);
+    final activeColor = AppPallete.primary;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       child: InkWell(
@@ -168,21 +167,21 @@ class _SidebarItem extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: isSelected ? AppPallete.primary.withAlpha(30) : Colors.transparent,
+            color: isSelected ? activeColor.withAlpha(30) : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
             children: [
               Icon(
                 icon,
-                color: isSelected ? AppPallete.primary : AppPallete.textSecondary,
+                color: isSelected ? activeColor : inactiveColor,
                 size: 24,
               ),
               const SizedBox(width: 16),
               Text(
                 label,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: isSelected ? AppPallete.primary : AppPallete.textSecondary,
+                      color: isSelected ? activeColor : inactiveColor,
                       fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                     ),
               ),

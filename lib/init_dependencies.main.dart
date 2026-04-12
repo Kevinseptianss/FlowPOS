@@ -91,12 +91,14 @@ void _initMenuItem() {
     ..registerFactory(() => GetEnabledMenuItems(serviceLocator()))
     ..registerFactory(() => CreateMenuItem(serviceLocator()))
     ..registerFactory(() => UpdateMenuItemAvailability(serviceLocator()))
+    ..registerFactory(() => UpdateMenuItem(serviceLocator()))
     // Bloc
     ..registerLazySingleton(
       () => MenuItemBloc(
         getAllMenuItems: serviceLocator(),
         getEnabledMenuItems: serviceLocator(),
         createMenuItem: serviceLocator(),
+        updateMenuItem: serviceLocator(),
         updateMenuItemAvailability: serviceLocator(),
       ),
     );
@@ -145,12 +147,14 @@ void _initOrder() {
     // Usecases
     ..registerFactory(() => CreateOrder(serviceLocator()))
     ..registerFactory(() => GetMonthlyRevenue(serviceLocator()))
+    ..registerFactory(() => GetRevenueRange(serviceLocator()))
     ..registerFactory(() => GetAllOrders(serviceLocator()))
     // Bloc
     ..registerLazySingleton(
       () => OrderBloc(
         createOrder: serviceLocator(),
         getMonthlyRevenue: serviceLocator(),
+        getRevenueRange: serviceLocator(),
         getAllOrders: serviceLocator(),
       ),
     );

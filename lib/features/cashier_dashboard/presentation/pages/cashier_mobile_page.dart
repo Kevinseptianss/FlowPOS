@@ -11,10 +11,10 @@ import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/list_or
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/cashier_shift_dialogs.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/menu_item_card.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/modifier_dialog.dart';
+import 'package:flow_pos/features/category/domain/entities/category.dart';
 import 'package:flow_pos/features/category/presentation/bloc/category_bloc.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/bloc/cart_bloc.dart';
 import 'package:flow_pos/features/menu_item/presentation/bloc/menu_item_bloc.dart';
-import 'package:flow_pos/features/modifier_option/presentation/bloc/modifier_option_bloc.dart';
 import 'package:flow_pos/features/order/domain/usecases/get_all_orders.dart';
 import 'package:flow_pos/init_dependencies.dart';
 import 'package:flow_pos/core/usecase/use_case.dart';
@@ -379,10 +379,14 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
                           } else if (state is CategoryFailure) {
                             return Text('Error: ${state.message}');
                           } else if (state is CategoryLoaded) {
+                            final displayCategories = [
+                              const Category(id: 'all', name: 'Semua'),
+                              ...state.categories,
+                            ];
                             return SingleChildScrollView(
                               scrollDirection: Axis.horizontal,
                               child: Row(
-                                children: state.categories
+                                children: displayCategories
                                     .map(
                                       (category) => Padding(
                                         padding: const EdgeInsets.only(
@@ -462,26 +466,20 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
                                       name: item.name,
                                       price: item.price,
                                       onAdd: () async {
-                                        // Capture bloc references before async operation to avoid context warnings
-                                        final cartBloc = context
-                                            .read<CartBloc>();
-                                        final modifierBloc = context
-                                            .read<ModifierOptionBloc>();
+                                        // Capture bloc reference before async operation
+                                        final cartBloc = context.read<CartBloc>();
 
                                         final result =
                                             await showDialog<
                                               Map<String, dynamic>
                                             >(
                                               context: context,
-                                              builder: (_) =>
-                                                  BlocProvider.value(
-                                                    value: modifierBloc,
-                                                    child: ModifierDialog(
-                                                      menuId: item.id,
-                                                      itemName: item.name,
-                                                      price: item.price,
-                                                    ),
-                                                  ),
+                                              builder: (_) => ModifierDialog(
+                                                menuId: item.id,
+                                                itemName: item.name,
+                                                price: item.price,
+                                                variants: item.variants,
+                                              ),
                                             );
 
                                         if (result != null) {
