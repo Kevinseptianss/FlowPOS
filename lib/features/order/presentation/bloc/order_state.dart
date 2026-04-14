@@ -50,3 +50,12 @@ final class OrderFailure extends OrderState {
   @override
   List<Object> get props => [message];
 }
+
+final class OrderSettled extends OrderState {
+  final String orderId;
+
+  const OrderSettled(this.orderId);
+
+  @override
+  List<Object> get props => [orderId];
+}

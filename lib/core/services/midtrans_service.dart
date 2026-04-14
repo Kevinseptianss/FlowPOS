@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class MidtransService {
@@ -75,6 +76,7 @@ class MidtransService {
 
     final String auth = 'Basic ${base64Encode(utf8.encode('$serverKey:'))}';
 
+    debugPrint('--- [MIDTRANS] Requesting Snap URL for ID: $orderId, Amount: $amount ---');
     final response = await http.post(
       Uri.parse(snapUrl),
       headers: {
@@ -84,7 +86,6 @@ class MidtransService {
       },
       body: jsonEncode({
         'transaction_details': {'order_id': orderId, 'gross_amount': amount},
-        'enabled_payments': ['qris'], // Only QRIS
       }),
     );
 

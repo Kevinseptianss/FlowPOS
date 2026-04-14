@@ -44,6 +44,7 @@ class ShiftBloc extends Bloc<ShiftEvent, ShiftState> {
             cashierId: event.cashierId,
             cashierName: shift.cashierName ?? 'Kasir',
             openingBalance: shift.openingBalance.toDouble(),
+            openedAt: shift.openedAt,
           );
           emit(ShiftOpened(shift));
         } else {
@@ -123,6 +124,7 @@ class ShiftBloc extends Bloc<ShiftEvent, ShiftState> {
             cashierId: event.cashierId,
             cashierName: shift.cashierName ?? 'Kasir',
             openingBalance: shift.openingBalance.toDouble(),
+            openedAt: shift.openedAt,
           );
           emit(ShiftOpened(shift));
         },

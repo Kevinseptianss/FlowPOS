@@ -38,6 +38,9 @@ Future<void> initDependencies() async {
 
     final qrisBox = await Hive.openBox<String>('qris_cache');
     serviceLocator.registerLazySingleton<Box<String>>(() => qrisBox, instanceName: 'qris_cache');
+
+    final printerLocalService = await PrinterLocalService.init();
+    serviceLocator.registerLazySingleton<PrinterLocalService>(() => printerLocalService);
   } catch (e) {
     debugPrint('Hive Initialization Error: $e');
     rethrow;
@@ -47,7 +50,7 @@ Future<void> initDependencies() async {
     () => CashierShiftLocalService(serviceLocator(), serviceLocator()),
   );
   serviceLocator.registerLazySingleton<ThermalReceiptPrinterService>(
-    () => ThermalReceiptPrinterServiceImpl(),
+    () => ThermalReceiptPrinterServiceImpl(serviceLocator()),
   );
 }
 
@@ -204,6 +207,7 @@ void _initAuth() {
     ..registerFactory(() => SignIn(serviceLocator()))
     ..registerFactory(() => CurrentUser(serviceLocator()))
     ..registerFactory(() => Logout(serviceLocator()))
+    ..registerFactory(() => ChangePassword(serviceLocator()))
     // Bloc
     ..registerLazySingleton(
       () => AuthBloc(
@@ -211,6 +215,7 @@ void _initAuth() {
         signIn: serviceLocator(),
         currentUser: serviceLocator(),
         logout: serviceLocator(),
+        changePassword: serviceLocator(),
         userBloc: serviceLocator(),
       ),
     );

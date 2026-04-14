@@ -25,8 +25,9 @@ class OrderRepositoryImpl implements OrderRepository {
     required int amountPaid,
     required List<OrderItem> items,
     String? shiftId,
-    String status = 'PAID',
+    String status = 'UNPAID',
     String? customerName,
+    String? paymentLink,
   }) async {
     try {
       final createdOrder = await orderRemoteDataSource.createOrder(
@@ -43,6 +44,7 @@ class OrderRepositoryImpl implements OrderRepository {
         shiftId: shiftId,
         status: status,
         customerName: customerName,
+        paymentLink: paymentLink,
       );
 
       return right(createdOrder);

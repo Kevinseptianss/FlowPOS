@@ -10,6 +10,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:flow_pos/core/utils/currency_input_formatter.dart';
+import 'package:flow_pos/core/utils/show_snackbar.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 class QRISDialog extends StatefulWidget {
@@ -59,31 +60,20 @@ class _QRISDialogState extends State<QRISDialog> {
 
   void _checkCacheAndGenerate() async {
     final box = serviceLocator<Box<String>>(instanceName: 'qris_cache');
-    final cachedQr = box.get(_currentOrderId);
-
+    // Force a fresh link generation if we don't have a reliable initial state
     if (widget.initialQrString != null) {
       _qrString = widget.initialQrString;
       _isLoading = false;
       box.put(_currentOrderId!, _qrString!); // Sync cache
       _startStatusPolling();
-    } else if (cachedQr != null) {
-      if (cachedQr.startsWith('SNAP:')) {
-        _isLoading = false;
-        final url = cachedQr.replaceFirst('SNAP:', '');
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _handleSnapFallback(url: url);
-        });
-      } else {
-        _qrString = cachedQr;
-        _isLoading = false;
-        _startStatusPolling();
-      }
     } else if (widget.initialSnapUrl != null) {
       _isLoading = false;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _handleSnapFallback(url: widget.initialSnapUrl);
       });
     } else {
+      // CLEAR CACHE for this ID to ensure we don't use an expired one
+      await box.delete(_currentOrderId);
       _generateQRIS();
     }
   }
@@ -157,9 +147,13 @@ class _QRISDialogState extends State<QRISDialog> {
       Navigator.pop(context); // Close dialog
       showDialog(
         context: context,
+        useRootNavigator: true, 
         barrierDismissible: false,
         builder: (context) => MidtransWebView(
           url: finalUrl!,
+          orderId: _currentOrderId!,
+          serverKey: widget.serverKey,
+          isProduction: widget.isProduction,
           onSuccess: widget.onPaymentSuccess,
         ),
       );
@@ -186,6 +180,28 @@ class _QRISDialogState extends State<QRISDialog> {
         }
       }
     });
+  }
+
+  Future<void> _checkManualStatus() async {
+    setState(() => _isLoading = true);
+    final result = await _midtransService.checkTransactionStatus(_currentOrderId!);
+    
+    if (mounted) {
+      if (result['success']) {
+        final status = result['status'];
+        if (status == 'settlement' || status == 'capture') {
+          showSnackbar(context, 'Pembayaran Berhasil!');
+          widget.onPaymentSuccess();
+          Navigator.pop(context);
+        } else {
+          setState(() => _isLoading = false);
+          showSnackbar(context, 'Status: $status. Belum ada pembayaran terdeteksi.');
+        }
+      } else {
+        setState(() => _isLoading = false);
+        showSnackbar(context, 'Gagal mengecek status. Coba lagi nanti.');
+      }
+    }
   }
 
   @override
@@ -276,6 +292,20 @@ class _QRISDialogState extends State<QRISDialog> {
                       style: TextStyle(fontStyle: FontStyle.italic),
                     ),
                   ],
+                ),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: _checkManualStatus,
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text('Cek Status Pembayaran'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppPallete.primary,
+                    side: const BorderSide(color: AppPallete.primary),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  ),
                 ),
               ],
             ),
@@ -713,12 +743,24 @@ class _CashPaymentDialogState extends State<CashPaymentDialog> {
 
 class MidtransWebView extends StatefulWidget {
   final String url;
+  final String orderId;
+  final String serverKey;
+  final bool isProduction;
   final VoidCallback onSuccess;
+  final Function(String)? onFailure;
+  final VoidCallback? onCancel;
+  final Function(String)? onUrlChange;
 
   const MidtransWebView({
     super.key,
     required this.url,
+    required this.orderId,
+    required this.serverKey,
+    this.isProduction = false,
     required this.onSuccess,
+    this.onFailure,
+    this.onCancel,
+    this.onUrlChange,
   });
 
   @override
@@ -727,11 +769,17 @@ class MidtransWebView extends StatefulWidget {
 
 class _MidtransWebViewState extends State<MidtransWebView> {
   late final WebViewController _controller;
+  late final MidtransService _midtransService;
   bool _isLoading = true;
+  bool _isCheckingStatus = false;
 
   @override
   void initState() {
     super.initState();
+    _midtransService = MidtransService(
+      serverKey: widget.serverKey,
+      isProduction: widget.isProduction,
+    );
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(const Color(0x00000000))
@@ -744,11 +792,22 @@ class _MidtransWebViewState extends State<MidtransWebView> {
             setState(() => _isLoading = true);
           },
           onPageFinished: (String url) {
-            setState(() => _isLoading = false);
-            // Check if URL indicates success (Midtrans redirection)
-            if (url.contains('finish') || url.contains('success')) {
+            if (widget.onUrlChange != null) {
+              widget.onUrlChange!(url);
+            }
+            // Detect Status based on URL
+            if (url.contains('/finish') || url.contains('/success')) {
+              debugPrint('--- [WEBVIEW] Transaction SUCCESS detected ---');
               widget.onSuccess();
-              Navigator.pop(context);
+              if (context.mounted) Navigator.pop(context);
+            } else if (url.contains('/failed') || url.contains('/error')) {
+              debugPrint('--- [WEBVIEW] Transaction FAILED detected ---');
+              if (widget.onFailure != null) widget.onFailure!(url);
+              if (context.mounted) Navigator.pop(context);
+            } else if (url.contains('/cancel')) {
+              debugPrint('--- [WEBVIEW] Transaction CANCELLED detected ---');
+              if (widget.onCancel != null) widget.onCancel!();
+              if (context.mounted) Navigator.pop(context);
             }
           },
           onWebResourceError: (WebResourceError error) {},
@@ -758,6 +817,27 @@ class _MidtransWebViewState extends State<MidtransWebView> {
         ),
       )
       ..loadRequest(Uri.parse(widget.url));
+  }
+
+  Future<void> _checkManualStatus() async {
+    setState(() => _isCheckingStatus = true);
+    final result = await _midtransService.checkTransactionStatus(widget.orderId);
+    
+    if (mounted) {
+      setState(() => _isCheckingStatus = false);
+      if (result['success']) {
+        final status = result['status'];
+        if (status == 'settlement' || status == 'capture') {
+          showSnackbar(context, 'Pembayaran Berhasil Diverifikasi!');
+          widget.onSuccess();
+          Navigator.pop(context);
+        } else {
+          showSnackbar(context, 'Status: $status. Menunggu pembayaran masuk.');
+        }
+      } else {
+        showSnackbar(context, 'Gagal verifikasi. Periksa koneksi atau coba lagi.');
+      }
+    }
   }
 
   @override
@@ -773,7 +853,7 @@ class _MidtransWebViewState extends State<MidtransWebView> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          if (_isLoading)
+          if (_isCheckingStatus || _isLoading)
             const Center(
               child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16),
@@ -782,10 +862,18 @@ class _MidtransWebViewState extends State<MidtransWebView> {
                   height: 20,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    valueColor:
-                        AlwaysStoppedAnimation<Color>(AppPallete.primary),
+                    valueColor: AlwaysStoppedAnimation<Color>(AppPallete.primary),
                   ),
                 ),
+              ),
+            )
+          else
+            TextButton.icon(
+              onPressed: _checkManualStatus,
+              icon: const Icon(Icons.verified_user_rounded, size: 18),
+              label: const Text('Verifikasi'),
+              style: TextButton.styleFrom(
+                foregroundColor: AppPallete.primary,
               ),
             ),
         ],

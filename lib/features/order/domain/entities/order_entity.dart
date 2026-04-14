@@ -15,8 +15,8 @@ class OrderEntity extends Equatable {
   final List<OrderItem> items;
   final String? shiftId;
   final String status;
-
   final String? customerName;
+  final String? paymentLink;
 
   const OrderEntity({
     required this.id,
@@ -30,8 +30,9 @@ class OrderEntity extends Equatable {
     this.payment,
     required this.items,
     this.shiftId,
-    this.status = 'PAID',
+    this.status = 'UNPAID',
     this.customerName,
+    this.paymentLink,
   });
 
   OrderEntity copyWith({
@@ -48,6 +49,7 @@ class OrderEntity extends Equatable {
     String? shiftId,
     String? status,
     String? customerName,
+    String? paymentLink,
   }) {
     return OrderEntity(
       id: id ?? this.id,
@@ -63,6 +65,7 @@ class OrderEntity extends Equatable {
       shiftId: shiftId ?? this.shiftId,
       status: status ?? this.status,
       customerName: customerName ?? this.customerName,
+      paymentLink: paymentLink ?? this.paymentLink,
     );
   }
 

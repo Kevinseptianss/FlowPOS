@@ -11,11 +11,12 @@ import 'package:flow_pos/features/order/domain/entities/order_entity.dart';
 import 'package:flow_pos/features/order/domain/entities/order_item.dart';
 import 'package:flow_pos/features/order/presentation/bloc/order_bloc.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/payment_dialogs.dart';
+import 'package:flow_pos/core/services/midtrans_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class CashierOrderDetailPage extends StatelessWidget {
+class CashierOrderDetailPage extends StatefulWidget {
   final OrderEntity order;
 
   const CashierOrderDetailPage({super.key, required this.order});
@@ -23,6 +24,19 @@ class CashierOrderDetailPage extends StatelessWidget {
   static MaterialPageRoute route(OrderEntity order) => MaterialPageRoute(
     builder: (context) => CashierOrderDetailPage(order: order),
   );
+
+  @override
+  State<CashierOrderDetailPage> createState() => _CashierOrderDetailPageState();
+}
+
+class _CashierOrderDetailPageState extends State<CashierOrderDetailPage> {
+  late OrderEntity _currentOrder;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentOrder = widget.order;
+  }
 
   Future<void> _onPrintPressed(BuildContext context) async {
     final printerService = serviceLocator<ThermalReceiptPrinterService>();
@@ -45,7 +59,7 @@ class CashierOrderDetailPage extends StatelessWidget {
 
       await printerService.printOrderReceipt(
         context: context,
-        order: order,
+        order: _currentOrder,
         storeSettings: storeSettings,
         cashierName: cashierName,
       );
@@ -76,55 +90,116 @@ class CashierOrderDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppPallete.background,
-      appBar: AppBar(
-        title: Text(
-          'Rincian Transaksi',
-          style: GoogleFonts.outfit(
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-            color: AppPallete.textPrimary,
+    return BlocListener<OrderBloc, OrderState>(
+      listener: (context, state) {
+        if (state is OrderSettled && state.orderId == _currentOrder.id) {
+          context.read<OrderBloc>().add(GetAllOrdersEvent());
+        } else if (state is OrdersLoaded) {
+          final updatedOrder = state.orders.firstWhere(
+            (o) => o.id == _currentOrder.id,
+            orElse: () => _currentOrder,
+          );
+          if (updatedOrder.status != _currentOrder.status) {
+            setState(() {
+              _currentOrder = updatedOrder;
+            });
+          }
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppPallete.background,
+        appBar: AppBar(
+          title: Text(
+            'Rincian Transaksi',
+            style: GoogleFonts.outfit(
+              fontWeight: FontWeight.bold,
+              fontSize: 20,
+              color: AppPallete.textPrimary,
+            ),
           ),
+          centerTitle: false,
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          iconTheme: const IconThemeData(color: AppPallete.textPrimary),
         ),
-        centerTitle: false,
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        iconTheme: const IconThemeData(color: AppPallete.textPrimary),
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-              children: [
-                _ModernHeroDetailCard(order: order),
-                const SizedBox(height: 20),
-                _ReceiptContentCard(
-                  order: order,
-                  onSettle: () => _showSettleDialog(context, order),
-                ),
-              ],
+        body: Column(
+          children: [
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+                children: [
+                  _ModernHeroDetailCard(order: _currentOrder),
+                  const SizedBox(height: 20),
+                  _ReceiptContentCard(
+                    order: _currentOrder,
+                    onSettle: () {
+                      if (_currentOrder.paymentLink != null) {
+                        final settingsState = context.read<StoreSettingsBloc>().state;
+                        if (settingsState is StoreSettingsLoaded) {
+                          final settings = settingsState.storeSettings;
+                          _triggerQRISPayment(
+                            context,
+                            _currentOrder,
+                            settings.midtransServerKey ?? '',
+                            !settings.isMidtransSandbox,
+                            () => {},
+                          );
+                        }
+                      } else {
+                        _showSettleDialog(context, _currentOrder);
+                      }
+                    },
+                    onCheckStatus: () {
+                      final settingsState = context.read<StoreSettingsBloc>().state;
+                      if (settingsState is StoreSettingsLoaded) {
+                        final settings = settingsState.storeSettings;
+                        _triggerStatusCheck(
+                          context,
+                          _currentOrder,
+                          settings.midtransServerKey ?? '',
+                          !settings.isMidtransSandbox,
+                        );
+                      }
+                    },
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+        bottomNavigationBar: _currentOrder.status == 'VOIDED' || _currentOrder.status == 'PAID' || _currentOrder.status == 'settlement' || _currentOrder.status == 'SETTLEMENT'
+            ? (_currentOrder.status == 'PAID' || _currentOrder.status == 'settlement' || _currentOrder.status == 'SETTLEMENT'
+                ? _ModernActionBar(
+                    order: _currentOrder,
+                    onPrint: () => _onPrintPressed(context),
+                    onSettle: () {}, // Not needed for PAID
+                    onVoid: () => _showVoidConfirmation(context, _currentOrder),
+                  )
+                : null)
+            : _ModernActionBar(
+                order: _currentOrder,
+                onPrint: () => _onPrintPressed(context),
+                onSettle: () {
+                  if (_currentOrder.paymentLink != null) {
+                    final settingsState = context.read<StoreSettingsBloc>().state;
+                    if (settingsState is StoreSettingsLoaded) {
+                      final settings = settingsState.storeSettings;
+                      _triggerQRISPayment(
+                        context,
+                        _currentOrder,
+                        settings.midtransServerKey ?? '',
+                        !settings.isMidtransSandbox,
+                        () => {},
+                      );
+                    }
+                  } else {
+                    _showSettleDialog(context, _currentOrder);
+                  }
+                },
+                onVoid: () => _showVoidConfirmation(context, _currentOrder),
+              ),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: order.status == 'VOIDED' || order.status == 'PAID'
-          ? (order.status == 'PAID' 
-              ? _ModernActionBar(
-                  order: order,
-                  onPrint: () => _onPrintPressed(context),
-                  onSettle: () {}, // Not needed for PAID
-                  onVoid: () => _showVoidConfirmation(context, order),
-                )
-              : null)
-          : _ModernActionBar(
-              order: order,
-              onPrint: () => _onPrintPressed(context),
-              onSettle: () => _showSettleDialog(context, order),
-              onVoid: () => _showVoidConfirmation(context, order),
-            ),
     );
   }
 
@@ -192,6 +267,167 @@ class CashierOrderDetailPage extends StatelessWidget {
       ),
     );
   }
+} // End of CashierOrderDetailPage
+
+Future<void> _triggerStatusCheck(BuildContext context, OrderEntity order, String serverKey, bool isProduction) async {
+  if (serverKey.isEmpty) {
+    showSnackbar(context, 'Konfigurasi Midtrans belum lengkap');
+    return;
+  }
+
+  final midtransService = MidtransService(serverKey: serverKey, isProduction: isProduction);
+  
+  // Potential order IDs used in generating payments
+  final orderIdsToCheck = [
+    order.orderNumber,
+    // Add variations if needed, but usually we use orderNumber for resumed links
+  ];
+
+  showSnackbar(context, 'Mengecek status pembayaran...');
+
+  bool foundSuccess = false;
+  String lastStatus = '';
+
+  for (final id in orderIdsToCheck) {
+    final result = await midtransService.checkTransactionStatus(id);
+    if (result['success']) {
+      final status = result['status'];
+      lastStatus = status;
+      if (status == 'settlement' || status == 'capture') {
+        foundSuccess = true;
+        break;
+      }
+    }
+  }
+
+  if (!context.mounted) return;
+
+  if (foundSuccess) {
+    showSnackbar(context, 'Pembayaran Berhasil Diverifikasi!');
+    context.read<OrderBloc>().add(
+      SettleOrderEvent(
+        orderId: order.id,
+        method: 'QRIS', // Assuming QRIS for these auto-checks
+        amountPaid: order.total,
+        amountDue: order.total,
+        changeGiven: 0,
+      ),
+    );
+  } else {
+    final msg = lastStatus.isNotEmpty 
+        ? 'Status: $lastStatus. Belum ada pembayaran.'
+        : 'Tidak ada transaksi ditemukan untuk pesanan ini.';
+    showSnackbar(context, msg);
+  }
+}
+
+void _triggerCashPayment(BuildContext context, OrderEntity order, VoidCallback onSuccess) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (context) => CashPaymentDialog(
+      total: order.total,
+      onConfirmPayment: (amountPaid) {
+        context.read<OrderBloc>().add(
+          SettleOrderEvent(
+            orderId: order.id,
+            method: 'CASH',
+            amountPaid: amountPaid,
+            amountDue: order.total,
+            changeGiven: amountPaid - order.total,
+          ),
+        );
+        Navigator.pop(context);
+        onSuccess();
+      },
+    ),
+  );
+}
+
+void _triggerQRISPayment(BuildContext context, OrderEntity order, String serverKey, bool isProduction, VoidCallback onSuccess) {
+  if (serverKey.isEmpty) {
+    showSnackbar(context, 'Konfigurasi QRIS belum lengkap');
+    return;
+  }
+  showModalBottomSheet(
+    context: context,
+    useRootNavigator: true, 
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (context) => QRISDialog(
+      total: order.total,
+      orderId: order.paymentLink != null 
+          ? order.orderNumber 
+          : '${order.orderNumber}-${DateTime.now().millisecondsSinceEpoch}', 
+      serverKey: serverKey,
+      isProduction: isProduction,
+      initialSnapUrl: order.paymentLink,
+      onPaymentSuccess: () {
+        context.read<OrderBloc>().add(
+          SettleOrderEvent(
+            orderId: order.id,
+            method: 'QRIS',
+            amountPaid: order.total,
+            amountDue: order.total,
+            changeGiven: 0,
+          ),
+        );
+        Navigator.pop(context);
+        onSuccess();
+      },
+    ),
+  );
+}
+
+void _triggerTransferPayment(BuildContext context, OrderEntity order, String bank, String number, VoidCallback onSuccess) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (context) => TransferBankDialog(
+      total: order.total,
+      bankName: bank,
+      accountNumber: number,
+      onConfirm: () {
+        context.read<OrderBloc>().add(
+          SettleOrderEvent(
+            orderId: order.id,
+            method: 'TRANSFER',
+            amountPaid: order.total,
+            amountDue: order.total,
+            changeGiven: 0,
+          ),
+        );
+        Navigator.pop(context);
+        onSuccess();
+      },
+    ),
+  );
+}
+
+void _triggerCardPayment(BuildContext context, OrderEntity order, VoidCallback onSuccess) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (context) => CardPaymentDialog(
+      total: order.total,
+      onConfirm: () {
+        context.read<OrderBloc>().add(
+          SettleOrderEvent(
+            orderId: order.id,
+            method: 'CARD',
+            amountPaid: order.total,
+            amountDue: order.total,
+            changeGiven: 0,
+          ),
+        );
+        Navigator.pop(context);
+        onSuccess();
+      },
+    ),
+  );
 }
 
 class _SettlePaymentSheet extends StatelessWidget {
@@ -287,108 +523,19 @@ class _SettlePaymentSheet extends StatelessWidget {
   }
 
   void _showCashDialog(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => CashPaymentDialog(
-        total: order.total,
-        onConfirmPayment: (amountPaid) {
-          context.read<OrderBloc>().add(
-            SettleOrderEvent(
-              orderId: order.id,
-              method: 'CASH',
-              amountPaid: amountPaid,
-              amountDue: order.total,
-              changeGiven: amountPaid - order.total,
-            ),
-          );
-          Navigator.pop(context);
-          onSuccess();
-        },
-      ),
-    );
+    _triggerCashPayment(context, order, onSuccess);
   }
 
   void _showQRISDialog(BuildContext context, String serverKey, bool isProduction) {
-    if (serverKey.isEmpty) {
-      showSnackbar(context, 'Konfigurasi QRIS belum lengkap');
-      return;
-    }
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => QRISDialog(
-        total: order.total,
-        orderId: order.orderNumber, // Reuse existing order number
-        serverKey: serverKey,
-        isProduction: isProduction,
-        onPaymentSuccess: () {
-          context.read<OrderBloc>().add(
-            SettleOrderEvent(
-              orderId: order.id,
-              method: 'QRIS',
-              amountPaid: order.total,
-              amountDue: order.total,
-              changeGiven: 0,
-            ),
-          );
-          Navigator.pop(context);
-          onSuccess();
-        },
-      ),
-    );
+    _triggerQRISPayment(context, order, serverKey, isProduction, onSuccess);
   }
 
   void _showTransferDialog(BuildContext context, String bank, String number) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => TransferBankDialog(
-        total: order.total,
-        bankName: bank,
-        accountNumber: number,
-        onConfirm: () {
-          context.read<OrderBloc>().add(
-            SettleOrderEvent(
-              orderId: order.id,
-              method: 'TRANSFER',
-              amountPaid: order.total,
-              amountDue: order.total,
-              changeGiven: 0,
-            ),
-          );
-          Navigator.pop(context);
-          onSuccess();
-        },
-      ),
-    );
+    _triggerTransferPayment(context, order, bank, number, onSuccess);
   }
 
   void _showCardDialog(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => CardPaymentDialog(
-        total: order.total,
-        onConfirm: () {
-          context.read<OrderBloc>().add(
-            SettleOrderEvent(
-              orderId: order.id,
-              method: 'CARD',
-              amountPaid: order.total,
-              amountDue: order.total,
-              changeGiven: 0,
-            ),
-          );
-          Navigator.pop(context);
-          onSuccess();
-        },
-      ),
-    );
+    _triggerCardPayment(context, order, onSuccess);
   }
 }
 
@@ -600,7 +747,12 @@ class _ModernPill extends StatelessWidget {
 class _ReceiptContentCard extends StatelessWidget {
   final OrderEntity order;
   final VoidCallback onSettle;
-  const _ReceiptContentCard({required this.order, required this.onSettle});
+  final VoidCallback onCheckStatus;
+  const _ReceiptContentCard({
+    required this.order,
+    required this.onSettle,
+    required this.onCheckStatus,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -682,31 +834,52 @@ class _ReceiptContentCard extends StatelessWidget {
               size: 24,
             ),
             const SizedBox(width: 12),
-            Text(
-              'Menunggu Pembayaran',
-              style: GoogleFonts.outfit(
-                color: Colors.orange[800],
-                fontWeight: FontWeight.bold,
+            Expanded(
+              child: Text(
+                'Menunggu Pembayaran',
+                style: GoogleFonts.outfit(
+                  color: Colors.orange[800],
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
-            const Spacer(),
-            ElevatedButton(
-              onPressed: onSettle,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            Column(
+              children: [
+                ElevatedButton(
+                  onPressed: onSettle,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  ),
+                  child: Text(
+                    'Bayar Sekarang',
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              ),
-              child: Text(
-                'Bayar Sekarang',
-                style: GoogleFonts.outfit(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: onCheckStatus,
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  child: Text(
+                    'Cek Status',
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: Colors.orange[900],
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ],
         ),
