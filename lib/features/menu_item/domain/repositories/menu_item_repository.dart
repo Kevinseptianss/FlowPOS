@@ -8,8 +8,10 @@ abstract interface class MenuItemRepository {
   Future<Either<Failure, MenuItem>> createMenuItem({
     required String name,
     required int price,
+    required int basePrice,
     required String categoryId,
     required String unit,
+    required bool enabled,
     required List<Map<String, dynamic>> options,
   });
   Future<Either<Failure, MenuItem>> updateMenuItemAvailability({
@@ -20,8 +22,10 @@ abstract interface class MenuItemRepository {
     required String id,
     required String name,
     required int price,
+    required int basePrice,
     required String categoryId,
     required String unit,
+    required bool enabled,
     required List<Map<String, dynamic>> options,
   });
 }

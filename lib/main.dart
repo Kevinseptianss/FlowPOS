@@ -10,15 +10,20 @@ import 'package:flow_pos/features/cashier_dashboard/presentation/bloc/cart_bloc.
 import 'package:flow_pos/features/cashier_dashboard/presentation/bloc/table_bloc.dart';
 import 'package:flow_pos/features/modifier_option/presentation/bloc/modifier_option_bloc.dart';
 import 'package:flow_pos/features/order/presentation/bloc/order_bloc.dart';
+import 'package:flow_pos/features/inventory/presentation/bloc/inventory_bloc.dart';
+import 'package:flow_pos/features/staff/presentation/bloc/staff_bloc.dart';
+import 'package:flow_pos/features/shift/presentation/bloc/shift_bloc.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_dashboard_page.dart';
 import 'package:flow_pos/features/store_settings/presentation/bloc/store_settings_bloc.dart';
 import 'package:flow_pos/init_dependencies.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
+    await initializeDateFormatting('id_ID', null);
     await initDependencies();
     runApp(
       MultiBlocProvider(
@@ -31,7 +36,10 @@ Future<void> main() async {
           BlocProvider(create: (_) => serviceLocator<CartBloc>()),
           BlocProvider(create: (_) => serviceLocator<TableBloc>()),
           BlocProvider(create: (_) => serviceLocator<OrderBloc>()),
+          BlocProvider(create: (_) => serviceLocator<InventoryBloc>()),
           BlocProvider(create: (_) => serviceLocator<StoreSettingsBloc>()),
+          BlocProvider(create: (_) => serviceLocator<StaffBloc>()),
+          BlocProvider(create: (_) => serviceLocator<ShiftBloc>()),
         ],
         child: const MyApp(),
       ),

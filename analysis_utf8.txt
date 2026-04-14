@@ -1,0 +1,21 @@
+Analyzing FlowPOS...                                            
+
+   info - Don't invoke 'print' in production code - lib\core\services\cashier_shift_local_service.dart:111:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\core\services\cashier_shift_local_service.dart:112:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\core\services\cashier_shift_local_service.dart:113:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\core\services\cashier_shift_local_service.dart:114:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\core\services\cashier_shift_local_service.dart:115:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\core\services\cashier_shift_local_service.dart:116:5 - avoid_print
+   info - Unnecessary use of 'toList' in a spread - lib\features\cashier_dashboard\presentation\widgets\modifier_dialog.dart:189:26 - unnecessary_to_list_in_spreads
+   info - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor or activeTrackColor instead. This feature was deprecated after v3.31.0-2.0.pre - lib\features\owner_dashboard\presentation\pages\owner_product_create_page.dart:231:25 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\owner_dashboard\presentation\pages\owner_product_create_page.dart:293:21 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\owner_dashboard\presentation\pages\owner_product_create_page.dart:332:27 - deprecated_member_use
+   info - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor instead. This feature was deprecated after v3.31.0-2.0.pre - lib\features\owner_dashboard\presentation\pages\owner_product_create_page.dart:394:23 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\owner_dashboard\presentation\pages\owner_product_create_page.dart:484:37 - deprecated_member_use
+   info - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor or activeTrackColor instead. This feature was deprecated after v3.31.0-2.0.pre - lib\features\owner_dashboard\presentation\pages\owner_product_edit_page.dart:264:25 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\owner_dashboard\presentation\pages\owner_product_edit_page.dart:326:21 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\owner_dashboard\presentation\pages\owner_product_edit_page.dart:365:27 - deprecated_member_use
+   info - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor instead. This feature was deprecated after v3.31.0-2.0.pre - lib\features\owner_dashboard\presentation\pages\owner_product_edit_page.dart:427:23 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\owner_dashboard\presentation\pages\owner_product_edit_page.dart:517:37 - deprecated_member_use
+   info - Missing type annotation - lib\features\owner_dashboard\presentation\pages\owner_purchase_order_page.dart:12:10 - strict_top_level_inference
+

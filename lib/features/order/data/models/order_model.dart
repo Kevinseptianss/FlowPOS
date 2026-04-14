@@ -5,9 +5,15 @@ class OrderModel extends OrderEntity {
     required super.id,
     required super.orderNumber,
     required super.tableNumber,
+    super.subtotal = 0,
+    super.tax = 0,
+    super.serviceCharge = 0,
     required super.total,
     required super.createdAt,
-    required super.payment,
+    super.payment,
     required super.items,
+    super.shiftId,
+    super.status = 'PAID',
+    super.customerName,
   });
 }

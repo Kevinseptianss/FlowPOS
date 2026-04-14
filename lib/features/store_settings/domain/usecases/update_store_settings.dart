@@ -20,6 +20,19 @@ class UpdateStoreSettings
       serviceChargePercentage: params.serviceChargePercentage,
       storeName: params.storeName,
       storeAddress: params.storeAddress,
+      isCashEnabled: params.isCashEnabled,
+      isCardEnabled: params.isCardEnabled,
+      isTransferEnabled: params.isTransferEnabled,
+      bankName: params.bankName,
+      bankAccountNumber: params.bankAccountNumber,
+      isQrisEnabled: params.isQrisEnabled,
+      midtransMerchantId: params.midtransMerchantId,
+      midtransClientKey: params.midtransClientKey,
+      midtransServerKey: params.midtransServerKey,
+      isMidtransSandbox: params.isMidtransSandbox,
+      midtransMerchantIdSandbox: params.midtransMerchantIdSandbox,
+      midtransClientKeySandbox: params.midtransClientKeySandbox,
+      midtransServerKeySandbox: params.midtransServerKeySandbox,
     );
   }
 }
@@ -30,6 +43,19 @@ class UpdateStoreSettingsParams {
   final double serviceChargePercentage;
   final String storeName;
   final String storeAddress;
+  final bool isCashEnabled;
+  final bool isCardEnabled;
+  final bool isTransferEnabled;
+  final String? bankName;
+  final String? bankAccountNumber;
+  final bool isQrisEnabled;
+  final String? midtransMerchantId;
+  final String? midtransClientKey;
+  final String? midtransServerKey;
+  final bool isMidtransSandbox;
+  final String? midtransMerchantIdSandbox;
+  final String? midtransClientKeySandbox;
+  final String? midtransServerKeySandbox;
 
   const UpdateStoreSettingsParams({
     this.id,
@@ -37,5 +63,18 @@ class UpdateStoreSettingsParams {
     required this.serviceChargePercentage,
     required this.storeName,
     required this.storeAddress,
+    required this.isCashEnabled,
+    required this.isCardEnabled,
+    required this.isTransferEnabled,
+    this.bankName,
+    this.bankAccountNumber,
+    required this.isQrisEnabled,
+    this.midtransMerchantId,
+    this.midtransClientKey,
+    this.midtransServerKey,
+    required this.isMidtransSandbox,
+    this.midtransMerchantIdSandbox,
+    this.midtransClientKeySandbox,
+    this.midtransServerKeySandbox,
   });
 }

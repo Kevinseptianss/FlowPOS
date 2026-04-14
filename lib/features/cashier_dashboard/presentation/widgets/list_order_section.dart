@@ -1,26 +1,37 @@
+import 'dart:async';
 import 'package:flow_pos/core/common/bloc/user_bloc.dart';
+import 'package:flow_pos/core/services/cashier_shift_local_service.dart';
+import 'package:flow_pos/core/services/midtrans_service.dart';
 import 'package:flow_pos/core/services/thermal_receipt_printer_service.dart';
 import 'package:flow_pos/core/theme/app_pallete.dart';
+import 'package:flow_pos/core/utils/format_rupiah.dart';
 import 'package:flow_pos/core/utils/show_snackbar.dart';
 import 'package:flow_pos/features/cashier_dashboard/domain/entities/cart.dart';
 import 'package:flow_pos/features/cashier_dashboard/domain/entities/selected_modifier.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/bloc/cart_bloc.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/bloc/table_bloc.dart';
-import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/qty_button.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/summary_row.dart';
 import 'package:flow_pos/features/order/domain/entities/order_entity.dart';
 import 'package:flow_pos/features/order/domain/entities/order_item.dart';
 import 'package:flow_pos/features/order/presentation/bloc/order_bloc.dart';
 import 'package:flow_pos/features/store_settings/domain/entities/store_settings.dart';
 import 'package:flow_pos/features/store_settings/presentation/bloc/store_settings_bloc.dart';
+import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/payment_dialogs.dart';
 import 'package:flow_pos/init_dependencies.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 class ListOrderSection extends StatelessWidget {
   final bool isMobileCheckoutFlow;
+  final bool isPayoutMode;
 
-  const ListOrderSection({super.key, this.isMobileCheckoutFlow = false});
+  const ListOrderSection({
+    super.key,
+    this.isMobileCheckoutFlow = false,
+    this.isPayoutMode = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -32,184 +43,461 @@ class ListOrderSection extends StatelessWidget {
           showSnackbar(context, orderState.message);
         }
       },
-      child: BlocListener<StoreSettingsBloc, StoreSettingsState>(
-        listener: (context, settingsState) {
-          if (settingsState is StoreSettingsFailure) {
-            showSnackbar(context, settingsState.message);
-          }
-        },
-        child: BlocBuilder<StoreSettingsBloc, StoreSettingsState>(
-          builder: (context, settingsState) {
-            final storeSettings = settingsState is StoreSettingsLoaded
-                ? settingsState.storeSettings
-                : const StoreSettings.zero();
+      child: BlocBuilder<StoreSettingsBloc, StoreSettingsState>(
+        builder: (context, settingsState) {
+          final storeSettings = settingsState is StoreSettingsLoaded
+              ? settingsState.storeSettings
+              : const StoreSettings.zero();
 
-            return BlocBuilder<CartBloc, CartState>(
-              builder: (context, state) {
-                if (state is CartEmpty) {
-                  return Container(
-                    color: AppPallete.surface,
-                    padding: const EdgeInsets.all(16),
-                    child: const Center(child: Text('Cart is empty')),
-                  );
-                }
+          return BlocBuilder<CartBloc, CartState>(
+            builder: (context, state) {
+              if (state is CartEmpty) {
+                return Container(
+                  color: AppPallete.surface,
+                  padding: const EdgeInsets.all(24),
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.shopping_basket_outlined,
+                          size: 64,
+                          color: AppPallete.divider,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Keranjang Kosong',
+                          style: GoogleFonts.outfit(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppPallete.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
 
-                if (state is CartLoaded) {
-                  final double taxRate = storeSettings.taxPercentage;
-                  final double serviceChargeRate =
-                      storeSettings.serviceChargePercentage;
+              if (state is CartLoaded) {
+                final double taxRate = storeSettings.taxPercentage;
+                final double serviceChargeRate =
+                    storeSettings.serviceChargePercentage;
 
-                  final int subtotal = state.totalAmount;
-                  final int tax = _calculateCharge(subtotal, taxRate);
-                  final int serviceCharge = _calculateCharge(
-                    subtotal,
-                    serviceChargeRate,
-                  );
-                  final int total = subtotal + tax + serviceCharge;
+                final int subtotal = state.totalAmount;
+                final int tax = _calculateCharge(subtotal, taxRate);
+                final int serviceCharge = _calculateCharge(
+                  subtotal,
+                  serviceChargeRate,
+                );
+                final int total = subtotal + tax + serviceCharge;
 
-                  return Container(
-                    color: AppPallete.surface,
-                    child: SafeArea(
-                      top: false,
-                      bottom:
-                          true, // Ensure content is above system navigation on Android
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Order',
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(color: AppPallete.textPrimary),
-                            ),
-                            const SizedBox(height: 16),
-                            Expanded(
-                              child: ListView.builder(
-                                itemCount: state.items.length,
-                                itemBuilder: (context, index) {
-                                  final item = state.items[index];
-                                  return _OrderItemTile(
-                                    cartItem: item,
-                                    onQuantityChanged: (newQuantity) {
-                                      context.read<CartBloc>().add(
-                                        UpdateCartItemQuantityEvent(
-                                          item.id,
-                                          newQuantity,
+                return Container(
+                  color: AppPallete.surface,
+                  child: SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.shopping_cart_rounded,
+                                color: AppPallete.primary,
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                'Pesanan Saya',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppPallete.textPrimary,
+                                ),
+                              ),
+                              const Spacer(),
+                              BlocBuilder<TableBloc, TableState>(
+                                builder: (context, tableState) {
+                                  final isTakeaway =
+                                      tableState.selectedTableNumber == 0;
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isTakeaway
+                                          ? AppPallete.secondary.withAlpha(30)
+                                          : AppPallete.primary.withAlpha(20),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: isTakeaway
+                                            ? AppPallete.secondary.withAlpha(
+                                                100,
+                                              )
+                                            : AppPallete.primary.withAlpha(50),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          isTakeaway
+                                              ? Icons.local_mall_rounded
+                                              : Icons.chair_rounded,
+                                          size: 13,
+                                          color: isTakeaway
+                                              ? AppPallete.secondary
+                                              : AppPallete.primary,
                                         ),
-                                      );
-                                    },
-                                    onRemove: () {
-                                      context.read<CartBloc>().add(
-                                        RemoveFromCartEvent(item.id),
-                                      );
-                                    },
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          isTakeaway
+                                              ? 'Takeaway'
+                                              : 'Table ${tableState.selectedTableNumber}',
+                                          style: GoogleFonts.outfit(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w800,
+                                            color: isTakeaway
+                                                ? AppPallete.secondary
+                                                : AppPallete.primary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   );
                                 },
                               ),
-                            ),
-                            const SizedBox(height: 12),
-                            const Divider(color: AppPallete.divider),
-                            const SizedBox(height: 8),
-                            SummaryRow(label: 'Subtotal', value: subtotal),
-                            const SizedBox(height: 6),
-                            SummaryRow(
-                              label: 'Tax (${_formatPercentage(taxRate)}%)',
-                              value: tax,
-                            ),
-                            const SizedBox(height: 6),
-                            SummaryRow(
-                              label:
-                                  'Service (${_formatPercentage(serviceChargeRate)}%)',
-                              value: serviceCharge,
-                            ),
-                            const SizedBox(height: 8),
-                            const Divider(color: AppPallete.divider),
-                            const SizedBox(height: 8),
-                            SummaryRow(
-                              label: 'Total',
-                              value: total,
-                              isTotal: true,
-                            ),
-                            const SizedBox(height: 16),
-                            BlocBuilder<OrderBloc, OrderState>(
-                              builder: (context, state) {
-                                if (state is OrderLoading) {
-                                  return const Center(
-                                    child: CircularProgressIndicator(),
-                                  );
-                                }
-                                return Row(
-                                  children: [
-                                    Expanded(
-                                      child: ElevatedButton(
-                                        onPressed: () => _createOrder(
-                                          context,
-                                          'QRIS',
-                                          total,
-                                          taxPercentage: taxRate,
-                                          serviceChargePercentage:
-                                              serviceChargeRate,
-                                        ),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: AppPallete.primary,
-                                          foregroundColor: AppPallete.onPrimary,
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 12,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              10,
-                                            ),
-                                          ),
-                                        ),
-                                        child: const Text('QRIS'),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppPallete.textSecondary.withAlpha(20),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  '${state.items.length} Item',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppPallete.textPrimary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+                          Expanded(
+                            child: ListView.builder(
+                              itemCount: state.items.length,
+                              itemBuilder: (context, index) {
+                                final item = state.items[index];
+                                return _OrderItemTile(
+                                  cartItem: item,
+                                  onQuantityChanged: (newQuantity) {
+                                    context.read<CartBloc>().add(
+                                      UpdateCartItemQuantityEvent(
+                                        item.id,
+                                        newQuantity,
                                       ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: ElevatedButton(
-                                        onPressed: () => _showCashPaymentDialog(
-                                          context,
-                                          total,
-                                          taxPercentage: taxRate,
-                                          serviceChargePercentage:
-                                              serviceChargeRate,
-                                        ),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: AppPallete.secondary,
-                                          foregroundColor: AppPallete.onPrimary,
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 12,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              10,
-                                            ),
-                                          ),
-                                        ),
-                                        child: const Text('CASH'),
-                                      ),
-                                    ),
-                                  ],
+                                    );
+                                  },
+                                  onRemove: () {
+                                    context.read<CartBloc>().add(
+                                      RemoveFromCartEvent(item.id),
+                                    );
+                                  },
                                 );
                               },
                             ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(height: 24),
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: AppPallete.background,
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            child: Column(
+                              children: [
+                                SummaryRow(label: 'Subtotal', value: subtotal),
+                                SummaryRow(
+                                  label:
+                                      'Pajak (${_formatPercentage(taxRate)}%)',
+                                  value: tax,
+                                ),
+                                SummaryRow(
+                                  label:
+                                      'Layanan (${_formatPercentage(serviceChargeRate)}%)',
+                                  value: serviceCharge,
+                                ),
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 12),
+                                  child: Divider(height: 1),
+                                ),
+                                SummaryRow(
+                                  label: 'Total Tagihan',
+                                  value: total,
+                                  isTotal: true,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          BlocBuilder<OrderBloc, OrderState>(
+                            builder: (context, orderState) {
+                              if (orderState is OrderLoading) {
+                                return const Center(
+                                  child: CircularProgressIndicator(),
+                                );
+                              }
+
+                              final userState = context.watch<UserBloc>().state;
+                              final userId = userState is UserLoggedIn
+                                  ? userState.user.id
+                                  : '';
+                              final shiftLocalService =
+                                  serviceLocator<CashierShiftLocalService>();
+                              final isSkipped = shiftLocalService
+                                  .isShiftSkipped(userId);
+
+                              return Column(
+                                children: [
+                                  BlocBuilder<TableBloc, TableState>(
+                                    builder: (context, tableState) {
+                                      final selectedTable =
+                                          tableState.selectedTableNumber;
+                                      final isDineIn = selectedTable > 0;
+
+                                      // Show "Simpan Meja" IF:
+                                      // 1. It's Dine-In AND we are NOT in Payout Mode
+                                      if (isDineIn && !isPayoutMode) {
+                                        return Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: 12,
+                                          ),
+                                          child: ElevatedButton(
+                                            onPressed: isSkipped
+                                                ? null
+                                                : () async {
+                                                    final isOccupied = tableState
+                                                        .occupiedTableNumbers
+                                                        .contains(
+                                                          selectedTable,
+                                                        );
+                                                    String name = "";
+
+                                                    if (!isOccupied) {
+                                                      final promptName =
+                                                          await _showTableNamePrompt(
+                                                            context,
+                                                          );
+                                                      if (promptName == null)
+                                                        return;
+                                                      name = promptName;
+                                                    } else {
+                                                      // Inherit existing name for additions
+                                                      name =
+                                                          tableState
+                                                              .occupiedTableNames[selectedTable] ??
+                                                          "";
+                                                    }
+
+                                                    if (context.mounted) {
+                                                      _createOrder(
+                                                        context,
+                                                        'NONE',
+                                                        total,
+                                                        status: 'UNPAID',
+                                                        taxPercentage: taxRate,
+                                                        serviceChargePercentage:
+                                                            serviceChargeRate,
+                                                        customerName: name,
+                                                      );
+                                                    }
+                                                  },
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor:
+                                                  AppPallete.secondary,
+                                              foregroundColor: Colors.white,
+                                              elevation: 0,
+                                              minimumSize:
+                                                  const Size.fromHeight(56),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(16),
+                                              ),
+                                            ),
+                                            child: Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                const Icon(
+                                                  Icons
+                                                      .table_restaurant_rounded,
+                                                  size: 20,
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  'Simpan Meja (Dine-In)',
+                                                  style: GoogleFonts.outfit(
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                      return const SizedBox.shrink();
+                                    },
+                                  ),
+
+                                  // 2. Show Payment Buttons ONLY if:
+                                  // - It's Takeaway (table 0)
+                                  // - OR it's Dine-In and already occupied (paying existing bill)
+                                  BlocBuilder<TableBloc, TableState>(
+                                    builder: (context, tableState) {
+                                      final selectedTable =
+                                          tableState.selectedTableNumber;
+                                      final isOccupied = tableState
+                                          .occupiedTableNumbers
+                                          .contains(selectedTable);
+                                      final isTakeaway = selectedTable == 0;
+
+                                      // Show Payment Buttons ONLY IF:
+                                      // 1. It's Takeaway
+                                      // 2. OR it's Dine-In AND we are specifically in Payout Mode
+                                      if (isTakeaway ||
+                                          (isOccupied && isPayoutMode)) {
+                                        return Wrap(
+                                          spacing: 12,
+                                          runSpacing: 12,
+                                          children: [
+                                            if (storeSettings.isCashEnabled)
+                                              _buildPaymentButton(
+                                                context: context,
+                                                label: 'TUNAI',
+                                                icon: Icons.payments_rounded,
+                                                color: AppPallete.primary,
+                                                isPrimary: true,
+                                                onPressed: isSkipped
+                                                    ? null
+                                                    : () => _showCashPaymentDialog(
+                                                        context,
+                                                        total,
+                                                        taxPercentage: taxRate,
+                                                        serviceChargePercentage:
+                                                            serviceChargeRate,
+                                                        customerName: tableState
+                                                            .occupiedTableNames[selectedTable],
+                                                      ),
+                                              ),
+                                            if (storeSettings.isQrisEnabled)
+                                              _buildPaymentButton(
+                                                context: context,
+                                                label: 'QRIS',
+                                                icon: Icons
+                                                    .qr_code_scanner_rounded,
+                                                color: Colors.blue,
+                                                onPressed: isSkipped
+                                                    ? null
+                                                    : () => _showQRISPaymentDialog(
+                                                        context,
+                                                        total,
+                                                        taxPercentage: taxRate,
+                                                        serviceChargePercentage:
+                                                            serviceChargeRate,
+                                                        customerName: tableState
+                                                            .occupiedTableNames[selectedTable],
+                                                        serverKey:
+                                                            storeSettings
+                                                                .isMidtransSandbox
+                                                            ? (storeSettings
+                                                                      .midtransServerKeySandbox ??
+                                                                  '')
+                                                            : (storeSettings
+                                                                      .midtransServerKey ??
+                                                                  ''),
+                                                        isProduction:
+                                                            !storeSettings
+                                                                .isMidtransSandbox,
+                                                      ),
+                                              ),
+                                            if (storeSettings.isTransferEnabled)
+                                              _buildPaymentButton(
+                                                context: context,
+                                                label: 'TRANSFER',
+                                                icon: Icons
+                                                    .account_balance_rounded,
+                                                color: Colors.teal,
+                                                onPressed: isSkipped
+                                                    ? null
+                                                    : () => _showTransferPaymentDialog(
+                                                        context,
+                                                        total,
+                                                        taxPercentage: taxRate,
+                                                        serviceChargePercentage:
+                                                            serviceChargeRate,
+                                                        customerName: tableState
+                                                            .occupiedTableNames[selectedTable],
+                                                        bankName:
+                                                            storeSettings
+                                                                .bankName ??
+                                                            '-',
+                                                        bankNumber:
+                                                            storeSettings
+                                                                .bankAccountNumber ??
+                                                            '-',
+                                                      ),
+                                              ),
+                                            if (storeSettings.isCardEnabled)
+                                              _buildPaymentButton(
+                                                context: context,
+                                                label: 'KARTU',
+                                                icon: Icons.credit_card_rounded,
+                                                color: Colors.orange,
+                                                onPressed: isSkipped
+                                                    ? null
+                                                    : () => _showCardPaymentDialog(
+                                                        context,
+                                                        total,
+                                                        taxPercentage: taxRate,
+                                                        serviceChargePercentage:
+                                                            serviceChargeRate,
+                                                        customerName: tableState
+                                                            .occupiedTableNames[selectedTable],
+                                                      ),
+                                              ),
+                                          ],
+                                        );
+                                      }
+                                      return const SizedBox.shrink();
+                                    },
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        ],
                       ),
                     ),
-                  );
-                }
-
-                return const SizedBox();
-              },
-            );
-          },
-        ),
+                  ),
+                );
+              }
+              return const SizedBox();
+            },
+          );
+        },
       ),
     );
   }
+
+  // --- Logic Methods ---
 
   Future<void> _handleOrderCreated(
     BuildContext context,
@@ -229,9 +517,20 @@ class ListOrderSection extends StatelessWidget {
       return;
     }
 
-    final shouldPrint = isMobileCheckoutFlow
-        ? await _showMobilePrintPrompt(rootNavigator)
-        : await _showIpadPrintPrompt(rootNavigator);
+    // Block receipt printing for UNPAID QRIS orders
+    bool shouldPrint = false;
+    if (order.status == 'PAID') {
+      shouldPrint = isMobileCheckoutFlow
+          ? await _showMobilePrintPrompt(rootNavigator)
+          : await _showIpadPrintPrompt(rootNavigator);
+    } else if (order.status == 'UNPAID') {
+       // If it's a QRIS order (identified by method or prefix), DO NOT print.
+       // Table orders (method == null or 'CASH' or prefix 'ORD-') should still prompt.
+       final isQris = order.payment?.method == 'QRIS' || order.orderNumber.startsWith('QRIS-');
+       if (!isQris) {
+         shouldPrint = await _showTableOrderPrintPrompt(rootNavigator);
+       }
+    }
 
     if (shouldPrint && rootNavigator.mounted) {
       await _printInvoice(rootNavigator, order);
@@ -241,56 +540,135 @@ class ListOrderSection extends StatelessWidget {
   }
 
   Future<bool> _showMobilePrintPrompt(NavigatorState rootNavigator) async {
+    return _showModernPrintSheet(
+      rootNavigator,
+      title: 'Cetak Struk?',
+      message: 'Apakah Anda ingin mencetak struk transaksi ini sekarang?',
+    );
+  }
+
+  Future<bool> _showIpadPrintPrompt(NavigatorState rootNavigator) async {
+    return _showModernPrintSheet(
+      rootNavigator,
+      title: 'Cetak Struk?',
+      message: 'Apakah Anda ingin mencetak struk transaksi ini sekarang?',
+    );
+  }
+
+  Future<bool> _showTableOrderPrintPrompt(NavigatorState rootNavigator) async {
+    return _showModernPrintSheet(
+      rootNavigator,
+      title: 'Cetak Pesanan Meja?',
+      message: 'Apakah Anda ingin mencetak daftar pesanan untuk meja ini?',
+      isTableOrder: true,
+    );
+  }
+
+  Future<bool> _showModernPrintSheet(
+    NavigatorState rootNavigator, {
+    required String title,
+    required String message,
+    bool isTableOrder = false,
+  }) async {
     final result = await showModalBottomSheet<bool>(
       context: rootNavigator.context,
       showDragHandle: true,
       backgroundColor: AppPallete.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+      ),
       builder: (sheetContext) {
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            padding: const EdgeInsets.fromLTRB(28, 8, 28, 32),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Print Invoice?',
-                  style: Theme.of(sheetContext).textTheme.titleMedium?.copyWith(
-                    color: AppPallete.textPrimary,
-                    fontWeight: FontWeight.w700,
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color:
+                        (isTableOrder
+                                ? AppPallete.secondary
+                                : AppPallete.primary)
+                            .withAlpha(15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    isTableOrder
+                        ? Icons.receipt_long_rounded
+                        : Icons.print_rounded,
+                    size: 32,
+                    color: isTableOrder
+                        ? AppPallete.secondary
+                        : AppPallete.primary,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 24),
                 Text(
-                  'Do you want to print this transaction receipt now?',
-                  style: Theme.of(sheetContext).textTheme.bodyMedium?.copyWith(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.outfit(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
                     color: AppPallete.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.outfit(
+                    fontSize: 16,
+                    color: AppPallete.textSecondary,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 32),
                 Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton(
+                      child: TextButton(
                         onPressed: () => Navigator.pop(sheetContext, false),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppPallete.textPrimary,
-                          side: const BorderSide(color: AppPallete.divider),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
                         ),
-                        child: const Text('No'),
+                        child: Text(
+                          'Nanti Saja',
+                          style: GoogleFonts.outfit(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppPallete.textSecondary,
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 16),
                     Expanded(
-                      child: FilledButton(
+                      flex: 2,
+                      child: ElevatedButton(
                         onPressed: () => Navigator.pop(sheetContext, true),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppPallete.primary,
-                          foregroundColor: AppPallete.onPrimary,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isTableOrder
+                              ? AppPallete.secondary
+                              : AppPallete.primary,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
                         ),
-                        child: const Text('Yes, Print'),
+                        child: Text(
+                          'Ya, Cetak',
+                          style: GoogleFonts.outfit(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -301,33 +679,6 @@ class ListOrderSection extends StatelessWidget {
         );
       },
     );
-
-    return result ?? false;
-  }
-
-  Future<bool> _showIpadPrintPrompt(NavigatorState rootNavigator) async {
-    final result = await showDialog<bool>(
-      context: rootNavigator.context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Print Invoice?'),
-          content: const Text(
-            'Do you want to print this transaction receipt now?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('No'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Yes, Print'),
-            ),
-          ],
-        );
-      },
-    );
-
     return result ?? false;
   }
 
@@ -342,22 +693,15 @@ class ListOrderSection extends StatelessWidget {
 
     try {
       final connected = await printerService.isConnected;
-      if (!rootContext.mounted) {
-        return;
-      }
+      if (!rootContext.mounted) return;
 
       if (!connected) {
         final selectedDevice = await printerService.selectDevice(
           context: rootContext,
         );
-        if (selectedDevice == null) {
-          return;
-        }
-
+        if (selectedDevice == null) return;
         await printerService.connect(macAddress: selectedDevice.macAddress);
-        if (!rootContext.mounted) {
-          return;
-        }
+        if (!rootContext.mounted) return;
       }
 
       await printerService.printOrderReceipt(
@@ -366,46 +710,25 @@ class ListOrderSection extends StatelessWidget {
         storeSettings: storeSettings,
         cashierName: cashierName,
       );
-
-      if (!rootContext.mounted) {
-        return;
-      }
-
-      showSnackbar(rootContext, 'Receipt printed successfully.');
+      if (rootContext.mounted)
+        showSnackbar(rootContext, 'Receipt printed successfully.');
     } catch (error) {
-      if (!rootContext.mounted) {
-        return;
-      }
-
-      final message = error is Exception
-          ? error.toString().replaceFirst('Exception: ', '')
-          : 'Failed to print receipt.';
-      showSnackbar(rootContext, message);
+      if (!rootContext.mounted) return;
+      showSnackbar(rootContext, 'Gagal mencetak struk.');
     }
   }
 
   StoreSettings _resolveStoreSettings(BuildContext context) {
     final state = context.read<StoreSettingsBloc>().state;
-
-    if (state is StoreSettingsLoaded) {
-      return state.storeSettings;
-    }
-
-    if (state is StoreSettingsUpdated) {
-      return state.storeSettings;
-    }
-
+    if (state is StoreSettingsLoaded) return state.storeSettings;
+    if (state is StoreSettingsUpdated) return state.storeSettings;
     return const StoreSettings.zero();
   }
 
   String _resolveCashierName(BuildContext context) {
     final userState = context.read<UserBloc>().state;
-
-    if (userState is UserLoggedIn) {
-      return userState.user.name;
-    }
-
-    return 'Cashier';
+    if (userState is UserLoggedIn) return userState.user.name;
+    return 'Kasir';
   }
 
   void _showCashPaymentDialog(
@@ -413,24 +736,241 @@ class ListOrderSection extends StatelessWidget {
     int total, {
     required double taxPercentage,
     required double serviceChargePercentage,
+    String? customerName,
   }) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => CashPaymentDialog(
+        total: total,
+        onConfirmPayment: (amountPaid) {
+          _createOrder(
+            context,
+            'CASH',
+            total,
+            amountPaid: amountPaid,
+            taxPercentage: taxPercentage,
+            serviceChargePercentage: serviceChargePercentage,
+            customerName: customerName,
+          );
+        },
+      ),
+    );
+  }
+
+  void _showQRISPaymentDialog(
+    BuildContext context,
+    int total, {
+    required double taxPercentage,
+    required double serviceChargePercentage,
+    String? customerName,
+    required String serverKey,
+    required bool isProduction,
+  }) async {
+    if (serverKey.isEmpty) {
+      showSnackbar(
+        context,
+        'Konfigurasi QRIS belum lengkap (Server Key kosong untuk mode ${isProduction ? 'Produksi' : 'Sandbox'})',
+      );
+      return;
+    }
+
+    final midtransService = MidtransService(
+      serverKey: serverKey,
+      isProduction: isProduction,
+    );
+
+    // Completer to get the actual database UUID once the order is created
+    final Completer<String> dbOrderIdCompleter = Completer<String>();
+
+    final now = DateTime.now();
+    final tempOrderId = 'QRIS-${now.millisecondsSinceEpoch}';
+    OrderEntity? createdOrder;
+
+    // Listen to the bloc stream to catch the Created event for our tempOrderId
+    final subscription = context.read<OrderBloc>().stream.listen((state) {
+      if (state is OrderCreated && state.order.orderNumber == tempOrderId) {
+        createdOrder = state.order;
+        if (!dbOrderIdCompleter.isCompleted) {
+          dbOrderIdCompleter.complete(state.order.id);
+        }
+      }
+    });
+
+    // Create UNPAID order immediately to clear cart and save history
+    // This will trigger the OrderCreated listener at line 37
+    _createOrder(
+      context,
+      'QRIS',
+      total,
+      status: 'UNPAID',
+      taxPercentage: taxPercentage,
+      serviceChargePercentage: serviceChargePercentage,
+      customerName: customerName,
+      orderNumber: tempOrderId,
+    );
+
+    // Show loading indicator while getting link
     showDialog(
       context: context,
-      builder: (BuildContext dialogContext) {
-        return CashPaymentDialog(
-          total: total,
-          onConfirmPayment: (int amountPaid) {
-            _createOrder(
-              context,
-              'CASH',
-              total,
-              amountPaid: amountPaid,
-              taxPercentage: taxPercentage,
-              serviceChargePercentage: serviceChargePercentage,
-            );
-          },
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    final snapResult = await midtransService.generateSnapUrl(
+      orderId: tempOrderId,
+      amount: total,
+    );
+
+    if (context.mounted) Navigator.pop(context); // Remove loading
+
+    if (snapResult['success']) {
+      final snapUrl = snapResult['redirect_url'];
+      
+      // Save to cache for retry in history
+      final box = serviceLocator<Box<String>>(instanceName: 'qris_cache');
+      box.put(tempOrderId, 'SNAP:$snapUrl');
+
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => MidtransWebView(
+            url: snapUrl,
+            onSuccess: () async {
+              try {
+                // Wait for the DB UUID from the OrderCreated event
+                final dbId = await dbOrderIdCompleter.future.timeout(
+                  const Duration(seconds: 15),
+                );
+                
+                if (context.mounted) {
+                  //Official settlement in DB
+                  context.read<OrderBloc>().add(
+                    SettleOrderEvent(
+                      orderId: dbId,
+                      method: 'QRIS',
+                      amountPaid: total,
+                      amountDue: total,
+                      changeGiven: 0,
+                    ),
+                  );
+                  
+                  // Print Receipt ONLY after success
+                  if (createdOrder != null) {
+                    final updatedOrder = createdOrder!.copyWith(status: 'PAID');
+                    await _printInvoice(Navigator.of(context, rootNavigator: true), updatedOrder);
+                  }
+                }
+              } catch (e) {
+                debugPrint('Settlement error: $e');
+              } finally {
+                subscription.cancel();
+              }
+            },
+          ),
         );
-      },
+      }
+    } else {
+      subscription.cancel();
+      if (context.mounted) {
+        showSnackbar(context, 'Gagal membuat link pembayaran: ${snapResult['message']}');
+      }
+    }
+  }
+
+  void _showTransferPaymentDialog(
+    BuildContext context,
+    int total, {
+    required double taxPercentage,
+    required double serviceChargePercentage,
+    String? customerName,
+    required String bankName,
+    required String bankNumber,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => TransferBankDialog(
+        total: total,
+        bankName: bankName,
+        accountNumber: bankNumber,
+        onConfirm: () {
+          _createOrder(
+            context,
+            'TRANSFER',
+            total,
+            taxPercentage: taxPercentage,
+            serviceChargePercentage: serviceChargePercentage,
+            customerName: customerName,
+          );
+        },
+      ),
+    );
+  }
+
+  void _showCardPaymentDialog(
+    BuildContext context,
+    int total, {
+    required double taxPercentage,
+    required double serviceChargePercentage,
+    String? customerName,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => CardPaymentDialog(
+        total: total,
+        onConfirm: () {
+          _createOrder(
+            context,
+            'CARD',
+            total,
+            taxPercentage: taxPercentage,
+            serviceChargePercentage: serviceChargePercentage,
+            customerName: customerName,
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildPaymentButton({
+    required BuildContext context,
+    required String label,
+    required IconData icon,
+    required Color color,
+    required VoidCallback? onPressed,
+    bool isPrimary = false,
+  }) {
+    final width = MediaQuery.of(context).size.width;
+    final isIpad = width > 600;
+
+    return SizedBox(
+      width: isIpad ? (width * 0.45 - 60) / 2 : (width - 60) / 2,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: isPrimary ? color : color.withAlpha(20),
+          foregroundColor: isPrimary ? Colors.white : color,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 20),
+            const SizedBox(width: 8),
+            Text(label, style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ),
     );
   }
 
@@ -439,12 +979,14 @@ class ListOrderSection extends StatelessWidget {
     String method,
     int total, {
     int? amountPaid,
+    String status = 'PAID',
     required double taxPercentage,
     required double serviceChargePercentage,
+    String? customerName,
+    String? orderNumber,
   }) {
     final cartBloc = context.read<CartBloc>();
     final orderBloc = context.read<OrderBloc>();
-    final tableBloc = context.read<TableBloc>();
     final userBloc = context.read<UserBloc>();
 
     final cartState = cartBloc.state;
@@ -452,65 +994,195 @@ class ListOrderSection extends StatelessWidget {
 
     final userState = userBloc.state;
     if (userState is! UserLoggedIn) {
-      showSnackbar(context, 'User not logged in');
+      showSnackbar(context, 'Sesi berakhir, silakan login kembali');
       return;
     }
 
-    // Generate order number (timestamp-based)
     final now = DateTime.now();
-    final orderNumber =
+    final orderNumberToUse = orderNumber ??
         'ORD-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}-${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}';
 
-    // Build order items from cart
     final orderItems = cartState.items.map((cartItem) {
-      // Serialize modifiers for snapshot (just names since prices are included in unit_price)
       final modifierSnapshot = cartItem.selectedModifiers.values
           .whereType<SelectedModifier>()
-          .map((modifier) => modifier.name)
+          .map((modifier) => '${modifier.optionName}: ${modifier.name}')
           .join(', ');
 
       return OrderItem(
         menuItemId: cartItem.menuItemId,
         menuName: cartItem.name,
         quantity: cartItem.quantity,
-        unitPrice: (cartItem.basePrice + _modifiersUnitPrice(cartItem))
-            .toInt(), // Include modifier price
-        notes: null, // Could be added later for special instructions
+        unitPrice: (cartItem.basePrice + _modifiersUnitPrice(cartItem)).toInt(),
+        notes: cartItem.notes,
         modifierSnapshot: modifierSnapshot.isNotEmpty ? modifierSnapshot : null,
       );
     }).toList();
 
-    // Calculate amounts
-    final int subtotal = cartState.totalAmount;
-
-    // Use provided amountPaid or default to total for QRIS
-    final int finalAmountPaid = amountPaid ?? total;
+    final shiftId =
+        serviceLocator<CashierShiftLocalService>().getActiveShift(
+              userState.user.id,
+            )?['shiftId']
+            as String?;
 
     orderBloc.add(
       CreateOrderEvent(
-        orderNumber: orderNumber,
-        tableNumber: tableBloc.state.selectedTableNumber,
+        orderNumber: orderNumberToUse,
+        tableNumber: context.read<TableBloc>().state.selectedTableNumber,
         cashierId: userState.user.id,
-        subtotal: subtotal,
-        tax: taxPercentage,
-        serviceCharge: serviceChargePercentage,
+        subtotal: cartState.totalAmount,
+        tax: (cartState.totalAmount * taxPercentage / 100),
+        serviceCharge: (cartState.totalAmount * serviceChargePercentage / 100),
         total: total,
         method: method,
-        amountPaid: finalAmountPaid,
+        amountPaid: amountPaid ?? (status == 'PAID' ? total : 0),
         items: orderItems,
+        shiftId: shiftId,
+        status: status,
+        customerName: customerName,
       ),
     );
   }
 
-  int _calculateCharge(int subtotal, double percentage) {
-    return (subtotal * percentage / 100).round();
+  Future<String?> _showTableNamePrompt(BuildContext context) async {
+    final controller = TextEditingController();
+    return await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: AppPallete.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+      ),
+      builder: (sheetContext) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 32,
+            left: 28,
+            right: 28,
+            top: 8,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppPallete.secondary.withAlpha(15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.drive_file_rename_outline_rounded,
+                      color: AppPallete.secondary,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Text(
+                    'Nama Pesanan / Meja',
+                    style: GoogleFonts.outfit(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: AppPallete.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Opsional: Berikan nama atau pengenal untuk pesanan di meja ini agar lebih mudah ditemukan.',
+                style: GoogleFonts.outfit(
+                  fontSize: 14,
+                  color: AppPallete.textSecondary,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 24),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                style: GoogleFonts.outfit(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Contoh: Kak Kevin / Meja Jendela',
+                  hintStyle: GoogleFonts.outfit(
+                    fontSize: 16,
+                    fontWeight: FontWeight.normal,
+                    color: AppPallete.textSecondary.withAlpha(127),
+                  ),
+                  filled: true,
+                  fillColor: AppPallete.background,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.all(20),
+                ),
+              ),
+              const SizedBox(height: 32),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(sheetContext, ""),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: Text(
+                        'Tanpa Nama',
+                        style: GoogleFonts.outfit(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppPallete.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton(
+                      onPressed: () =>
+                          Navigator.pop(sheetContext, controller.text.trim()),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppPallete.secondary,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: Text(
+                        'Simpan Pesanan',
+                        style: GoogleFonts.outfit(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
-  String _formatPercentage(double percentage) {
-    if (percentage == percentage.truncateToDouble()) {
-      return percentage.toStringAsFixed(0);
-    }
+  int _calculateCharge(int subtotal, double percentage) =>
+      (subtotal * percentage / 100).round();
 
+  String _formatPercentage(double percentage) {
+    if (percentage == percentage.truncateToDouble())
+      return percentage.toStringAsFixed(0);
     return percentage
         .toStringAsFixed(2)
         .replaceFirst(RegExp(r'0+$'), '')
@@ -519,13 +1191,13 @@ class ListOrderSection extends StatelessWidget {
 
   int _modifiersUnitPrice(Cart item) {
     if (item.quantity <= 0) return 0;
-
     final perUnitPrice = item.totalPrice ~/ item.quantity;
     final modifiersUnitPrice = perUnitPrice - item.basePrice;
-
     return modifiersUnitPrice < 0 ? 0 : modifiersUnitPrice;
   }
 }
+
+// --- Helper Widgets ---
 
 class _OrderItemTile extends StatelessWidget {
   final Cart cartItem;
@@ -540,99 +1212,99 @@ class _OrderItemTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selectedModifierNames = cartItem.selectedModifiers.values
-        .whereType<SelectedModifier>()
-        .map((modifier) => modifier.name)
-        .where((name) => name.trim().isNotEmpty)
-        .toList();
+    final initials = cartItem.name.length >= 2
+        ? cartItem.name.substring(0, 2).toUpperCase()
+        : cartItem.name.toUpperCase();
+    final selectedModifierStrings = cartItem.modifierSnapshot != null
+        ? [cartItem.modifierSnapshot!]
+        : cartItem.selectedModifiers.values
+              .whereType<SelectedModifier>()
+              .map((m) => '${m.optionName}: ${m.name}')
+              .toList();
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppPallete.divider)),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppPallete.background,
+        borderRadius: BorderRadius.circular(16),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          // Row 1: Item name and delete button
-          Row(
-            children: [
-              Expanded(
-                child: Text(
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppPallete.primary.withAlpha(20),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              initials,
+              style: GoogleFonts.outfit(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: AppPallete.primary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
                   cartItem.name,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppPallete.textPrimary,
-                  ),
-                  softWrap: true,
-                  maxLines: null,
-                ),
-              ),
-              IconButton(
-                onPressed: onRemove,
-                icon: const Icon(Icons.delete, color: AppPallete.error),
-                iconSize: 20,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          // Row 2: Price and modifiers
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Rp ${cartItem.basePrice}',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: AppPallete.textPrimary),
-              ),
-              // Show selected modifiers
-              if (selectedModifierNames.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    'Modifiers: ${selectedModifierNames.join(', ')}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppPallete.textPrimary,
-                    ),
-                    softWrap: true,
-                    maxLines: null,
+                  style: GoogleFonts.outfit(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
                   ),
                 ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // Row 3: Quantity controls and total price
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  QtyButton(
-                    icon: Icons.remove,
-                    onTap: () => onQuantityChanged(cartItem.quantity - 1),
-                  ),
-                  const SizedBox(width: 8),
+                if (selectedModifierStrings.isNotEmpty)
                   Text(
-                    '${cartItem.quantity}',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppPallete.textPrimary,
+                    selectedModifierStrings.join(', '),
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      color: AppPallete.textSecondary,
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  QtyButton(
-                    icon: Icons.add,
-                    onTap: () => onQuantityChanged(cartItem.quantity + 1),
+                if (cartItem.notes != null && cartItem.notes!.isNotEmpty)
+                  Text(
+                    cartItem.notes!,
+                    style: GoogleFonts.outfit(
+                      fontSize: 11,
+                      color: AppPallete.warning,
+                      fontStyle: FontStyle.italic,
+                    ),
                   ),
-                ],
-              ),
-              Text(
-                'Rp ${cartItem.totalPrice}',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppPallete.primary,
-                  fontWeight: FontWeight.w600,
+                const SizedBox(height: 2),
+                Text(
+                  formatRupiah(cartItem.totalPrice),
+                  style: GoogleFonts.outfit(
+                    color: AppPallete.primary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
                 ),
+              ],
+            ),
+          ),
+          Row(
+            children: [
+              _buildSmallQtyBtn(
+                Icons.remove,
+                () => onQuantityChanged(cartItem.quantity - 1),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  '${cartItem.quantity}',
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                ),
+              ),
+              _buildSmallQtyBtn(
+                Icons.add,
+                () => onQuantityChanged(cartItem.quantity + 1),
               ),
             ],
           ),
@@ -640,297 +1312,19 @@ class _OrderItemTile extends StatelessWidget {
       ),
     );
   }
-}
 
-class CashPaymentDialog extends StatefulWidget {
-  final int total;
-  final Function(int) onConfirmPayment;
-
-  const CashPaymentDialog({
-    super.key,
-    required this.total,
-    required this.onConfirmPayment,
-  });
-
-  @override
-  State<CashPaymentDialog> createState() => _CashPaymentDialogState();
-}
-
-class _CashPaymentDialogState extends State<CashPaymentDialog> {
-  late final TextEditingController amountController;
-  bool isFormatting = false;
-  int change = 0;
-  String formattedAmount = '';
-
-  @override
-  void initState() {
-    super.initState();
-    amountController = TextEditingController();
-  }
-
-  @override
-  void dispose() {
-    amountController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bool isValidPayment = change >= 0 && amountController.text.isNotEmpty;
-
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+  Widget _buildSmallQtyBtn(IconData icon, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 460),
+        padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: AppPallete.surface,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x22000000),
-              blurRadius: 26,
-              offset: Offset(0, 10),
-            ),
-          ],
+          border: Border.all(color: AppPallete.divider),
+          borderRadius: BorderRadius.circular(8),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(18, 16, 12, 16),
-              decoration: BoxDecoration(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(20),
-                ),
-                gradient: const LinearGradient(
-                  colors: [AppPallete.primary, AppPallete.secondary],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.payments_rounded,
-                    color: AppPallete.onPrimary,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Cash Payment',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: AppPallete.onPrimary,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(
-                      Icons.close_rounded,
-                      color: AppPallete.onPrimary,
-                    ),
-                    splashRadius: 18,
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppPallete.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Total Bill',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: AppPallete.textPrimary),
-                        ),
-                        Text(
-                          'Rp ${_formatCurrency(widget.total)}',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: AppPallete.primary,
-                              ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: amountController,
-                    keyboardType: TextInputType.number,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: AppPallete.textPrimary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    decoration: InputDecoration(
-                      labelText: 'Amount Paid',
-                      prefixText: 'Rp ',
-                      hintText: '0',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AppPallete.divider),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: AppPallete.primary,
-                          width: 1.6,
-                        ),
-                      ),
-                      labelStyle: Theme.of(context).textTheme.bodyMedium
-                          ?.copyWith(color: AppPallete.textPrimary),
-                    ),
-                    onChanged: (value) {
-                      if (isFormatting) return;
-
-                      final amount = _parseAmount(value);
-                      final formatted = amount > 0
-                          ? _formatCurrency(amount)
-                          : '';
-
-                      setState(() {
-                        change = amount - widget.total;
-                        formattedAmount = formatted;
-                      });
-
-                      if (formatted != value) {
-                        isFormatting = true;
-                        amountController.value = TextEditingValue(
-                          text: formatted,
-                          selection: TextSelection.collapsed(
-                            offset: formatted.length,
-                          ),
-                        );
-                        isFormatting = false;
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: change >= 0
-                          ? AppPallete.success.withValues(alpha: 0.12)
-                          : AppPallete.error.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          change >= 0
-                              ? Icons.check_circle_rounded
-                              : Icons.error_rounded,
-                          color: change >= 0
-                              ? AppPallete.success
-                              : AppPallete.error,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            change >= 0
-                                ? 'Change: Rp ${_formatCurrency(change)}'
-                                : 'Insufficient: Rp ${_formatCurrency(change.abs())} short',
-                            style: Theme.of(context).textTheme.bodyLarge
-                                ?.copyWith(
-                                  color: change >= 0
-                                      ? AppPallete.success
-                                      : AppPallete.error,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: AppPallete.divider),
-                            foregroundColor: AppPallete.textPrimary,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          child: const Text('Cancel'),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: isValidPayment
-                              ? () {
-                                  final amount = _parseAmount(
-                                    amountController.text,
-                                  );
-                                  Navigator.of(context).pop();
-                                  widget.onConfirmPayment(amount);
-                                }
-                              : null,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppPallete.secondary,
-                            foregroundColor: AppPallete.onPrimary,
-                            disabledBackgroundColor: AppPallete.secondary
-                                .withValues(alpha: 0.35),
-                            disabledForegroundColor: AppPallete.onPrimary,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          child: const Text('Confirm Payment'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+        child: Icon(icon, size: 14, color: AppPallete.primary),
       ),
-    );
-  }
-
-  int _parseAmount(String value) {
-    final cleanValue = value.replaceAll('.', '').replaceAll('Rp ', '').trim();
-    return int.tryParse(cleanValue) ?? 0;
-  }
-
-  String _formatCurrency(int amount) {
-    return amount.toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]}.',
     );
   }
 }

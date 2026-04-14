@@ -16,6 +16,9 @@ abstract interface class OrderRepository {
     required String method,
     required int amountPaid,
     required List<OrderItem> items,
+    String? shiftId,
+    String status = 'PAID',
+    String? customerName,
   });
 
   Future<Either<Failure, MonthlyRevenue>> getMonthlyRevenue({
@@ -28,4 +31,17 @@ abstract interface class OrderRepository {
   });
 
   Future<Either<Failure, List<OrderEntity>>> getAllOrders();
+  Future<Either<Failure, OrderEntity>> getOrderById(String orderId);
+  Future<Either<Failure, void>> softDeleteOrderItem({
+    required String orderItemId,
+    required String deletedById,
+  });
+  Future<Either<Failure, void>> settleOrder({
+    required String orderId,
+    required String method,
+    required int amountPaid,
+    required int amountDue,
+    required int changeGiven,
+  });
+  Future<Either<Failure, void>> voidOrder(String orderId);
 }

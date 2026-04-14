@@ -6,6 +6,7 @@ class MenuItemVariant extends Equatable {
   final String optionName;
   final String variantName;
   final int price;
+  final int basePrice;
   final String unit;
 
   const MenuItemVariant({
@@ -14,9 +15,10 @@ class MenuItemVariant extends Equatable {
     required this.optionName,
     required this.variantName,
     required this.price,
+    this.basePrice = 0,
     required this.unit,
   });
 
   @override
-  List<Object?> get props => [id, menuItemId, optionName, variantName, price, unit];
+  List<Object?> get props => [id, menuItemId, optionName, variantName, price, basePrice, unit];
 }

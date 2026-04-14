@@ -4,7 +4,7 @@ sealed class CartEvent extends Equatable {
   const CartEvent();
 
   @override
-  List<Object> get props => [];
+  List<Object?> get props => [];
 }
 
 final class AddToCartEvent extends CartEvent {
@@ -14,6 +14,8 @@ final class AddToCartEvent extends CartEvent {
   final int quantity;
   final Map<String, SelectedModifier?> selectedModifiers;
   final int totalPrice;
+  final String? variantId;
+  final String? notes;
 
   const AddToCartEvent({
     required this.menuItemId,
@@ -22,16 +24,20 @@ final class AddToCartEvent extends CartEvent {
     required this.quantity,
     required this.selectedModifiers,
     required this.totalPrice,
+    this.variantId,
+    this.notes,
   });
 
   @override
-  List<Object> get props => [
+  List<Object?> get props => [
     menuItemId,
     name,
     basePrice,
     quantity,
     selectedModifiers,
     totalPrice,
+    variantId,
+    notes,
   ];
 }
 
@@ -59,4 +65,12 @@ final class ClearCartEvent extends CartEvent {
 
   @override
   List<Object> get props => [];
+}
+
+final class ReplaceCartItemsEvent extends CartEvent {
+  final List<Cart> items;
+  const ReplaceCartItemsEvent(this.items);
+
+  @override
+  List<Object> get props => [items];
 }

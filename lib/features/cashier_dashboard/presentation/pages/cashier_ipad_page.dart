@@ -4,15 +4,20 @@ import 'package:flow_pos/core/theme/app_pallete.dart';
 import 'package:flow_pos/core/utils/show_logout_dialog.dart';
 import 'package:flow_pos/core/utils/show_snackbar.dart';
 import 'package:flow_pos/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/cashier_shift_dialogs.dart';
+import 'package:flow_pos/features/cashier_dashboard/presentation/bloc/cart_bloc.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/list_menu_section.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/list_order_section.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/table_section.dart';
-import 'package:flow_pos/features/order/domain/usecases/get_all_orders.dart';
+import 'package:flow_pos/features/cashier_dashboard/presentation/bloc/table_bloc.dart';
+import 'package:flow_pos/features/cashier_dashboard/domain/entities/cart.dart';
+import 'package:flow_pos/features/order/presentation/bloc/order_bloc.dart';
+import 'package:flow_pos/features/shift/presentation/bloc/shift_bloc.dart';
+import 'package:flow_pos/features/shift/presentation/pages/open_shift_page.dart';
 import 'package:flow_pos/init_dependencies.dart';
-import 'package:flow_pos/core/usecase/use_case.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:uuid/uuid.dart';
 
 class CashierIpadPage extends StatefulWidget {
   const CashierIpadPage({super.key});
@@ -23,201 +28,23 @@ class CashierIpadPage extends StatefulWidget {
 
 class _CashierIpadPageState extends State<CashierIpadPage> {
   late final CashierShiftLocalService _cashierShiftLocalService;
-  late final GetAllOrders _getAllOrders;
 
-  bool _isShiftActive = false;
-  bool _isShiftReady = false;
-  bool _isProcessingShiftAction = false;
   String? _cashierId;
+  bool _isWarningBannerDismissed = false;
 
   @override
   void initState() {
     super.initState();
     _cashierShiftLocalService = serviceLocator<CashierShiftLocalService>();
-    _getAllOrders = serviceLocator<GetAllOrders>();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _bootstrapShiftState();
-    });
-  }
-
-  Future<void> _bootstrapShiftState() async {
     final userState = context.read<UserBloc>().state;
-    if (userState is! UserLoggedIn) {
-      return;
+    if (userState is UserLoggedIn) {
+      _cashierId = userState.user.id;
+      // Fetch active shift from database on init
+      context.read<ShiftBloc>().add(GetActiveShiftEvent(cashierId: _cashierId!));
+      // Fetch initial orders to populate occupied tables
+      context.read<OrderBloc>().add(GetAllOrdersEvent());
     }
-
-    _cashierId = userState.user.id;
-    final hasActiveShift = _cashierShiftLocalService.hasActiveShift(
-      userState.user.id,
-    );
-
-    if (hasActiveShift) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _isShiftActive = true;
-        _isShiftReady = true;
-      });
-
-      return;
-    }
-
-    final openingBalance = await showOpeningBalanceDialog(
-      context,
-      cashierName: userState.user.name,
-    );
-
-    await _cashierShiftLocalService.openShift(
-      cashierId: userState.user.id,
-      cashierName: userState.user.name,
-      openingBalance: openingBalance,
-    );
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _isShiftActive = true;
-      _isShiftReady = true;
-    });
-
-    showSnackbar(
-      context,
-      'Shift aktif. Modal awal tersimpan di local database.',
-    );
-  }
-
-  Future<void> _closeShift() async {
-    if (_cashierId == null || _isProcessingShiftAction) {
-      return;
-    }
-
-    final activeShift = _cashierShiftLocalService.getActiveShift(_cashierId!);
-    if (activeShift == null) {
-      setState(() {
-        _isShiftActive = false;
-      });
-      return;
-    }
-
-    final openingBalance =
-        (activeShift['openingBalance'] as num?)?.toDouble() ?? 0;
-    final openedAt = DateTime.tryParse(
-      activeShift['openedAtUtc'] as String? ??
-          activeShift['openedAt'] as String? ??
-          '',
-    );
-    final confirmed = await showCloseShiftDialog(
-      context,
-      openingBalance: openingBalance,
-      openedAt: openedAt ?? DateTime.now(),
-    );
-
-    if (!confirmed || !mounted) {
-      return;
-    }
-
-    setState(() {
-      _isProcessingShiftAction = true;
-    });
-
-    Map<String, dynamic>? closedShift;
-
-    try {
-      closedShift = await _cashierShiftLocalService.closeShift(
-        cashierId: _cashierId!,
-      );
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _isProcessingShiftAction = false;
-      });
-
-      showSnackbar(
-        context,
-        'Gagal menutup shift: ${error.toString().replaceFirst('Exception: ', '')}',
-      );
-      return;
-    }
-
-    if (closedShift != null && openedAt != null) {
-      final closedAt = DateTime.tryParse(
-        closedShift['closedAt'] as String? ?? '',
-      );
-
-      if (closedAt != null) {
-        await _printShiftOrderItemsToDebugConsole(
-          openedAt: openedAt,
-          closedAt: closedAt,
-        );
-      }
-    }
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _isShiftActive = false;
-      _isProcessingShiftAction = false;
-    });
-
-    showSnackbar(context, 'Shift ditutup. Data berhasil disimpan ke database.');
-  }
-
-  Future<void> _printShiftOrderItemsToDebugConsole({
-    required DateTime openedAt,
-    required DateTime closedAt,
-  }) async {
-    final result = await _getAllOrders(NoParams());
-
-    result.fold(
-      (failure) {
-        debugPrint(
-          '[ShiftClose] Failed to load orders for shift logging: ${failure.message}',
-        );
-      },
-      (orders) {
-        final openedAtLocal = openedAt.toLocal();
-        final closedAtLocal = closedAt.toLocal();
-
-        final ordersInShift = orders.where((order) {
-          final orderTime = order.createdAt.toLocal();
-          return !orderTime.isBefore(openedAtLocal) &&
-              !orderTime.isAfter(closedAtLocal);
-        }).toList();
-
-        if (ordersInShift.isEmpty) {
-          debugPrint(
-            '[ShiftClose] No orders found between ${openedAtLocal.toIso8601String()} and ${closedAtLocal.toIso8601String()}.',
-          );
-          return;
-        }
-
-        debugPrint(
-          '[ShiftClose] Orders between ${openedAtLocal.toIso8601String()} and ${closedAtLocal.toIso8601String()}:',
-        );
-
-        for (final order in ordersInShift) {
-          debugPrint(
-            '[ShiftClose] Order ${order.orderNumber} at ${order.createdAt.toLocal().toIso8601String()}',
-          );
-
-          for (final item in order.items) {
-            debugPrint(
-              '[ShiftClose]  - ${item.menuName} x${item.quantity} @ ${item.unitPrice}',
-            );
-          }
-        }
-      },
-    );
   }
 
   Future<void> _logout() async {
@@ -235,82 +62,284 @@ class _CashierIpadPageState extends State<CashierIpadPage> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<AuthBloc, AuthState>(
-      listener: (context, state) {
-        if (state is AuthFailure) {
-          showSnackbar(context, state.message);
-        }
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          centerTitle: false,
-          title: Row(
-            children: [
-              Text(
-                'FlowPOS',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(color: AppPallete.onPrimary),
-              ),
-              const SizedBox(width: 16),
-              BlocBuilder<UserBloc, UserState>(
-                builder: (context, state) {
-                  if (state is UserLoggedIn) {
-                    return Text(
-                      'Cashier: ${state.user.name}',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: AppPallete.onPrimary,
-                      ),
-                    );
-                  }
+    final userState = context.watch<UserBloc>().state;
+    final userId = userState is UserLoggedIn ? userState.user.id : '';
+    final isSkipped = _cashierShiftLocalService.isShiftSkipped(userId);
 
-                  return const SizedBox();
-                },
+    final shiftState = context.watch<ShiftBloc>().state;
+    final hasActiveShift = shiftState is ShiftOpened;
+
+    return Scaffold(
+      appBar: AppBar(
+        centerTitle: false,
+        title: Row(
+          children: [
+            Text(
+              'FlowPOS',
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(color: AppPallete.onPrimary),
+            ),
+            const SizedBox(width: 16),
+            if (userState is UserLoggedIn)
+              Text(
+                'Cashier: ${userState.user.name}',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: AppPallete.onPrimary,
+                    ),
               ),
-            ],
-          ),
-          actions: [
-            if (!_isShiftReady)
-              const Padding(
-                padding: EdgeInsets.only(right: 12),
-                child: SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppPallete.onPrimary,
-                  ),
-                ),
-              )
-            else if (_isShiftActive)
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppPallete.warning,
-                    foregroundColor: AppPallete.onPrimary,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  onPressed: _isProcessingShiftAction ? null : _closeShift,
-                  icon: const Icon(Icons.lock_clock_rounded),
-                  label: const Text('Tutup Kasir'),
-                ),
-              )
-            else
-              IconButton(
-                onPressed: _logout,
-                icon: const Icon(Icons.logout),
-                color: AppPallete.onPrimary,
-                tooltip: 'Logout',
-              ),
-            const SizedBox(width: 8),
           ],
         ),
-        body: Row(
+        actions: [
+          if (hasActiveShift)
+            BlocBuilder<TableBloc, TableState>(
+              builder: (context, tableState) {
+                final tableNum = tableState.selectedTableNumber;
+                final isTakeaway = tableNum == 0;
+
+                return Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: InkWell(
+                    onTap: () {
+                      // On iPad, table section is already visible
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppPallete.secondary.withAlpha(40),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: AppPallete.secondary.withAlpha(80),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isTakeaway
+                                ? Icons.local_mall_rounded
+                                : Icons.table_restaurant_rounded,
+                            size: 18,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            isTakeaway ? 'Takeaway' : 'Meja T$tableNum',
+                            style: GoogleFonts.outfit(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            )
+          else
+            IconButton(
+              onPressed: _logout,
+              icon: const Icon(Icons.logout),
+              color: AppPallete.onPrimary,
+              tooltip: 'Logout',
+            ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: MultiBlocListener(
+        listeners: [
+          BlocListener<AuthBloc, AuthState>(
+            listener: (context, state) {
+              if (state is AuthFailure) {
+                showSnackbar(context, state.message);
+              }
+            },
+          ),
+          BlocListener<ShiftBloc, ShiftState>(
+            listener: (context, state) {
+              if (state is ShiftNone) {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => const OpenShiftPage()),
+                );
+              } else if (state is ShiftClosed) {
+                showSnackbar(
+                  context,
+                  'Shift ditutup. Data berhasil disimpan ke database.',
+                );
+                // Refresh
+                context.read<ShiftBloc>().add(
+                  GetActiveShiftEvent(cashierId: _cashierId!),
+                );
+              } else if (state is ShiftFailure) {
+                showSnackbar(context, 'Gagal: ${state.message}');
+              }
+            },
+          ),
+          BlocListener<OrderBloc, OrderState>(
+            listener: (context, state) {
+              if (state is OrdersLoaded) {
+                final occupied = state.orders
+                    .where((o) => o.status == 'UNPAID')
+                    .map((o) => o.tableNumber)
+                    .toSet();
+
+                final names = <int, String>{};
+                for (final o in state.orders.where(
+                  (o) => o.status == 'UNPAID',
+                )) {
+                  names[o.tableNumber] = o.customerName ?? 'Guest';
+                }
+
+                context.read<TableBloc>().add(
+                  UpdateOccupiedTablesEvent(
+                    occupied,
+                    occupiedTableNames: names,
+                  ),
+                );
+
+                // Sync cart for current table if it just became occupied or updated
+                final tableState = context.read<TableBloc>().state;
+                final currentTable = tableState.selectedTableNumber;
+                if (currentTable > 0) {
+                  final order = state.orders
+                      .where(
+                        (o) =>
+                            o.tableNumber == currentTable &&
+                            o.status == 'UNPAID',
+                      )
+                      .firstOrNull;
+                  if (order != null) {
+                    final cartItems = order.items
+                        .where((i) => !i.isDeleted)
+                        .map(
+                          (item) => Cart(
+                            id: const Uuid().v4(),
+                            menuItemId: item.menuItemId,
+                            name: item.menuName,
+                            basePrice: item.unitPrice,
+                            quantity: item.quantity,
+                            selectedModifiers: const {},
+                            totalPrice: item.unitPrice * item.quantity,
+                            variantId: item.variantId,
+                            notes: item.notes,
+                          ),
+                        )
+                        .toList();
+                    context.read<CartBloc>().add(
+                      ReplaceCartItemsEvent(cartItems),
+                    );
+                  }
+                }
+              } else if (state is OrderCreated) {
+                // Refresh orders list when a new order is created to update occupancy
+                context.read<OrderBloc>().add(GetAllOrdersEvent());
+              } else if (state is OrderFailure) {
+                showSnackbar(context, state.message);
+              }
+            },
+          ),
+          BlocListener<TableBloc, TableState>(
+            listenWhen: (previous, current) =>
+                previous.selectedTableNumber != current.selectedTableNumber,
+            listener: (context, tableState) {
+              final orderState = context.read<OrderBloc>().state;
+              if (orderState is OrdersLoaded) {
+                final selectedTable = tableState.selectedTableNumber;
+                final order = orderState.orders
+                    .where(
+                      (o) =>
+                          o.tableNumber == selectedTable &&
+                          o.status == 'UNPAID',
+                    )
+                    .firstOrNull;
+                if (order != null) {
+                  final cartItems = order.items
+                      .where((i) => !i.isDeleted)
+                      .map(
+                        (item) => Cart(
+                          id: const Uuid().v4(),
+                          menuItemId: item.menuItemId,
+                          name: item.menuName,
+                          basePrice: item.unitPrice,
+                          quantity: item.quantity,
+                          selectedModifiers: const {},
+                          totalPrice: item.unitPrice * item.quantity,
+                          variantId: item.variantId,
+                          notes: item.notes,
+                        ),
+                      )
+                      .toList();
+                  context.read<CartBloc>().add(ReplaceCartItemsEvent(cartItems));
+                } else if (tableState.selectedTableNumber > 0) {
+                  context.read<CartBloc>().add(const ClearCartEvent());
+                }
+              }
+            },
+          ),
+        ],
+        child: Column(
           children: [
-            Expanded(flex: 1, child: TableSection()),
-            Expanded(flex: 2, child: ListMenuSection()),
-            Expanded(flex: 1, child: ListOrderSection()),
+            if (isSkipped && !_isWarningBannerDismissed)
+              Dismissible(
+                key: const Key('ipad_shift_warning_banner'),
+                onDismissed: (_) {
+                  setState(() {
+                    _isWarningBannerDismissed = true;
+                  });
+                },
+                child: Container(
+                  width: double.infinity,
+                  color: AppPallete.warning.withAlpha(50),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 8,
+                    horizontal: 16,
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.warning_amber_rounded,
+                        color: AppPallete.warning,
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Shift belum dibuka. Tombol pembayaran akan dinonaktifkan sampai shift dibuka.',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.brown,
+                          ),
+                        ),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          _cashierShiftLocalService.clearShiftSkipped(userId);
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const OpenShiftPage(),
+                            ),
+                          );
+                        },
+                        child: const Text('Buka Shift Sekarang'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            Expanded(
+              child: Row(
+                children: [
+                  Expanded(flex: 1, child: TableSection()),
+                  Expanded(flex: 2, child: ListMenuSection()),
+                  Expanded(flex: 1, child: ListOrderSection()),
+                ],
+              ),
+            ),
           ],
         ),
       ),

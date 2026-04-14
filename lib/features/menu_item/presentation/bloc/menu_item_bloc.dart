@@ -48,8 +48,10 @@ class MenuItemBloc extends Bloc<MenuItemEvent, MenuItemState> {
         id: event.id,
         name: event.name,
         price: event.price,
+        basePrice: event.basePrice,
         categoryId: event.categoryId,
         unit: event.unit,
+        enabled: event.enabled,
         options: event.options,
       ),
     );
@@ -92,8 +94,10 @@ class MenuItemBloc extends Bloc<MenuItemEvent, MenuItemState> {
       CreateMenuItemParams(
         name: event.name,
         price: event.price,
+        basePrice: event.basePrice,
         categoryId: event.categoryId,
         unit: event.unit,
+        enabled: event.enabled,
         options: event.options,
       ),
     );
@@ -143,6 +147,7 @@ class MenuItemBloc extends Bloc<MenuItemEvent, MenuItemState> {
                     id: item.id,
                     name: item.name,
                     price: item.price,
+                    basePrice: item.basePrice,
                     category: item.category,
                     enabled: event.enabled,
                     unit: item.unit,

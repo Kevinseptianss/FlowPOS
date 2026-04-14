@@ -6,6 +6,7 @@ class UserModel extends User {
     required super.email,
     required super.name,
     required super.role,
+    super.username,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> map) {
@@ -16,15 +17,23 @@ class UserModel extends User {
       email: map['email'] ?? '',
       name: (map['name'] ?? metadata?['name'] ?? '').toString(),
       role: (map['role'] ?? metadata?['role'] ?? '').toString(),
+      username: (map['username'] ?? metadata?['username'])?.toString(),
     );
   }
 
-  UserModel copyWith({String? id, String? email, String? name, String? role}) {
+  UserModel copyWith({
+    String? id,
+    String? email,
+    String? name,
+    String? role,
+    String? username,
+  }) {
     return UserModel(
       id: id ?? this.id,
       email: email ?? this.email,
       name: name ?? this.name,
       role: role ?? this.role,
+      username: username ?? this.username,
     );
   }
 }

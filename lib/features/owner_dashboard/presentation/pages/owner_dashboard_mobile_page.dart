@@ -8,6 +8,7 @@ import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_order
 import 'package:flow_pos/features/owner_dashboard/presentation/widgets/order_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class OwnerDashboardMobilePage extends StatefulWidget {
   const OwnerDashboardMobilePage({super.key});
@@ -88,6 +89,9 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
         } else if (state is OrdersLoaded) {
           setState(() {
             _orders = state.orders.where((order) {
+              final isPaid = order.status == 'PAID';
+              if (!isPaid) return false;
+              
               final date = order.createdAt;
               final start = DateTime(_startDate.year, _startDate.month, _startDate.day);
               final end = DateTime(_endDate.year, _endDate.month, _endDate.day, 23, 59, 59);
@@ -120,23 +124,34 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
               
               // Transaction History Section
               SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 24),
                 sliver: SliverToBoxAdapter(
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
                         'Riwayat Transaksi',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: AppPallete.textPrimary,
-                            ),
+                        style: GoogleFonts.outfit(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: AppPallete.textPrimary,
+                          letterSpacing: -0.5,
+                        ),
                       ),
-                      Text(
-                        '${_orders.length} Pesanan',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: AppPallete.textSecondary,
-                            ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppPallete.primary.withAlpha(20),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '${_orders.length} Pesanan',
+                          style: GoogleFonts.outfit(
+                            color: AppPallete.primary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -150,7 +165,7 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
                 sliver: _buildOrderHistorySliver(context),
               ),
               
-              const SliverToBoxAdapter(child: SizedBox(height: 48)),
+              const SliverToBoxAdapter(child: SizedBox(height: 60)),
             ],
           ),
         ),
@@ -168,10 +183,14 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
     return Container(
       width: double.infinity,
       decoration: const BoxDecoration(
-        color: AppPallete.primary,
+        gradient: LinearGradient(
+          colors: [AppPallete.primary, AppPallete.primaryDark],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(32),
-          bottomRight: Radius.circular(32),
+          bottomLeft: Radius.circular(40),
+          bottomRight: Radius.circular(40),
         ),
       ),
       child: Column(
@@ -179,7 +198,7 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
           SafeArea(
             bottom: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -187,30 +206,35 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Analisis Bisnis',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Colors.white.withAlpha(200),
-                            ),
+                        'ANALISIS BISNIS',
+                        style: GoogleFonts.outfit(
+                          color: Colors.white.withAlpha(180),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.5,
+                        ),
                       ),
+                      const SizedBox(height: 4),
                       Text(
-                        'Dashboard Pemilik',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
+                        'Ringkasan Owner',
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontSize: 26,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.5,
+                        ),
                       ),
                     ],
                   ),
-                  InkWell(
-                    onTap: _onDateRangeTap,
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withAlpha(40),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(Icons.calendar_month_rounded, color: Colors.white),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withAlpha(30),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white.withAlpha(40)),
+                    ),
+                    child: IconButton(
+                      onPressed: _onDateRangeTap,
+                      icon: const Icon(Icons.calendar_today_rounded, color: Colors.white, size: 20),
                     ),
                   ),
                 ],
@@ -218,29 +242,34 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
             ),
           ),
           
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Row(
               children: [
-                GestureDetector(
+                InkWell(
                   onTap: _onDateRangeTap,
+                  borderRadius: BorderRadius.circular(20),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.white.withAlpha(30),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white.withAlpha(50)),
+                      borderRadius: BorderRadius.circular(25),
+                      border: Border.all(color: Colors.white.withAlpha(40)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.access_time_rounded, color: Colors.white, size: 16),
+                        const Icon(Icons.timer_rounded, color: Colors.white, size: 14),
                         const SizedBox(width: 8),
                         Text(
                           dateRangeStr,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+                          style: GoogleFonts.outfit(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
                     ),
@@ -250,12 +279,11 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
             ),
           ),
           
-          const SizedBox(height: 24),
+          const SizedBox(height: 28),
           
-          // Hero Metric Card (Integrated directly into header space)
           _buildHeroRevenueCard(context),
           
-          const SizedBox(height: 32),
+          const SizedBox(height: 40),
         ],
       ),
     );
@@ -266,66 +294,86 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(28),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
+          color: AppPallete.surface,
+          borderRadius: BorderRadius.circular(32),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withAlpha(20),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
+              color: Colors.black.withAlpha(25),
+              blurRadius: 30,
+              offset: const Offset(0, 15),
             ),
           ],
         ),
         child: Column(
           children: [
-            Text(
-              'Total Pendapatan',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.insights_rounded, color: AppPallete.primary.withAlpha(150), size: 16),
+                const SizedBox(width: 8),
+                Text(
+                  'TOTAL PENDAPATAN',
+                  style: GoogleFonts.outfit(
                     color: AppPallete.textSecondary,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 12,
+                    letterSpacing: 1.0,
                   ),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             BlocBuilder<OrderBloc, OrderState>(
               builder: (context, state) {
-                return state is OrderRevenueLoading
-                    ? const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 8),
-                        child: LinearProgressIndicator(),
-                      )
-                    : Text(
-                        formatRupiah(_totalRevenue),
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                              color: AppPallete.primary,
-                              fontWeight: FontWeight.bold,
-                            ),
-                      );
+                if (state is OrderRevenueLoading) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: SizedBox(
+                      width: 100,
+                      child: LinearProgressIndicator(
+                        backgroundColor: AppPallete.divider,
+                        borderRadius: BorderRadius.all(Radius.circular(10)),
+                      ),
+                    ),
+                  );
+                }
+                return Text(
+                  formatRupiah(_totalRevenue),
+                  style: GoogleFonts.outfit(
+                    color: AppPallete.textPrimary,
+                    fontSize: 38,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -1.5,
+                  ),
+                );
               },
             ),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              child: Divider(),
-            ),
-            Row(
-              children: [
-                _buildPaymentMethodSplit(
-                  context,
-                  label: 'QRIS',
-                  value: formatRupiah(_qrisRevenue),
-                  color: Colors.blueAccent,
-                  icon: Icons.qr_code_2_rounded,
-                ),
-                Container(height: 30, width: 1, color: AppPallete.divider),
-                _buildPaymentMethodSplit(
-                  context,
-                  label: 'Tunai',
-                  value: formatRupiah(_cashRevenue),
-                  color: AppPallete.success,
-                  icon: Icons.payments_outlined,
-                ),
-              ],
+            const SizedBox(height: 28),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppPallete.background,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Row(
+                children: [
+                  _buildPaymentSplitItem(
+                    label: 'QRIS',
+                    value: formatRupiah(_qrisRevenue),
+                    icon: Icons.qr_code_2_rounded,
+                    color: Colors.blueAccent,
+                  ),
+                  Container(width: 1, height: 40, color: AppPallete.divider),
+                  _buildPaymentSplitItem(
+                    label: 'TUNAI',
+                    value: formatRupiah(_cashRevenue),
+                    icon: Icons.payments_outlined,
+                    color: AppPallete.success,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -333,27 +381,39 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
     );
   }
 
-  Widget _buildPaymentMethodSplit(BuildContext context, {
+  Widget _buildPaymentSplitItem({
     required String label,
     required String value,
-    required Color color,
     required IconData icon,
+    required Color color,
   }) {
     return Expanded(
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Column(
         children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(label, style: Theme.of(context).textTheme.labelSmall),
+              Icon(icon, color: color, size: 14),
+              const SizedBox(width: 6),
               Text(
-                value,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                label,
+                style: GoogleFonts.outfit(
+                  color: AppPallete.textSecondary,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.5,
+                ),
               ),
             ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: GoogleFonts.outfit(
+              color: AppPallete.textPrimary,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ],
       ),
@@ -382,9 +442,9 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
             Expanded(
               child: _buildSimpleAnalyticCard(
                 context,
-                title: 'Rata-rata/Pesanan',
+                title: 'AOV (Rata-rata)',
                 value: formatRupiah(aov),
-                icon: Icons.analytics_outlined,
+                icon: Icons.auto_graph_rounded,
                 color: Colors.indigo,
               ),
             ),
@@ -394,7 +454,7 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
                 context,
                 title: 'Total Pesanan',
                 value: '$_totalOrders',
-                icon: Icons.shopping_bag_outlined,
+                icon: Icons.receipt_long_rounded,
                 color: Colors.orange,
               ),
             ),
@@ -403,7 +463,7 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
         const SizedBox(height: 16),
         _buildSimpleAnalyticCard(
           context,
-          title: 'Produk Terlaris Saat Ini',
+          title: 'Produk Terlaris',
           value: topProduct,
           icon: Icons.star_rounded,
           color: Colors.amber,
@@ -422,10 +482,11 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
   }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        color: AppPallete.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppPallete.divider),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withAlpha(5),
@@ -437,12 +498,12 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: color.withAlpha(20),
-              borderRadius: BorderRadius.circular(12),
+              color: color.withAlpha(30),
+              shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: color, size: 24),
+            child: Icon(icon, color: color, size: 20),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -450,19 +511,24 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: AppPallete.textSecondary,
-                      ),
+                  title.toUpperCase(),
+                  style: GoogleFonts.outfit(
+                    color: AppPallete.textSecondary,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.2,
+                  ),
                 ),
+                const SizedBox(height: 2),
                 Text(
                   value,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppPallete.textPrimary,
-                      ),
+                  style: GoogleFonts.outfit(
+                    color: AppPallete.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ],
             ),
@@ -484,15 +550,35 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
         if (_orders.isEmpty) {
           return SliverToBoxAdapter(
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 40),
+              padding: const EdgeInsets.symmetric(vertical: 60),
               child: Center(
                 child: Column(
                   children: [
-                    Icon(Icons.history_rounded, size: 64, color: AppPallete.divider),
-                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: AppPallete.divider.withAlpha(50),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.receipt_long_outlined, size: 64, color: AppPallete.divider),
+                    ),
+                    const SizedBox(height: 24),
                     Text(
-                      'Tidak ada transaksi untuk periode ini',
-                      style: TextStyle(color: AppPallete.textSecondary),
+                      'Belum Ada Transaksi',
+                      style: GoogleFonts.outfit(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: AppPallete.textPrimary,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Riwayat transaksi Anda akan muncul di sini.',
+                      style: GoogleFonts.outfit(
+                        color: AppPallete.textSecondary,
+                        fontSize: 14,
+                      ),
                     ),
                   ],
                 ),
@@ -509,8 +595,8 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
                 padding: const EdgeInsets.only(bottom: 12),
                 child: OrderCard(
                   orderId: order.orderNumber,
-                  paymentType: order.payment.method,
-                  datetime: DatetimeFormatter.formatDateTime(order.createdAt),
+                  paymentType: order.payment?.method ?? (order.status == 'UNPAID' ? 'MEJA (PENDING)' : 'LUNAS'),
+                  datetime: DatetimeFormatter.formatIndonesian(order.createdAt, includeTime: true),
                   totalItems: order.items.length,
                   totalPayment: formatRupiah(order.total),
                   onTap: () {

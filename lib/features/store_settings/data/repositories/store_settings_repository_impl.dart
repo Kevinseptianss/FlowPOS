@@ -30,6 +30,19 @@ class StoreSettingsRepositoryImpl implements StoreSettingsRepository {
     required double serviceChargePercentage,
     required String storeName,
     required String storeAddress,
+    required bool isCashEnabled,
+    required bool isCardEnabled,
+    required bool isTransferEnabled,
+    String? bankName,
+    String? bankAccountNumber,
+    required bool isQrisEnabled,
+    String? midtransMerchantId,
+    String? midtransClientKey,
+    String? midtransServerKey,
+    required bool isMidtransSandbox,
+    String? midtransMerchantIdSandbox,
+    String? midtransClientKeySandbox,
+    String? midtransServerKeySandbox,
   }) async {
     try {
       final updated = await storeSettingsRemoteDataSource.updateStoreSettings(
@@ -38,6 +51,19 @@ class StoreSettingsRepositoryImpl implements StoreSettingsRepository {
         serviceChargePercentage: serviceChargePercentage,
         storeName: storeName,
         storeAddress: storeAddress,
+        isCashEnabled: isCashEnabled,
+        isCardEnabled: isCardEnabled,
+        isTransferEnabled: isTransferEnabled,
+        bankName: bankName,
+        bankAccountNumber: bankAccountNumber,
+        isQrisEnabled: isQrisEnabled,
+        midtransMerchantId: midtransMerchantId,
+        midtransClientKey: midtransClientKey,
+        midtransServerKey: midtransServerKey,
+        isMidtransSandbox: isMidtransSandbox,
+        midtransMerchantIdSandbox: midtransMerchantIdSandbox,
+        midtransClientKeySandbox: midtransClientKeySandbox,
+        midtransServerKeySandbox: midtransServerKeySandbox,
       );
 
       return right(updated);

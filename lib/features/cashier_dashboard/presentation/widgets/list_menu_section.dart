@@ -119,34 +119,42 @@ class _ListMenuSectionState extends State<ListMenuSection> {
                         return MenuItemCard(
                           name: item.name,
                           price: item.price,
-                          onAdd: () async {
-                            // Capture bloc references before async operation to avoid context warnings
+                          onQuickAdd: () {
+                            context.read<CartBloc>().add(AddToCartEvent(
+                              menuItemId: item.id,
+                              name: item.name,
+                              basePrice: item.price,
+                              quantity: 1,
+                              selectedModifiers: const {},
+                              totalPrice: item.price,
+                              notes: '',
+                            ));
+                          },
+                          onShowDetail: () async {
                             final cartBloc = context.read<CartBloc>();
-
-                            final result =
-                                await showDialog<Map<String, dynamic>>(
-                                  context: context,
-                                  builder: (_) => ModifierDialog(
-                                    menuId: item.id,
-                                    itemName: item.name,
-                                    price: item.price,
-                                    variants: item.variants,
-                                  ),
-                                );
+                            final result = await showModalBottomSheet<Map<String, dynamic>>(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (context) => ModifierDialog(
+                                menuId: item.id,
+                                itemName: item.name,
+                                price: item.price,
+                                variants: item.variants,
+                              ),
+                            );
 
                             if (result != null) {
-                              cartBloc.add(
-                                AddToCartEvent(
-                                  menuItemId: item.id,
-                                  name: item.name,
-                                  basePrice: item.price,
-                                  quantity: result['quantity'] as int,
-                                  selectedModifiers:
-                                      result['selectedModifiers']
-                                          as Map<String, SelectedModifier?>,
-                                  totalPrice: result['totalPrice'] as int,
-                                ),
-                              );
+                              cartBloc.add(AddToCartEvent(
+                                menuItemId: item.id,
+                                name: item.name,
+                                basePrice: item.price,
+                                quantity: (result['quantity'] as num).toInt(),
+                                selectedModifiers: result['selectedModifiers'] as Map<String, SelectedModifier?>,
+                                totalPrice: (result['totalPrice'] as num).toInt(),
+                                variantId: result['variantId'] as String?,
+                                notes: result['notes'] as String?,
+                              ));
                             }
                           },
                         );

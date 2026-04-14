@@ -34,16 +34,20 @@ class MenuItemRepositoryImpl implements MenuItemRepository {
   Future<Either<Failure, MenuItem>> createMenuItem({
     required String name,
     required int price,
+    required int basePrice,
     required String categoryId,
     required String unit,
+    required bool enabled,
     required List<Map<String, dynamic>> options,
   }) async {
     try {
       final menuItem = await menuItemRemoteDataSource.createMenuItem(
         name: name,
         price: price,
+        basePrice: basePrice,
         categoryId: categoryId,
         unit: unit,
+        enabled: enabled,
         options: options,
       );
       return right(menuItem);
@@ -71,8 +75,10 @@ class MenuItemRepositoryImpl implements MenuItemRepository {
     required String id,
     required String name,
     required int price,
+    required int basePrice,
     required String categoryId,
     required String unit,
+    required bool enabled,
     required List<Map<String, dynamic>> options,
   }) async {
     try {
@@ -80,8 +86,10 @@ class MenuItemRepositoryImpl implements MenuItemRepository {
         id: id,
         name: name,
         price: price,
+        basePrice: basePrice,
         categoryId: categoryId,
         unit: unit,
+        enabled: enabled,
         options: options,
       );
       return right(menuItem);

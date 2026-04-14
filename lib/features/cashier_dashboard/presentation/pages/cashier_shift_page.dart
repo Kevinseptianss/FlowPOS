@@ -1,20 +1,20 @@
+import 'dart:async';
 import 'package:flow_pos/core/theme/app_pallete.dart';
-import 'package:flow_pos/core/services/thermal_receipt_printer_service.dart';
+import 'package:flow_pos/core/utils/currency_input_formatter.dart';
 import 'package:flow_pos/core/utils/datetime_formatter.dart';
 import 'package:flow_pos/core/utils/format_rupiah.dart';
-import 'package:flow_pos/core/utils/show_logout_dialog.dart';
 import 'package:flow_pos/core/utils/show_snackbar.dart';
 import 'package:flow_pos/core/common/bloc/user_bloc.dart';
 import 'package:flow_pos/core/services/cashier_shift_local_service.dart';
 import 'package:flow_pos/features/auth/domain/entities/user.dart';
 import 'package:flow_pos/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:flow_pos/features/store_settings/domain/entities/store_settings.dart';
-import 'package:flow_pos/features/store_settings/presentation/bloc/store_settings_bloc.dart';
+import 'package:flow_pos/features/order/presentation/bloc/order_bloc.dart';
+import 'package:flow_pos/features/shift/presentation/bloc/shift_bloc.dart';
 import 'package:flow_pos/init_dependencies.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hive/hive.dart';
-import 'package:intl/intl.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show SupabaseClient;
 
 class CashierShiftPage extends StatefulWidget {
@@ -25,730 +25,397 @@ class CashierShiftPage extends StatefulWidget {
 }
 
 class _CashierShiftPageState extends State<CashierShiftPage> {
-  static const Duration _wibOffset = Duration(hours: 7);
-  static const String _localBoxName = 'cashier_shift_box';
-  static const String _savedPrinterMacKey = 'saved_printer_mac_address';
-  static const String _savedPrinterNameKey = 'saved_printer_name';
-
   late final CashierShiftLocalService _cashierShiftLocalService;
-  late final ThermalReceiptPrinterService _printerService;
   late final SupabaseClient _supabaseClient;
-  late final Box<dynamic> _localBox;
 
   String? _cachedCashierId;
-  Future<_ClosedShiftReportData?>? _latestClosedShiftFuture;
-  bool _isPrintingShiftReport = false;
-  bool _isConnectingPrinter = false;
-  bool _isPrintingTestReceipt = false;
-  bool _isPrinterConnected = false;
-  PrinterDevice? _selectedPrinterDevice;
+  String? _cachedShiftId;
+  Future<_CurrentShiftStats?>? _currentShiftStatsFuture;
+  Timer? _durationTimer;
+  DateTime _now = DateTime.now();
 
   @override
   void initState() {
     super.initState();
     _cashierShiftLocalService = serviceLocator<CashierShiftLocalService>();
-    _printerService = serviceLocator<ThermalReceiptPrinterService>();
     _supabaseClient = serviceLocator<SupabaseClient>();
-    _localBox = Hive.box<dynamic>(_localBoxName);
 
-    _restoreSavedPrinter();
-    Future.microtask(_connectToSavedPrinterSilently);
-  }
-
-  void _restoreSavedPrinter() {
-    final savedMac = _localBox.get(_savedPrinterMacKey);
-    if (savedMac is! String || savedMac.isEmpty) {
-      return;
-    }
-
-    final savedNameRaw = _localBox.get(_savedPrinterNameKey);
-    final savedName = savedNameRaw is String && savedNameRaw.isNotEmpty
-        ? savedNameRaw
-        : 'Unknown Printer';
-
-    _selectedPrinterDevice = PrinterDevice(
-      name: savedName,
-      macAddress: savedMac,
-    );
-  }
-
-  Future<void> _saveSelectedPrinter(PrinterDevice device) async {
-    await _localBox.put(_savedPrinterMacKey, device.macAddress);
-    await _localBox.put(_savedPrinterNameKey, device.name);
-  }
-
-  Future<bool> _connectToSavedPrinterSilently() async {
-    final savedMac = _localBox.get(_savedPrinterMacKey);
-    if (savedMac is! String || savedMac.isEmpty) {
-      return false;
-    }
-
-    try {
-      await _printerService.connect(macAddress: savedMac);
-
-      if (!mounted) {
-        return false;
+    _durationTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          _now = DateTime.now();
+        });
       }
-
-      setState(() {
-        _isPrinterConnected = true;
-      });
-      return true;
-    } catch (_) {
-      if (!mounted) {
-        return false;
-      }
-
-      setState(() {
-        _isPrinterConnected = false;
-      });
-      return false;
-    }
+    });
   }
 
-  void _ensureLatestClosedShiftFuture(String cashierId) {
-    if (_cachedCashierId == cashierId && _latestClosedShiftFuture != null) {
+  @override
+  void dispose() {
+    _durationTimer?.cancel();
+    super.dispose();
+  }
+
+  void _ensureDataLoaded(String cashierId, String? shiftId) {
+    if (_cachedCashierId == cashierId && _cachedShiftId == shiftId && _currentShiftStatsFuture != null) {
       return;
     }
 
     _cachedCashierId = cashierId;
-    _latestClosedShiftFuture = _fetchLatestClosedShift(cashierId: cashierId);
+    _cachedShiftId = shiftId;
+    
+    // Initialize the future directly without setState because this is called during build
+    if (shiftId != null) {
+      _currentShiftStatsFuture = _fetchCurrentShiftStats(
+        cashierId: cashierId,
+        shiftId: shiftId,
+      );
+    } else {
+      _currentShiftStatsFuture = null;
+    }
   }
 
-  void _refreshLatestClosedShift(String cashierId) {
+  void _refreshAll(String cashierId, String? shiftId) {
     setState(() {
       _cachedCashierId = cashierId;
-      _latestClosedShiftFuture = _fetchLatestClosedShift(cashierId: cashierId);
+      _cachedShiftId = shiftId;
+      _refreshCurrentShiftStats(cashierId, shiftId);
     });
   }
 
-  Future<_ClosedShiftReportData?> _fetchLatestClosedShift({
-    required String cashierId,
-  }) async {
-    final shiftRows = await _supabaseClient
-        .from('shifts')
-        .select('''
-          id,
-          cashier_id,
-          opened_at,
-          closed_at,
-          opening_balance,
-          closing_balance,
-          total_cash_sales,
-          total_qris_sales,
-          total_cash_in,
-          total_cash_out
-        ''')
-        .eq('cashier_id', cashierId)
-        .order('closed_at', ascending: false)
-        .limit(1);
-
-    if (shiftRows.isEmpty) {
-      return null;
+  void _refreshCurrentShiftStats(String cashierId, String? shiftId) {
+    if (shiftId != null) {
+      setState(() {
+        _currentShiftStatsFuture = _fetchCurrentShiftStats(
+          cashierId: cashierId,
+          shiftId: shiftId,
+        );
+      });
+    } else {
+      setState(() {
+        _currentShiftStatsFuture = null;
+      });
     }
+  }
 
-    final shift = shiftRows.first;
-    final openedAtUtc = DateTime.parse(shift['opened_at'] as String).toUtc();
-    final closedAtUtc = DateTime.parse(shift['closed_at'] as String).toUtc();
-    final openedAtWib = openedAtUtc.add(_wibOffset);
-    final closedAtWib = closedAtUtc.add(_wibOffset);
-
-    final orderRows = await _supabaseClient
-        .from('orders')
-        .select('id')
-        .eq('cashier_id', cashierId)
-        .gte('created_at', openedAtUtc.toIso8601String())
-        .lte('created_at', closedAtUtc.toIso8601String());
-
-    final totalTransactions = orderRows.length;
-    final orderIds = orderRows
-        .map((row) => row['id'] as String)
-        .toList(growable: false);
-
-    final soldByProduct = <String, int>{};
-    if (orderIds.isNotEmpty) {
-      final orderItemsRows = await _supabaseClient
-          .from('order_items')
+  Future<_CurrentShiftStats?> _fetchCurrentShiftStats({
+    required String cashierId,
+    required String shiftId,
+  }) async {
+    try {
+      final orderRows = await _supabaseClient
+          .from('orders')
           .select('''
-            quantity,
-            menu_items (
-              name
+            id,
+            total,
+            status,
+            payments (
+              method,
+              amount_due
             )
           ''')
-          .inFilter('order_id', orderIds);
+          .eq('shift_id', shiftId)
+          .neq('status', 'VOIDED');
 
-      for (final row in orderItemsRows) {
-        final quantity = (row['quantity'] as num?)?.toInt() ?? 0;
-        final menuData = row['menu_items'];
+      var totalCashSales = 0;
+      var totalQrisSales = 0;
+      final orderIds = <String>[];
 
-        var menuName = 'Unknown Menu';
-        if (menuData is Map<String, dynamic>) {
-          menuName = menuData['name'] as String? ?? menuName;
-        } else if (menuData is List && menuData.isNotEmpty) {
-          final first = menuData.first;
-          if (first is Map<String, dynamic>) {
-            menuName = first['name'] as String? ?? menuName;
+      for (final row in orderRows) {
+        orderIds.add(row['id'] as String);
+        final paymentRows = row['payments'] as List<dynamic>? ?? [];
+        if (paymentRows.isEmpty) continue;
+
+        for (final payment in paymentRows) {
+          final method = (payment['method'] as String? ?? '').trim().toUpperCase();
+          final amountPaid = (payment['amount_due'] as num?)?.toInt() ?? 0;
+
+          if (method == 'QRIS') {
+            totalQrisSales += amountPaid;
+          } else if (method == 'CASH') {
+            totalCashSales += amountPaid;
           }
         }
-
-        soldByProduct.update(
-          menuName,
-          (value) => value + quantity,
-          ifAbsent: () => quantity,
-        );
       }
-    }
 
-    final soldProducts =
-        soldByProduct.entries
-            .map(
-              (entry) =>
-                  _SoldProductSummary(name: entry.key, quantity: entry.value),
-            )
-            .toList()
-          ..sort((a, b) {
-            final quantityCompare = b.quantity.compareTo(a.quantity);
-            if (quantityCompare != 0) {
-              return quantityCompare;
-            }
+      final soldByProduct = <String, int>{};
+      if (orderIds.isNotEmpty) {
+        final orderItemsRows = await _supabaseClient
+            .from('order_items')
+            .select('''
+              quantity,
+              menu_items (
+                name
+              )
+            ''')
+            .inFilter('order_id', orderIds)
+            .eq('is_deleted', false);
 
-            return a.name.compareTo(b.name);
-          });
+        for (final row in orderItemsRows) {
+          final quantity = (row['quantity'] as num?)?.toInt() ?? 0;
+          final menuData = row['menu_items'] as Map<String, dynamic>?;
+          final menuName = menuData?['name'] as String? ?? 'Produk Tidak Dikenal';
 
-    return _ClosedShiftReportData(
-      id: shift['id'] as String,
-      cashierId: shift['cashier_id'] as String,
-      openedAt: openedAtWib,
-      closedAt: closedAtWib,
-      openingBalance: (shift['opening_balance'] as num).toInt(),
-      closingBalance: (shift['closing_balance'] as num).toInt(),
-      totalCashSales: (shift['total_cash_sales'] as num).toInt(),
-      totalQrisSales: (shift['total_qris_sales'] as num).toInt(),
-      totalCashIn: (shift['total_cash_in'] as num).toInt(),
-      totalCashOut: (shift['total_cash_out'] as num).toInt(),
-      totalTransactions: totalTransactions,
-      soldProducts: soldProducts,
-    );
-  }
-
-  Future<void> _printClosedShiftReport({
-    required User user,
-    required _ClosedShiftReportData shift,
-  }) async {
-    setState(() {
-      _isPrintingShiftReport = true;
-    });
-
-    try {
-      final connected = await _printerService.isConnected;
-      if (!connected && !await _connectToSavedPrinterSilently()) {
-        final didConnect = await _scanAndConnectPrinter(
-          showSuccessSnackbar: false,
-        );
-        if (!didConnect) {
-          return;
+          soldByProduct.update(
+            menuName,
+            (value) => value + quantity,
+            ifAbsent: () => quantity,
+          );
         }
       }
 
-      if (!mounted) {
-        return;
-      }
+      final soldProducts = soldByProduct.entries
+          .map((e) => _SoldProductSummary(name: e.key, quantity: e.value))
+          .toList()
+        ..sort((a, b) => b.quantity.compareTo(a.quantity));
 
-      await _printerService.printShiftCloseReport(
-        context: context,
-        storeSettings: _resolveStoreSettings(),
-        cashierName: user.name,
-        openedAt: shift.openedAt,
-        closedAt: shift.closedAt,
-        openingBalance: shift.openingBalance,
-        closingBalance: shift.closingBalance,
-        totalCashSales: shift.totalCashSales,
-        totalQrisSales: shift.totalQrisSales,
-        totalCashIn: shift.totalCashIn,
-        totalCashOut: shift.totalCashOut,
-        totalTransactions: shift.totalTransactions,
-        soldProducts: shift.soldProducts
-            .map(
-              (item) => ShiftSoldProductSummary(
-                name: item.name,
-                quantity: item.quantity,
+      return _CurrentShiftStats(
+        totalCashSales: totalCashSales,
+        totalQrisSales: totalQrisSales,
+        totalTransactions: orderRows.length,
+        soldProducts: soldProducts,
+      );
+    } catch (e) {
+      debugPrint('Error fetching active shift stats: $e');
+      return null;
+    }
+  }
+
+  String _formatDuration(DateTime openedAt) {
+    final diff = _now.difference(openedAt);
+    final hours = diff.inHours.toString().padLeft(2, '0');
+    final minutes = (diff.inMinutes % 60).toString().padLeft(2, '0');
+    final seconds = (diff.inSeconds % 60).toString().padLeft(2, '0');
+    return '$hours:$minutes:$seconds';
+  }
+
+  Future<void> _showCloseShiftDialog(BuildContext context, String cashierId, int expectedCash) async {
+    final initialText = formatRupiah(expectedCash, includeSymbol: false);
+    final controller = TextEditingController(text: initialText);
+    
+    final result = await showModalBottomSheet<double>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        margin: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: AppPallete.surface,
+          borderRadius: BorderRadius.circular(32),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 40, offset: const Offset(0, 10)),
+          ],
+        ),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom + 32,
+          left: 28,
+          right: 28,
+          top: 32,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 48,
+                height: 5,
+                decoration: BoxDecoration(color: AppPallete.divider, borderRadius: BorderRadius.circular(10)),
               ),
-            )
-            .toList(growable: false),
-      );
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: AppPallete.error.withAlpha(20), shape: BoxShape.circle),
+                  child: const Icon(Icons.account_balance_wallet_rounded, color: AppPallete.error, size: 28),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Selesaikan Shift', style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.w900, color: AppPallete.textPrimary, letterSpacing: -0.5)),
+                      Text('Pastikan jumlah uang tunai sudah sesuai', style: GoogleFonts.outfit(fontSize: 13, color: AppPallete.textSecondary)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 32),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppPallete.background,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppPallete.divider),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Estimasi Sistem', style: GoogleFonts.outfit(color: AppPallete.textSecondary, fontWeight: FontWeight.w600)),
+                      Text(formatRupiah(expectedCash), style: GoogleFonts.outfit(color: AppPallete.primary, fontWeight: FontWeight.w900, fontSize: 16)),
+                    ],
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: Divider(),
+                  ),
+                  Text(
+                    'Masukkan jumlah uang tunai yang ada di laci kasir saat ini:',
+                    style: GoogleFonts.outfit(fontSize: 12, color: AppPallete.textSecondary),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              inputFormatters: [
+                CurrencyInputFormatter(),
+              ],
+              autofocus: true,
+              style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.w900, color: AppPallete.textPrimary),
+              decoration: InputDecoration(
+                prefixText: 'Rp ',
+                prefixStyle: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.w900, color: AppPallete.textSecondary),
+                hintText: '0',
+                filled: true,
+                fillColor: AppPallete.background,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              ),
+            ),
+            const SizedBox(height: 32),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    ),
+                    child: Text('Nanti Dulu', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AppPallete.textSecondary)),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  flex: 2,
+                  child: FilledButton(
+                    onPressed: () {
+                      final plainText = controller.text.replaceAll(RegExp(r'[^0-9]'), '');
+                      Navigator.pop(context, double.tryParse(plainText) ?? 0.0);
+                    },
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppPallete.error,
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      elevation: 4,
+                      shadowColor: AppPallete.error.withAlpha(100),
+                    ),
+                    child: Text('TUTUP SHIFT', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 16, letterSpacing: 0.5)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
 
-      if (!mounted) {
-        return;
-      }
-
-      showSnackbar(context, 'Laporan tutup kasir berhasil dicetak.');
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      final message = error is Exception
-          ? error.toString().replaceFirst('Exception: ', '')
-          : 'Failed to print report.';
-      showSnackbar(context, message);
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isPrintingShiftReport = false;
-        });
-      }
+    if (result != null && result > 0 && context.mounted) {
+      context.read<ShiftBloc>().add(CloseShiftEvent(
+        cashierId: cashierId,
+        closingBalance: result,
+      ));
     }
-  }
-
-  Future<bool> _scanAndConnectPrinter({bool showSuccessSnackbar = true}) async {
-    if (_isConnectingPrinter) return false;
-
-    setState(() => _isConnectingPrinter = true);
-
-    try {
-      final selectedDevice = await _printerService.selectDevice(
-        context: context,
-      );
-      if (selectedDevice == null) return false;
-
-      await _printerService.connect(macAddress: selectedDevice.macAddress);
-
-      if (!mounted) return false;
-
-      setState(() {
-        _selectedPrinterDevice = selectedDevice;
-        _isPrinterConnected = true;
-      });
-
-      await _saveSelectedPrinter(selectedDevice);
-
-      if (!mounted) return false;
-
-      if (showSuccessSnackbar) {
-        showSnackbar(
-          context,
-          'Terhubung ke ${selectedDevice.name.isEmpty ? selectedDevice.macAddress : selectedDevice.name}.',
-        );
-      }
-
-      return true;
-    } catch (error) {
-      if (!mounted) return false;
-
-      final message = error is Exception
-          ? error.toString().replaceFirst('Exception: ', '')
-          : 'Gagal menghubungkan printer.';
-      showSnackbar(context, message);
-      setState(() => _isPrinterConnected = false);
-      return false;
-    } finally {
-      if (mounted) setState(() => _isConnectingPrinter = false);
-    }
-  }
-
-  Future<void> _printTestReceipt({required User user}) async {
-    if (_isPrintingTestReceipt) {
-      return;
-    }
-
-    setState(() {
-      _isPrintingTestReceipt = true;
-    });
-
-    try {
-      final connected = await _printerService.isConnected;
-      if (!connected && !await _connectToSavedPrinterSilently()) {
-        final didConnect = await _scanAndConnectPrinter(
-          showSuccessSnackbar: false,
-        );
-        if (!didConnect) {
-          return;
-        }
-      }
-
-      if (!mounted) {
-        return;
-      }
-
-      await _printerService.printTestReceipt(
-        context: context,
-        storeSettings: _resolveStoreSettings(),
-        cashierName: user.name,
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      showSnackbar(context, 'Test print sent successfully.');
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      final message = error is Exception
-          ? error.toString().replaceFirst('Exception: ', '')
-          : 'Failed to print test receipt.';
-      showSnackbar(context, message);
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isPrintingTestReceipt = false;
-        });
-      }
-    }
-  }
-
-  StoreSettings _resolveStoreSettings() {
-    final state = context.read<StoreSettingsBloc>().state;
-
-    if (state is StoreSettingsLoaded) {
-      return state.storeSettings;
-    }
-
-    if (state is StoreSettingsUpdated) {
-      return state.storeSettings;
-    }
-
-    return const StoreSettings.zero();
   }
 
   @override
   Widget build(BuildContext context) {
-    final nowWib = DateTime.now().toUtc().add(_wibOffset);
+    final userState = context.watch<UserBloc>().state;
+    if (userState is! UserLoggedIn) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    
+    final userId = userState.user.id;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Shift'), centerTitle: false),
-      body: BlocListener<AuthBloc, AuthState>(
-        listener: (context, state) {
-          if (state is AuthFailure) {
-            showSnackbar(context, state.message);
-          } else if (state is AuthInitial) {
-            Navigator.popUntil(context, (route) => route.isFirst);
-          }
-        },
+      backgroundColor: AppPallete.background,
+      appBar: AppBar(
+        title: Text('Shift Kasir', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        foregroundColor: AppPallete.textPrimary,
+        centerTitle: false,
+      ),
+      body: MultiBlocListener(
+        listeners: [
+          BlocListener<ShiftBloc, ShiftState>(
+            listener: (context, state) {
+              if (state is ShiftOpened) {
+                _ensureDataLoaded(userId, state.shift.id);
+              } else if (state is ShiftClosed) {
+                showSnackbar(context, 'Shift berhasil ditutup');
+                setState(() {
+                  _cachedShiftId = null;
+                  _currentShiftStatsFuture = null;
+                });
+                // Automatically logout after closing shift
+                context.read<AuthBloc>().add(SignOutEvent());
+              } else if (state is ShiftFailure) {
+                showSnackbar(context, state.message);
+              }
+            },
+          ),
+          BlocListener<OrderBloc, OrderState>(
+            listener: (context, state) {
+              if (state is OrderCreated) {
+                // Auto refresh when a new order is made
+                final activeShift = _cashierShiftLocalService.getActiveShift(userId);
+                final shiftId = activeShift?['shiftId'] as String?;
+                if (shiftId != null) {
+                  _refreshCurrentShiftStats(userId, shiftId);
+                }
+              }
+            },
+          ),
+        ],
         child: BlocBuilder<UserBloc, UserState>(
           builder: (context, state) {
-            if (state is! UserLoggedIn) {
-              return Center(
-                child: Text(
-                  'No authenticated cashier found.',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppPallete.textPrimary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              );
-            }
-
+            if (state is! UserLoggedIn) return const Center(child: CircularProgressIndicator());
+            
             final user = state.user;
-            _ensureLatestClosedShiftFuture(user.id);
+            final activeShift = _cashierShiftLocalService.getActiveShift(user.id);
+            final shiftId = activeShift?['shiftId'] as String?;
+            
+            _ensureDataLoaded(user.id, shiftId);
 
-            return StreamBuilder<BoxEvent>(
-              stream: _cashierShiftLocalService.watchActiveShift(user.id),
-              builder: (context, snapshot) {
-                final hasActiveShift = _cashierShiftLocalService.hasActiveShift(
-                  user.id,
-                );
-
-                return ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
-                  children: [
-                    _ProfileHero(user: user),
-                    const SizedBox(height: 14),
-                    _SectionCard(
-                      title: 'Current Shift',
-                      child: Column(
-                        children: [
-                          _InfoRow(
-                            icon: Icons.calendar_today_rounded,
-                            label: 'Date',
-                            value:
-                                '${DatetimeFormatter.formatDateTime(nowWib)} WIB',
-                          ),
-                          _InfoRow(
-                            icon: Icons.bolt_rounded,
-                            label: 'Status',
-                            value: hasActiveShift ? 'Open' : 'Closed',
-                            valueColor: hasActiveShift
-                                ? AppPallete.success
-                                : AppPallete.warning,
-                          ),
-                          _InfoRow(
-                            icon: Icons.badge_rounded,
-                            label: 'Role',
-                            value: user.role.toUpperCase(),
-                          ),
-                          _InfoRow(
-                            icon: Icons.point_of_sale_rounded,
-                            label: 'Terminal',
-                            value: 'POS-01',
-                          ),
-                        ],
-                      ),
+            return RefreshIndicator(
+              onRefresh: () async => _refreshAll(user.id, shiftId),
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                children: [
+                  _ProfileHero(user: user),
+                  const SizedBox(height: 24),
+                  
+                  if (activeShift != null) ...[
+                    _ActiveShiftHero(
+                      openedAt: DateTime.parse(activeShift['openedAtUtc'] as String).toLocal(),
+                      openingBalance: (activeShift['openingBalance'] as num).toInt(),
+                      duration: _formatDuration(DateTime.parse(activeShift['openedAtUtc'] as String).toLocal()),
+                      statsFuture: _currentShiftStatsFuture,
+                      onCloseShift: (expected) => _showCloseShiftDialog(context, user.id, expected),
                     ),
-                    const SizedBox(height: 14),
-                    _SectionCard(
-                      title: 'Profile Information',
-                      child: Column(
-                        children: [
-                          _InfoRow(
-                            icon: Icons.person_rounded,
-                            label: 'Full Name',
-                            value: user.name,
-                          ),
-                          _InfoRow(
-                            icon: Icons.email_rounded,
-                            label: 'Email',
-                            value: user.email,
-                          ),
-                          _InfoRow(
-                            icon: Icons.fingerprint_rounded,
-                            label: 'User ID',
-                            value: user.id,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    _SectionCard(
-                      title: 'Printing Settings',
-                      child: Column(
-                        children: [
-                          _InfoRow(
-                            icon: Icons.bluetooth_connected_rounded,
-                            label: 'Bluetooth Printer',
-                            value: _selectedPrinterDevice == null
-                                ? 'Not Connected'
-                                : '${_selectedPrinterDevice!.name.isEmpty ? 'Unknown Printer' : _selectedPrinterDevice!.name} (${_selectedPrinterDevice!.macAddress})',
-                            valueColor: _selectedPrinterDevice == null
-                                ? AppPallete.warning
-                                : (_isPrinterConnected
-                                      ? AppPallete.success
-                                      : AppPallete.warning),
-                          ),
-                          const SizedBox(height: 10),
-                          OutlinedButton.icon(
-                            onPressed: _isConnectingPrinter
-                                ? null
-                                : () => _scanAndConnectPrinter(),
-                            icon: _isConnectingPrinter
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(
-                                    Icons.bluetooth_searching_rounded,
-                                  ),
-                            label: Text(
-                              _isConnectingPrinter
-                                  ? 'Memuat daftar printer...'
-                                  : 'Pilih & Hubungkan Printer',
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              minimumSize: const Size.fromHeight(46),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          if (_selectedPrinterDevice != null)
-                             OutlinedButton.icon(
-                              onPressed: _isPrintingTestReceipt
-                                  ? null
-                                  : () => _printTestReceipt(user: user),
-                              icon: _isPrintingTestReceipt
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Icon(Icons.receipt_rounded),
-                              label: Text(
-                                _isPrintingTestReceipt
-                                    ? 'Printing Test...'
-                                    : 'Test Print',
-                              ),
-                              style: OutlinedButton.styleFrom(
-                                minimumSize: const Size.fromHeight(46),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    _SectionCard(
-                      title: 'Last Closed Shift (Database)',
-                      trailing: IconButton(
-                        onPressed: () => _refreshLatestClosedShift(user.id),
-                        tooltip: 'Refresh',
-                        icon: const Icon(Icons.refresh_rounded),
-                        color: AppPallete.primary,
-                      ),
-                      child: FutureBuilder<_ClosedShiftReportData?>(
-                        future: _latestClosedShiftFuture,
-                        builder: (context, shiftSnapshot) {
-                          if (shiftSnapshot.connectionState ==
-                              ConnectionState.waiting) {
-                            return const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 8),
-                              child: Center(child: CircularProgressIndicator()),
-                            );
-                          }
+                  ] else
+                    _NoActiveShiftCard(),
 
-                          if (shiftSnapshot.hasError) {
-                            return Text(
-                              'Failed to load latest closed shift. Pull refresh and try again.',
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(color: AppPallete.error),
-                            );
-                          }
-
-                          final closedShift = shiftSnapshot.data;
-                          if (closedShift == null) {
-                            return Text(
-                              'No closed shift found in database for this cashier.',
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(color: AppPallete.textPrimary),
-                            );
-                          }
-
-                          return Column(
-                            children: [
-                              _InfoRow(
-                                icon: Icons.login_rounded,
-                                label: 'Waktu Buka',
-                                value: _formatShiftDateTime(
-                                  closedShift.openedAt,
-                                ),
-                              ),
-                              _InfoRow(
-                                icon: Icons.logout_rounded,
-                                label: 'Waktu Tutup',
-                                value: _formatShiftDateTime(
-                                  closedShift.closedAt,
-                                ),
-                              ),
-                              _InfoRow(
-                                icon: Icons.payments_rounded,
-                                label: 'Modal Awal',
-                                value: formatRupiah(closedShift.openingBalance),
-                              ),
-                              _InfoRow(
-                                icon: Icons.attach_money_rounded,
-                                label: 'CASH',
-                                value: formatRupiah(closedShift.totalCashSales),
-                              ),
-                              _InfoRow(
-                                icon: Icons.qr_code_rounded,
-                                label: 'QRIS',
-                                value: formatRupiah(closedShift.totalQrisSales),
-                              ),
-                              if (closedShift.totalCashIn > 0)
-                                _InfoRow(
-                                  icon: Icons.arrow_downward_rounded,
-                                  label: 'Kas Masuk',
-                                  value: formatRupiah(closedShift.totalCashIn),
-                                ),
-                              if (closedShift.totalCashOut > 0)
-                                _InfoRow(
-                                  icon: Icons.arrow_upward_rounded,
-                                  label: 'Kas Keluar',
-                                  value: formatRupiah(closedShift.totalCashOut),
-                                ),
-                              _InfoRow(
-                                icon: Icons.summarize_rounded,
-                                label: 'Total Penerimaan',
-                                value: formatRupiah(
-                                  closedShift.totalPenerimaan,
-                                ),
-                              ),
-                              _InfoRow(
-                                icon: Icons.account_balance_wallet_rounded,
-                                label: 'Saldo Akhir',
-                                value: formatRupiah(closedShift.saldoAkhir),
-                              ),
-                              _InfoRow(
-                                icon: Icons.receipt_long_rounded,
-                                label: 'Transaksi Masuk',
-                                value: '${closedShift.totalTransactions}',
-                              ),
-                              const SizedBox(height: 10),
-                              FilledButton.icon(
-                                onPressed: _isPrintingShiftReport
-                                    ? null
-                                    : () => _printClosedShiftReport(
-                                        user: user,
-                                        shift: closedShift,
-                                      ),
-                                icon: _isPrintingShiftReport
-                                    ? const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: AppPallete.onPrimary,
-                                        ),
-                                      )
-                                    : const Icon(Icons.print_rounded),
-                                label: Text(
-                                  _isPrintingShiftReport
-                                      ? 'Printing...'
-                                      : 'Print Laporan Tutup Kasir',
-                                ),
-                                style: FilledButton.styleFrom(
-                                  minimumSize: const Size.fromHeight(46),
-                                  backgroundColor: AppPallete.primary,
-                                  foregroundColor: AppPallete.onPrimary,
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    FilledButton.icon(
-                      onPressed: () async {
-                        final isShiftStillOpen = _cashierShiftLocalService
-                            .hasActiveShift(user.id);
-
-                        if (isShiftStillOpen) {
-                          showSnackbar(
-                            context,
-                            'Shift is still open. Please close your shift before logging out.',
-                          );
-                          return;
-                        }
-
-                        final shouldLogout = await showLogoutDialog(
-                          context,
-                          accountLabel: 'cashier account',
-                        );
-
-                        if (!context.mounted || !shouldLogout) {
-                          return;
-                        }
-
-                        context.read<AuthBloc>().add(SignOutEvent());
-                      },
-                      icon: const Icon(Icons.logout_rounded),
-                      label: const Text('Logout'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppPallete.error,
-                        foregroundColor: AppPallete.onPrimary,
-                        minimumSize: const Size.fromHeight(50),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              },
+                  const SizedBox(height: 100),
+                ],
+              ),
             );
           },
         ),
@@ -759,87 +426,56 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
 
 class _ProfileHero extends StatelessWidget {
   final User user;
-
   const _ProfileHero({required this.user});
 
   @override
   Widget build(BuildContext context) {
-    final initials = _extractInitials(user.name);
-
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppPallete.primary, AppPallete.primaryDark],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(24),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        color: AppPallete.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppPallete.divider),
       ),
       child: Row(
         children: [
           CircleAvatar(
-            radius: 28,
-            backgroundColor: Colors.white.withAlpha(40),
+            radius: 30,
+            backgroundColor: AppPallete.primary.withAlpha(30),
             child: Text(
-              initials,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: AppPallete.onPrimary,
-                fontWeight: FontWeight.w800,
-              ),
+              user.name.substring(0, 1).toUpperCase(),
+              style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.bold, color: AppPallete.primary),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  user.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: AppPallete.onPrimary,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
+                Text(user.name, style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: AppPallete.textPrimary)),
                 const SizedBox(height: 2),
-                Text(
-                  user.email,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppPallete.onPrimary.withAlpha(225),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withAlpha(36),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    '${user.role.toUpperCase()} SHIFT',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppPallete.onPrimary,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.35,
+                Row(
+                  children: [
+                    const Icon(Icons.calendar_today_rounded, size: 12, color: AppPallete.textSecondary),
+                    const SizedBox(width: 6),
+                    Text(
+                      DatetimeFormatter.formatDateYear(DateTime.now()),
+                      style: GoogleFonts.outfit(fontSize: 12, color: AppPallete.textSecondary, fontWeight: FontWeight.w600),
                     ),
-                  ),
+                  ],
                 ),
               ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppPallete.primary,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              user.role.toUpperCase(),
+              style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white),
             ),
           ),
         ],
@@ -848,176 +484,258 @@ class _ProfileHero extends StatelessWidget {
   }
 }
 
-class _SectionCard extends StatelessWidget {
-  final String title;
-  final Widget child;
-  final Widget trailing;
+class _ActiveShiftHero extends StatelessWidget {
+  final DateTime openedAt;
+  final int openingBalance;
+  final String duration;
+  final Future<_CurrentShiftStats?>? statsFuture;
+  final Function(int expectedCash) onCloseShift;
 
-  const _SectionCard({
-    required this.title,
-    required this.child,
-    this.trailing = const SizedBox.shrink(),
+  const _ActiveShiftHero({
+    required this.openedAt,
+    required this.openingBalance,
+    required this.duration,
+    required this.statsFuture,
+    required this.onCloseShift,
   });
 
   @override
   Widget build(BuildContext context) {
+    return FutureBuilder<_CurrentShiftStats?>(
+      future: statsFuture,
+      builder: (context, snapshot) {
+        final stats = snapshot.data;
+        final cashSales = stats?.totalCashSales ?? 0;
+        final expectedCash = openingBalance + cashSales;
+
+        return Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [AppPallete.primary, AppPallete.primaryDark],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: [
+                  BoxShadow(color: AppPallete.primary.withAlpha(60), blurRadius: 20, offset: const Offset(0, 10)),
+                ],
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('DURASI KERJA', style: GoogleFonts.outfit(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+                          const SizedBox(height: 4),
+                          Text(duration, style: GoogleFonts.outfit(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1)),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(16)),
+                        child: const Icon(Icons.timer_rounded, color: Colors.white, size: 28),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Container(height: 1, color: Colors.white12),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _ShiftStatMini(label: 'UANG TUNAI DIHARAPKAN', value: formatRupiah(expectedCash)),
+                      _ShiftStatMini(label: 'SALDO AWAL', value: formatRupiah(openingBalance)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            _StatsGrid(stats: stats),
+            const SizedBox(height: 16),
+            _SoldItemsSection(soldItems: stats?.soldProducts ?? []),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => onCloseShift(expectedCash),
+                icon: const Icon(Icons.logout_rounded),
+                label: Text('TUTUP SHIFT', style: GoogleFonts.outfit(fontWeight: FontWeight.w900, letterSpacing: 1.1)),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppPallete.error,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  elevation: 4,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _ShiftStatMini extends StatelessWidget {
+  final String label;
+  final String value;
+  const _ShiftStatMini({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: GoogleFonts.outfit(color: Colors.white60, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+        Text(value, style: GoogleFonts.outfit(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900)),
+      ],
+    );
+  }
+}
+
+class _StatsGrid extends StatelessWidget {
+  final _CurrentShiftStats? stats;
+  const _StatsGrid({this.stats});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(child: _StatCard(label: 'Transaksi', value: '${stats?.totalTransactions ?? 0}', icon: Icons.receipt_long_rounded, color: AppPallete.primary)),
+        const SizedBox(width: 12),
+        Expanded(child: _StatCard(label: 'QRIS', value: formatRupiah(stats?.totalQrisSales ?? 0), icon: Icons.qr_code_rounded, color: Colors.orange)),
+      ],
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  const _StatCard({required this.label, required this.value, required this.icon, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppPallete.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppPallete.divider),
-      ),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: AppPallete.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppPallete.divider)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppPallete.primary,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              trailing,
-            ],
-          ),
-          const SizedBox(height: 10),
-          child,
+          Icon(icon, size: 20, color: color),
+          const SizedBox(height: 12),
+          Text(label, style: GoogleFonts.outfit(color: AppPallete.textSecondary, fontSize: 12)),
+          FittedBox(fit: BoxFit.scaleDown, child: Text(value, style: GoogleFonts.outfit(color: AppPallete.textPrimary, fontSize: 18, fontWeight: FontWeight.bold))),
         ],
       ),
     );
   }
 }
 
-class _ClosedShiftReportData {
-  final String id;
-  final String cashierId;
-  final DateTime openedAt;
-  final DateTime closedAt;
-  final int openingBalance;
-  final int closingBalance;
+class _SoldItemsSection extends StatelessWidget {
+  final List<_SoldProductSummary> soldItems;
+  const _SoldItemsSection({required this.soldItems});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(color: AppPallete.surface, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppPallete.divider)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Item Terjual', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: AppPallete.textPrimary)),
+              const Icon(Icons.shopping_bag_outlined, size: 20, color: AppPallete.textSecondary),
+            ],
+          ),
+          const SizedBox(height: 20),
+          if (soldItems.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: Column(
+                  children: [
+                    Icon(Icons.inventory_2_outlined, color: AppPallete.divider, size: 40),
+                    const SizedBox(height: 8),
+                    Text('Belum ada item terjual.', style: GoogleFonts.outfit(fontSize: 13, color: AppPallete.textSecondary)),
+                  ],
+                ),
+              ),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: soldItems.length,
+              separatorBuilder: (_, index) => const Divider(height: 24),
+              itemBuilder: (context, index) {
+                final item = soldItems[index];
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(child: Text(item.name, style: GoogleFonts.outfit(color: AppPallete.textPrimary, fontWeight: FontWeight.w600))),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(color: AppPallete.primary.withAlpha(20), borderRadius: BorderRadius.circular(10)),
+                      child: Text('x${item.quantity}', style: GoogleFonts.outfit(color: AppPallete.primary, fontWeight: FontWeight.w900, fontSize: 13)),
+                    ),
+                  ],
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NoActiveShiftCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(color: AppPallete.warning.withAlpha(15), borderRadius: BorderRadius.circular(28), border: Border.all(color: AppPallete.warning.withAlpha(30))),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: AppPallete.warning.withAlpha(30), shape: BoxShape.circle),
+            child: const Icon(Icons.lock_clock_rounded, color: AppPallete.warning, size: 40),
+          ),
+          const SizedBox(height: 16),
+          Text('Shift Belum Dimulai', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w800, color: AppPallete.textPrimary)),
+          const SizedBox(height: 4),
+          Text('Statistik real-time akan muncul setelah Anda membuka shift baru.', style: GoogleFonts.outfit(fontSize: 13, color: AppPallete.textSecondary), textAlign: TextAlign.center),
+        ],
+      ),
+    );
+  }
+}
+
+class _CurrentShiftStats {
   final int totalCashSales;
   final int totalQrisSales;
-  final int totalCashIn;
-  final int totalCashOut;
   final int totalTransactions;
   final List<_SoldProductSummary> soldProducts;
-
-  const _ClosedShiftReportData({
-    required this.id,
-    required this.cashierId,
-    required this.openedAt,
-    required this.closedAt,
-    required this.openingBalance,
-    required this.closingBalance,
-    required this.totalCashSales,
-    required this.totalQrisSales,
-    required this.totalCashIn,
-    required this.totalCashOut,
-    required this.totalTransactions,
-    required this.soldProducts,
-  });
-
-  int get totalPenerimaan => totalCashSales + totalQrisSales + totalCashIn;
-
-  int get saldoAkhir => totalPenerimaan + openingBalance - closingBalance;
+  const _CurrentShiftStats({required this.totalCashSales, required this.totalQrisSales, required this.totalTransactions, required this.soldProducts});
 }
 
 class _SoldProductSummary {
   final String name;
   final int quantity;
-
   const _SoldProductSummary({required this.name, required this.quantity});
-}
-
-String _formatShiftDateTime(DateTime value) {
-  return '${DateFormat('dd MMM yyyy, HH:mm').format(value)} WIB';
-}
-
-class _InfoRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color? valueColor;
-
-  const _InfoRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-    this.valueColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: AppPallete.primary),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              label,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: AppPallete.textPrimary),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Flexible(
-            child: Text(
-              value,
-              textAlign: TextAlign.end,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: valueColor ?? AppPallete.textPrimary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// class _DeviceSectionLabel extends StatelessWidget {
-//   final String title;
-
-//   const _DeviceSectionLabel({required this.title});
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Container(
-//       width: double.infinity,
-//       color: AppPallete.surface,
-//       padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-//       child: Text(
-//         title,
-//         style: Theme.of(context).textTheme.labelLarge?.copyWith(
-//           color: AppPallete.primary,
-//           fontWeight: FontWeight.w700,
-//         ),
-//       ),
-//     );
-//   }
-// }
-
-String _extractInitials(String name) {
-  final parts = name.trim().split(RegExp(r'\s+'));
-  if (parts.isEmpty || parts.first.isEmpty) {
-    return 'U';
-  }
-
-  if (parts.length == 1) {
-    return parts.first.substring(0, 1).toUpperCase();
-  }
-
-  final first = parts.first.substring(0, 1).toUpperCase();
-  final last = parts.last.substring(0, 1).toUpperCase();
-  return '$first$last';
 }

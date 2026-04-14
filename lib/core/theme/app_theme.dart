@@ -27,32 +27,39 @@ class AppTheme {
         fontSize: 18,
         fontWeight: FontWeight.bold,
         fontFamily: GoogleFonts.plusJakartaSans().fontFamily,
+        color: AppPallete.textPrimary,
       ),
       titleMedium: TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.bold,
         fontFamily: GoogleFonts.plusJakartaSans().fontFamily,
+        color: AppPallete.textPrimary,
       ),
       titleSmall: TextStyle(
         fontSize: 12,
         fontWeight: FontWeight.bold,
         fontFamily: GoogleFonts.plusJakartaSans().fontFamily,
+        color: AppPallete.textPrimary,
       ),
       bodyLarge: TextStyle(
         fontSize: 18,
         fontFamily: GoogleFonts.plusJakartaSans().fontFamily,
+        color: AppPallete.textPrimary,
       ),
       bodyMedium: TextStyle(
         fontSize: 14,
         fontFamily: GoogleFonts.plusJakartaSans().fontFamily,
+        color: AppPallete.textPrimary,
       ),
       bodySmall: TextStyle(
         fontSize: 12,
         fontFamily: GoogleFonts.plusJakartaSans().fontFamily,
+        color: AppPallete.textPrimary,
       ),
       labelSmall: TextStyle(
         fontSize: 10,
         fontFamily: GoogleFonts.plusJakartaSans().fontFamily,
+        color: AppPallete.textPrimary,
       ),
     ),
   );

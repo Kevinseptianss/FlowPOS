@@ -1,12 +1,11 @@
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 
 class CurrencyInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
       TextEditingValue oldValue, TextEditingValue newValue) {
-    if (newValue.selection.baseOffset == 0) {
-      return newValue;
+    if (newValue.text.isEmpty) {
+      return newValue.copyWith(text: '');
     }
 
     // Get only numbers
@@ -19,14 +18,17 @@ class CurrencyInputFormatter extends TextInputFormatter {
       );
     }
 
-    final double value = double.parse(newText);
-    final formatter = NumberFormat.currency(
-      locale: 'id',
-      symbol: 'Rp ',
-      decimalDigits: 0,
-    );
+    // Manual thousands separator logic using dots (.)
+    final buffer = StringBuffer();
+    for (var i = 0; i < newText.length; i++) {
+      final reverseIndex = newText.length - i;
+      buffer.write(newText[i]);
+      if (reverseIndex > 1 && reverseIndex % 3 == 1) {
+        buffer.write('.');
+      }
+    }
 
-    String formattedText = formatter.format(value);
+    String formattedText = buffer.toString();
 
     return newValue.copyWith(
       text: formattedText,

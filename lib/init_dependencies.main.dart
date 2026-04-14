@@ -12,6 +12,9 @@ Future<void> initDependencies() async {
   _initTable();
   _initOrder();
   _initStoreSettings();
+  _initInventory();
+  _initStaff();
+  _initShift();
 
   try {
     debugPrint('Initializing Supabase...');
@@ -24,7 +27,7 @@ Future<void> initDependencies() async {
     debugPrint('Supabase Initialization Error: $e');
     // If Supabase fails, we still register a dummy client to avoid crashes elsewhere
     // but the app should show the error caught in main.dart
-    rethrow; 
+    rethrow;
   }
 
   try {
@@ -32,6 +35,9 @@ Future<void> initDependencies() async {
     await Hive.initFlutter();
     final cashierShiftBox = await Hive.openBox<dynamic>('cashier_shift_box');
     serviceLocator.registerLazySingleton<Box<dynamic>>(() => cashierShiftBox);
+
+    final qrisBox = await Hive.openBox<String>('qris_cache');
+    serviceLocator.registerLazySingleton<Box<String>>(() => qrisBox, instanceName: 'qris_cache');
   } catch (e) {
     debugPrint('Hive Initialization Error: $e');
     rethrow;
@@ -156,6 +162,7 @@ void _initOrder() {
         getMonthlyRevenue: serviceLocator(),
         getRevenueRange: serviceLocator(),
         getAllOrders: serviceLocator(),
+        orderRepository: serviceLocator(),
       ),
     );
 }
@@ -205,6 +212,67 @@ void _initAuth() {
         currentUser: serviceLocator(),
         logout: serviceLocator(),
         userBloc: serviceLocator(),
+      ),
+    );
+}
+
+void _initInventory() {
+  serviceLocator
+    // Datasources
+    ..registerFactory<InventoryRemoteDataSource>(
+      () => InventoryRemoteDataSourceImpl(serviceLocator()),
+    )
+    // Repositories
+    ..registerFactory<InventoryRepository>(
+      () => InventoryRepositoryImpl(serviceLocator()),
+    )
+    // Usecases
+    ..registerFactory(() => GetStockLevels(serviceLocator()))
+    ..registerFactory(() => AdjustStock(serviceLocator()))
+    ..registerFactory(() => CreatePurchaseOrder(serviceLocator()))
+    ..registerFactory(() => GetStockHistory(serviceLocator()))
+    // Bloc
+    ..registerLazySingleton(
+      () => InventoryBloc(
+        getStockLevels: serviceLocator(),
+        adjustStock: serviceLocator(),
+        createPurchaseOrder: serviceLocator(),
+        getStockHistory: serviceLocator(),
+        inventoryRepository: serviceLocator(),
+        orderRepository: serviceLocator(),
+      ),
+    );
+}
+
+void _initStaff() {
+  serviceLocator
+    // Datasources
+    ..registerFactory<StaffRemoteDataSource>(
+      () => StaffRemoteDataSourceImpl(serviceLocator()),
+    )
+    // Repositories
+    ..registerFactory<StaffRepository>(
+      () => StaffRepositoryImpl(serviceLocator()),
+    )
+    // Bloc
+    ..registerLazySingleton(() => StaffBloc(serviceLocator()));
+}
+
+void _initShift() {
+  serviceLocator
+    // Datasources
+    ..registerFactory<ShiftRemoteDataSource>(
+      () => ShiftRemoteDataSourceImpl(serviceLocator()),
+    )
+    // Repositories
+    ..registerFactory<ShiftRepository>(
+      () => ShiftRepositoryImpl(serviceLocator()),
+    )
+    // Bloc
+    ..registerLazySingleton(
+      () => ShiftBloc(
+        shiftRepository: serviceLocator(),
+        shiftLocalService: serviceLocator(),
       ),
     );
 }

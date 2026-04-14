@@ -34,7 +34,13 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       final response = await supabaseClient.auth.signUp(
         password: password,
         email: email,
-        data: {'name': name, 'role': role},
+        data: {
+          'name': name, 
+          'role': role,
+          'username': email.contains('@flowpos.local') 
+              ? email.split('@')[0] 
+              : null,
+        },
       );
 
       if (response.user == null) {
@@ -55,19 +61,28 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     String password,
   ) async {
     try {
+      // Support username login: if no @, append @flowpos.local
+      final effectiveEmail = email.contains('@') ? email : '${email.trim().toLowerCase()}@flowpos.local';
+      
+      debugPrint('Attempting login for: $effectiveEmail');
+
       final response = await supabaseClient.auth.signInWithPassword(
         password: password,
-        email: email,
+        email: effectiveEmail,
       );
 
       if (response.user == null) {
+        debugPrint('Login failed: User object is null');
         throw const ServerException('User is null');
       }
 
+      debugPrint('Login success for ID: ${response.user!.id}, Role in metadata: ${response.user!.userMetadata?['role']}');
       return _resolveUserData(response.user!);
     } on AuthException catch (e) {
+      debugPrint('AuthException during login: ${e.message}');
       throw ServerException(e.message);
     } catch (e) {
+      debugPrint('Unexpected error during login: $e');
       throw ServerException(e.toString());
     }
   }
@@ -116,6 +131,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       email: authUser.email,
       name: name,
       role: role,
+      username: metadata['username']?.toString(),
     );
   }
 

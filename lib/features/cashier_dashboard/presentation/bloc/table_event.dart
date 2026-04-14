@@ -15,3 +15,13 @@ final class SelectTableEvent extends TableEvent {
   @override
   List<Object> get props => [tableNumber];
 }
+
+final class UpdateOccupiedTablesEvent extends TableEvent {
+  final Set<int> occupiedTableNumbers;
+  final Map<int, String> occupiedTableNames;
+
+  const UpdateOccupiedTablesEvent(this.occupiedTableNumbers, {this.occupiedTableNames = const {}});
+
+  @override
+  List<Object> get props => [occupiedTableNumbers, occupiedTableNames];
+}

@@ -24,6 +24,9 @@ class OrderRepositoryImpl implements OrderRepository {
     required String method,
     required int amountPaid,
     required List<OrderItem> items,
+    String? shiftId,
+    String status = 'PAID',
+    String? customerName,
   }) async {
     try {
       final createdOrder = await orderRemoteDataSource.createOrder(
@@ -37,6 +40,9 @@ class OrderRepositoryImpl implements OrderRepository {
         method: method,
         amountPaid: amountPaid,
         items: items,
+        shiftId: shiftId,
+        status: status,
+        customerName: customerName,
       );
 
       return right(createdOrder);
@@ -81,6 +87,64 @@ class OrderRepositoryImpl implements OrderRepository {
     try {
       final orders = await orderRemoteDataSource.getAllOrders();
       return right(orders);
+    } on ServerException catch (e) {
+      return left(Failure(e.message));
+    }
+  }
+
+  @override
+  Future<Either<Failure, OrderEntity>> getOrderById(String orderId) async {
+    try {
+      final order = await orderRemoteDataSource.getOrderById(orderId);
+      return right(order);
+    } on ServerException catch (e) {
+      return left(Failure(e.message));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> softDeleteOrderItem({
+    required String orderItemId,
+    required String deletedById,
+  }) async {
+    try {
+      await orderRemoteDataSource.softDeleteOrderItem(
+        orderItemId: orderItemId,
+        deletedById: deletedById,
+      );
+      return right(null);
+    } on ServerException catch (e) {
+      return left(Failure(e.message));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> settleOrder({
+    required String orderId,
+    required String method,
+    required int amountPaid,
+    required int amountDue,
+    required int changeGiven,
+  }) async {
+    try {
+      await orderRemoteDataSource.settleOrder(
+        orderId: orderId,
+        method: method,
+        amountPaid: amountPaid,
+        amountDue: amountDue,
+        changeGiven: changeGiven,
+      );
+      return right(null);
+    } on ServerException catch (e) {
+      return left(Failure(e.message));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> voidOrder(String orderId) async {
+    try {
+      await orderRemoteDataSource.voidOrder(orderId);
+      return right(null);
     } on ServerException catch (e) {
       return left(Failure(e.message));
     }
