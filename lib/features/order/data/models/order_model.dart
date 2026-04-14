@@ -13,7 +13,8 @@ class OrderModel extends OrderEntity {
     super.payment,
     required super.items,
     super.shiftId,
-    super.status = 'PAID',
+    super.status = 'UNPAID',
     super.customerName,
+    super.paymentLink,
   });
 }

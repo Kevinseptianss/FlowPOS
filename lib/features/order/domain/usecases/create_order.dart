@@ -89,6 +89,7 @@ class CreateOrder implements UseCase<OrderEntity, CreateOrderParams> {
       shiftId: params.shiftId,
       status: params.status,
       customerName: params.customerName,
+      paymentLink: params.paymentLink,
     );
   }
 }
@@ -107,6 +108,7 @@ class CreateOrderParams {
   final String? shiftId;
   final String status;
   final String? customerName;
+  final String? paymentLink;
 
   const CreateOrderParams({
     required this.orderNumber,
@@ -120,7 +122,8 @@ class CreateOrderParams {
     required this.amountPaid,
     required this.items,
     this.shiftId,
-    this.status = 'PAID',
+    this.status = 'UNPAID',
     this.customerName,
+    this.paymentLink,
   });
 }

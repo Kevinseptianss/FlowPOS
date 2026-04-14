@@ -5,6 +5,7 @@ import 'package:flow_pos/features/auth/domain/usecases/current_user.dart';
 import 'package:flow_pos/features/auth/domain/usecases/logout.dart';
 import 'package:flow_pos/features/auth/domain/usecases/sign_in.dart';
 import 'package:flow_pos/features/auth/domain/usecases/sign_up.dart';
+import 'package:flow_pos/features/auth/domain/usecases/change_password.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 
@@ -16,24 +17,28 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final SignIn _signIn;
   final CurrentUser _currentUser;
   final Logout _logout;
+  final ChangePassword _changePassword;
   final UserBloc _userBloc;
 
   AuthBloc({
     required SignUp signUp,
     required SignIn signIn,
     required CurrentUser currentUser,
-     required Logout logout,
+    required Logout logout,
+    required ChangePassword changePassword,
     required UserBloc userBloc,
   }) : _signUp = signUp,
        _signIn = signIn,
        _currentUser = currentUser,
        _logout = logout,
+       _changePassword = changePassword,
        _userBloc = userBloc,
        super(AuthInitial()) {
     on<SignUpEvent>(_onSignUp);
     on<SignInEvent>(_onSignIn);
     on<IsLoggedInEvent>(_onIsLoggedIn);
     on<SignOutEvent>(_onSignOut);
+    on<AuthChangePasswordEvent>(_onChangePassword);
   }
 
   void _onSignUp(SignUpEvent event, Emitter<AuthState> emit) async {
@@ -97,6 +102,19 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       _userBloc.add(UserLogoutEvent());
       emit(AuthInitial());
     });
+  }
+
+  void _onChangePassword(AuthChangePasswordEvent event, Emitter<AuthState> emit) async {
+    emit(AuthLoading());
+
+    final result = await _changePassword(
+      ChangePasswordParams(newPassword: event.newPassword),
+    );
+
+    result.fold(
+      (l) => emit(AuthFailure(l.message)),
+      (r) => emit(AuthPasswordChangedSuccess()),
+    );
   }
 
   void _emitSuccess(Emitter<AuthState> emit, User user) {

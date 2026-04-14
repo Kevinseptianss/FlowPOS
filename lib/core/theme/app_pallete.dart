@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 class AppPallete {
   static const Color primary = Color(
-    0xFFC0392B,
+    0xFFDA322E,
   ); // Tombol utama, AppBar, aksen merah
   static const Color primaryDark = Color(
-    0xFF922B21,
+    0xFFB02826,
   ); // Pressed state, gradasi gelap
   static const Color secondary = Color(
     0xFFE67E22,

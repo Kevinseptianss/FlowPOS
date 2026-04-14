@@ -21,8 +21,9 @@ abstract interface class OrderRemoteDataSource {
     required int amountPaid,
     required List<OrderItem> items,
     String? shiftId,
-    String status = 'PAID',
+    String status = 'UNPAID',
     String? customerName,
+    String? paymentLink,
   });
 
   Future<MonthlyRevenue> getMonthlyRevenue({required DateTime month});
@@ -139,8 +140,9 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
     required int amountPaid,
     required List<OrderItem> items,
     String? shiftId,
-    String status = 'PAID',
+    String status = 'UNPAID',
     String? customerName,
+    String? paymentLink,
   }) async {
     try {
       final orderItemPayload = items
@@ -181,6 +183,19 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
           'p_customer_name': customerName,
         },
       );
+      
+      final resultMap = (result as Map<String, dynamic>);
+      final orderId = resultMap['order_id'] as String;
+
+      // FAIL-SAFE: Explicitly update status to ensure database matches intent
+      // Use a separate update to bypass potential RPC limitations
+      await supabaseClient
+          .from('orders')
+          .update({
+            'status': status,
+            'payment_link': paymentLink,
+          })
+          .eq('id', orderId);
 
       // NEW: Clear previous UNPAID orders for this table if this is a PAID order
       // This ensures the table becomes unoccupied after payout.
@@ -191,9 +206,6 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
             .eq('table_number', tableNumber)
             .eq('status', 'UNPAID');
       }
-
-      final resultMap = (result as Map<String, dynamic>);
-      final orderId = resultMap['order_id'] as String;
       final paymentId = resultMap['payment_id'] as String?;
       final createdAtRaw = resultMap['created_at'] as String;
 
@@ -220,6 +232,7 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
         shiftId: shiftId,
         status: status,
         customerName: customerName,
+        paymentLink: paymentLink,
       );
     } catch (e) {
       throw ServerException(e.toString());
@@ -293,6 +306,7 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
             total,
             status,
             customer_name,
+            payment_link,
             created_at,
             shift_id,
             payments (
@@ -377,8 +391,9 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
           createdAt: DateTime.parse(row['created_at'] as String),
           payment: payment,
           items: items,
-          status: row['status'] as String? ?? 'PAID',
+          status: row['status'] as String? ?? 'UNPAID',
           customerName: row['customer_name'] as String?,
+          paymentLink: row['payment_link'] as String?,
           shiftId: row['shift_id'] as String?,
         );
       }).toList();
@@ -404,6 +419,7 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
             created_at,
             shift_id,
             customer_name,
+            payment_link,
             payments (
               id,
               order_id,
@@ -479,8 +495,9 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
         createdAt: DateTime.parse(row['created_at'] as String),
         payment: payment,
         items: items,
-        status: row['status'] as String? ?? 'PAID',
+        status: row['status'] as String? ?? 'UNPAID',
         customerName: row['customer_name'] as String?,
+        paymentLink: row['payment_link'] as String?,
         shiftId: row['shift_id'] as String?,
       );
     } catch (e) {

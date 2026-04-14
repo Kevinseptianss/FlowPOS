@@ -21,7 +21,6 @@ import 'package:flow_pos/init_dependencies.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 
 class ListOrderSection extends StatelessWidget {
   final bool isMobileCheckoutFlow;
@@ -509,7 +508,12 @@ class ListOrderSection extends StatelessWidget {
     showSnackbar(rootNavigator.context, 'Order created successfully!');
 
     if (isMobileCheckoutFlow) {
-      Navigator.of(context).pop();
+      // DO NOT pop if we are in the middle of a QRIS payment initiation
+      if (order.status == 'UNPAID' && order.payment?.method == 'QRIS') {
+         debugPrint('--- [FLOWPOS] Keeping checkout screen open for QRIS WebView ---');
+      } else {
+         Navigator.of(context).pop();
+      }
     }
 
     if (!rootNavigator.mounted) {
@@ -523,14 +527,17 @@ class ListOrderSection extends StatelessWidget {
       shouldPrint = isMobileCheckoutFlow
           ? await _showMobilePrintPrompt(rootNavigator)
           : await _showIpadPrintPrompt(rootNavigator);
-    } else if (order.status == 'UNPAID') {
-       // If it's a QRIS order (identified by method or prefix), DO NOT print.
-       // Table orders (method == null or 'CASH' or prefix 'ORD-') should still prompt.
-       final isQris = order.payment?.method == 'QRIS' || order.orderNumber.startsWith('QRIS-');
-       if (!isQris) {
-         shouldPrint = await _showTableOrderPrintPrompt(rootNavigator);
-       }
     }
+    if (order.payment?.method == 'QRIS' && order.status == 'UNPAID') {
+      debugPrint('--- [FLOWPOS ALERT] ---');
+      debugPrint('Blocking print for UNPAID QRIS initiation.');
+      debugPrint('-----------------------');
+      return; // Block print for QRIS initiation
+    }
+    
+    debugPrint('--- [FLOWPOS ALERT] ---');
+    debugPrint('Proceeding with print. Status: ${order.status}, Method: ${order.payment?.method}');
+    debugPrint('-----------------------');
 
     if (shouldPrint && rootNavigator.mounted) {
       await _printInvoice(rootNavigator, order);
@@ -555,14 +562,6 @@ class ListOrderSection extends StatelessWidget {
     );
   }
 
-  Future<bool> _showTableOrderPrintPrompt(NavigatorState rootNavigator) async {
-    return _showModernPrintSheet(
-      rootNavigator,
-      title: 'Cetak Pesanan Meja?',
-      message: 'Apakah Anda ingin mencetak daftar pesanan untuk meja ini?',
-      isTableOrder: true,
-    );
-  }
 
   Future<bool> _showModernPrintSheet(
     NavigatorState rootNavigator, {
@@ -750,6 +749,7 @@ class ListOrderSection extends StatelessWidget {
             'CASH',
             total,
             amountPaid: amountPaid,
+            status: 'PAID', // Cash is always paid instantly
             taxPercentage: taxPercentage,
             serviceChargePercentage: serviceChargePercentage,
             customerName: customerName,
@@ -776,11 +776,6 @@ class ListOrderSection extends StatelessWidget {
       return;
     }
 
-    final midtransService = MidtransService(
-      serverKey: serverKey,
-      isProduction: isProduction,
-    );
-
     // Completer to get the actual database UUID once the order is created
     final Completer<String> dbOrderIdCompleter = Completer<String>();
 
@@ -793,91 +788,89 @@ class ListOrderSection extends StatelessWidget {
       if (state is OrderCreated && state.order.orderNumber == tempOrderId) {
         createdOrder = state.order;
         if (!dbOrderIdCompleter.isCompleted) {
-          dbOrderIdCompleter.complete(state.order.id);
+dbOrderIdCompleter.complete(state.order.id);
         }
       }
     });
 
-    // Create UNPAID order immediately to clear cart and save history
-    // This will trigger the OrderCreated listener at line 37
-    _createOrder(
-      context,
-      'QRIS',
-      total,
-      status: 'UNPAID',
-      taxPercentage: taxPercentage,
-      serviceChargePercentage: serviceChargePercentage,
-      customerName: customerName,
-      orderNumber: tempOrderId,
+    // 1. Show a single dialog that handles its own internal state
+    final midtransService = MidtransService(
+      serverKey: serverKey,
+      isProduction: isProduction,
     );
 
-    // Show loading indicator while getting link
     showDialog(
       context: context,
+      useRootNavigator: true,
       barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
-
-    final snapResult = await midtransService.generateSnapUrl(
-      orderId: tempOrderId,
-      amount: total,
-    );
-
-    if (context.mounted) Navigator.pop(context); // Remove loading
-
-    if (snapResult['success']) {
-      final snapUrl = snapResult['redirect_url'];
-      
-      // Save to cache for retry in history
-      final box = serviceLocator<Box<String>>(instanceName: 'qris_cache');
-      box.put(tempOrderId, 'SNAP:$snapUrl');
-
-      if (context.mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (ctx) => MidtransWebView(
-            url: snapUrl,
-            onSuccess: () async {
-              try {
-                // Wait for the DB UUID from the OrderCreated event
-                final dbId = await dbOrderIdCompleter.future.timeout(
-                  const Duration(seconds: 15),
+      builder: (dialogCtx) {
+        return _QRISFlowManager(
+          midtransService: midtransService,
+          orderId: tempOrderId,
+          total: total,
+          onSnapUrlReady: (url) {
+            // Create UNPAID order once URL is ready
+            _createOrder(
+              context,
+              'QRIS',
+              total,
+              status: 'UNPAID',
+              taxPercentage: taxPercentage,
+              serviceChargePercentage: serviceChargePercentage,
+              customerName: customerName,
+              orderNumber: tempOrderId,
+              paymentLink: url,
+            );
+          },
+          onSuccess: () async {
+            debugPrint('--- [QRIS DEBUG] WebView onSuccess() CALLBACK TRIGGERED ---');
+            try {
+              final dbId = await dbOrderIdCompleter.future.timeout(const Duration(seconds: 20));
+              if (context.mounted) {
+                context.read<OrderBloc>().add(
+                  SettleOrderEvent(
+                    orderId: dbId,
+                    method: 'QRIS',
+                    amountPaid: total,
+                    amountDue: total,
+                    changeGiven: 0,
+                  ),
                 );
-                
-                if (context.mounted) {
-                  //Official settlement in DB
-                  context.read<OrderBloc>().add(
-                    SettleOrderEvent(
-                      orderId: dbId,
-                      method: 'QRIS',
-                      amountPaid: total,
-                      amountDue: total,
-                      changeGiven: 0,
-                    ),
-                  );
-                  
-                  // Print Receipt ONLY after success
-                  if (createdOrder != null) {
-                    final updatedOrder = createdOrder!.copyWith(status: 'PAID');
+                if (createdOrder != null) {
+                  final updatedOrder = createdOrder!.copyWith(status: 'PAID');
+                  if (context.mounted) {
                     await _printInvoice(Navigator.of(context, rootNavigator: true), updatedOrder);
                   }
                 }
-              } catch (e) {
-                debugPrint('Settlement error: $e');
-              } finally {
-                subscription.cancel();
               }
-            },
-          ),
+            } catch (e) {
+              debugPrint('--- [QRIS DEBUG] Settlement error: $e ---');
+            } finally {
+              subscription.cancel();
+              if (dialogCtx.mounted) Navigator.pop(dialogCtx);
+            }
+          },
+          onFailure: (reason) {
+            debugPrint('--- [QRIS DEBUG] Payment FAILED: $reason ---');
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Pembayaran QRIS Gagal atau Dibatalkan'),
+                  backgroundColor: AppPallete.error,
+                ),
+              );
+            }
+            subscription.cancel();
+            if (dialogCtx.mounted) Navigator.pop(dialogCtx);
+          },
+          onCancel: () {
+            debugPrint('--- [QRIS DEBUG] Payment CANCELLED by user ---');
+            subscription.cancel();
+            if (dialogCtx.mounted) Navigator.pop(dialogCtx);
+          },
         );
-      }
-    } else {
-      subscription.cancel();
-      if (context.mounted) {
-        showSnackbar(context, 'Gagal membuat link pembayaran: ${snapResult['message']}');
-      }
-    }
+      },
+    );
   }
 
   void _showTransferPaymentDialog(
@@ -929,6 +922,7 @@ class ListOrderSection extends StatelessWidget {
             context,
             'CARD',
             total,
+            status: 'PAID', // Card is verified via EDC before checkout
             taxPercentage: taxPercentage,
             serviceChargePercentage: serviceChargePercentage,
             customerName: customerName,
@@ -979,11 +973,12 @@ class ListOrderSection extends StatelessWidget {
     String method,
     int total, {
     int? amountPaid,
-    String status = 'PAID',
+    String status = 'UNPAID', // Safer default
     required double taxPercentage,
     required double serviceChargePercentage,
     String? customerName,
     String? orderNumber,
+    String? paymentLink,
   }) {
     final cartBloc = context.read<CartBloc>();
     final orderBloc = context.read<OrderBloc>();
@@ -1039,6 +1034,7 @@ class ListOrderSection extends StatelessWidget {
         shiftId: shiftId,
         status: status,
         customerName: customerName,
+        paymentLink: paymentLink,
       ),
     );
   }
@@ -1194,6 +1190,110 @@ class ListOrderSection extends StatelessWidget {
     final perUnitPrice = item.totalPrice ~/ item.quantity;
     final modifiersUnitPrice = perUnitPrice - item.basePrice;
     return modifiersUnitPrice < 0 ? 0 : modifiersUnitPrice;
+  }
+}
+
+/// New Internal Helper Widget to manage the QRIS Flow UI without pop/push races
+class _QRISFlowManager extends StatefulWidget {
+  final MidtransService midtransService;
+  final String orderId;
+  final int total;
+  final Function(String) onSnapUrlReady;
+  final VoidCallback onSuccess;
+  final Function(String) onFailure;
+  final VoidCallback onCancel;
+
+  const _QRISFlowManager({
+    required this.midtransService,
+    required this.orderId,
+    required this.total,
+    required this.onSnapUrlReady,
+    required this.onSuccess,
+    required this.onFailure,
+    required this.onCancel,
+  });
+
+  @override
+  State<_QRISFlowManager> createState() => _QRISFlowManagerState();
+}
+
+class _QRISFlowManagerState extends State<_QRISFlowManager> {
+  String? _snapUrl;
+  String? _error;
+  bool _isLoading = true;
+
+  @override
+  void dispose() {
+    debugPrint('--- [QRIS DEBUG] _QRISFlowManager DISPOSED ---');
+    super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSnapUrl();
+  }
+
+  Future<void> _loadSnapUrl() async {
+    try {
+      final result = await widget.midtransService.generateSnapUrl(
+        orderId: widget.orderId,
+        amount: widget.total,
+      );
+
+      if (mounted) {
+        if (result['success']) {
+          final url = result['redirect_url'];
+          widget.onSnapUrlReady(url);
+          setState(() {
+            _snapUrl = url;
+            _isLoading = false;
+          });
+        } else {
+          setState(() {
+            _error = result['message'];
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return AlertDialog(
+        title: const Text('Gagal membuat pembayaran'),
+        content: Text(_error!),
+        actions: [
+          TextButton(onPressed: widget.onCancel, child: const Text('Tutup')),
+        ],
+      );
+    }
+
+    return MidtransWebView(
+      url: _snapUrl!,
+      orderId: widget.orderId,
+      serverKey: widget.midtransService.serverKey,
+      isProduction: widget.midtransService.isProduction,
+      onUrlChange: (url) {
+        debugPrint('--- [QRIS DEBUG] WebView Loading URL: $url ---');
+      },
+      onSuccess: widget.onSuccess,
+      onFailure: widget.onFailure,
+      onCancel: widget.onCancel,
+    );
   }
 }
 

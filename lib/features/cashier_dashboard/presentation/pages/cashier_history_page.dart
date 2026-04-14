@@ -357,7 +357,7 @@ class _ModernHistoryOrderCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          DatetimeFormatter.formatDateYear(order.createdAt),
+                          DatetimeFormatter.formatIndonesian(order.createdAt, includeTime: true),
                           style: GoogleFonts.outfit(
                             color: AppPallete.textSecondary,
                             fontSize: 13,

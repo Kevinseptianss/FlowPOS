@@ -86,7 +86,10 @@ class OrderBloc extends Bloc<OrderEvent, OrderState> {
 
     result.fold(
       (l) => emit(OrderFailure(l.message)),
-      (_) => add(GetAllOrdersEvent()), // Refresh orders
+      (_) {
+        emit(OrderSettled(event.orderId));
+        add(GetAllOrdersEvent()); // Refresh orders
+      },
     );
   }
 
@@ -125,8 +128,9 @@ class OrderBloc extends Bloc<OrderEvent, OrderState> {
         amountPaid: event.amountPaid,
         items: event.items,
         shiftId: event.shiftId,
-        status: event.status ?? 'PAID',
+        status: event.status ?? 'UNPAID',
         customerName: event.customerName,
+        paymentLink: event.paymentLink,
       ),
     );
 

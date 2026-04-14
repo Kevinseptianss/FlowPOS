@@ -21,6 +21,7 @@ final class CreateOrderEvent extends OrderEvent {
   final String? shiftId;
   final String? status;
   final String? customerName;
+  final String? paymentLink;
 
   const CreateOrderEvent({
     required this.orderNumber,
@@ -36,6 +37,7 @@ final class CreateOrderEvent extends OrderEvent {
     this.shiftId,
     this.status,
     this.customerName,
+    this.paymentLink,
   });
 
   @override
@@ -53,6 +55,7 @@ final class CreateOrderEvent extends OrderEvent {
     if (shiftId != null) shiftId!,
     if (status != null) status!,
     if (customerName != null) customerName!,
+    if (paymentLink != null) paymentLink!,
   ];
 }
 

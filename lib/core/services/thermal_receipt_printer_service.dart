@@ -9,6 +9,9 @@ import 'package:flow_pos/features/store_settings/domain/entities/store_settings.
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:flow_pos/core/theme/app_pallete.dart';
+import 'package:flow_pos/core/services/printer_local_service.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class PrinterDevice {
   final String name;
@@ -70,6 +73,9 @@ abstract interface class ThermalReceiptPrinterService {
 
 class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
   final BlueThermalPrinter _bluetooth = BlueThermalPrinter.instance;
+  final PrinterLocalService _printerLocalService;
+
+  ThermalReceiptPrinterServiceImpl(this._printerLocalService);
 
   @override
   Future<PrinterDevice?> selectDevice({required BuildContext context}) async {
@@ -101,35 +107,155 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
 
     if (!context.mounted) return null;
 
-    final result = await showDialog<PrinterDevice>(
+    final result = await showModalBottomSheet<PrinterDevice>(
       context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) {
-        return AlertDialog(
-          title: const Text('Pilih Printer Bluetooth'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: devices.isEmpty
-                ? const Text('Tidak ada printer berpasangan ditemukan.')
-                : ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: devices.length,
-                    itemBuilder: (context, index) {
-                      final device = devices[index];
-                      return ListTile(
-                        leading: const Icon(Icons.print_rounded),
-                        title: Text(device.name),
-                        subtitle: Text(device.macAddress),
-                        onTap: () => Navigator.pop(context, device),
-                      );
-                    },
-                  ),
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.7,
+          decoration: const BoxDecoration(
+            color: AppPallete.surface,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Batal'),
-            ),
-          ],
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppPallete.divider,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppPallete.primary.withAlpha(20),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.bluetooth_searching_rounded, color: AppPallete.primary, size: 28),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Pilih Printer Bluetooth',
+                            style: GoogleFonts.outfit(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                              color: AppPallete.textPrimary,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          Text(
+                            'Pastikan printer sudah dipairing di HP Anda',
+                            style: GoogleFonts.outfit(
+                              fontSize: 13,
+                              color: AppPallete.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Divider(height: 1),
+              Expanded(
+                child: devices.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.print_disabled_rounded, size: 64, color: AppPallete.textSecondary.withAlpha(50)),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Tidak ada printer ditemukan',
+                              style: GoogleFonts.outfit(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: AppPallete.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Cek pengaturan Bluetooth smartphone Anda',
+                              style: GoogleFonts.outfit(
+                                fontSize: 13,
+                                color: AppPallete.textSecondary.withAlpha(150),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.all(24),
+                        itemCount: devices.length,
+                        separatorBuilder: (context, index) => const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final device = devices[index];
+                          return InkWell(
+                            onTap: () => Navigator.pop(context, device),
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: AppPallete.divider),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: AppPallete.primary.withAlpha(10),
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    child: const Icon(Icons.print_rounded, color: AppPallete.primary),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          device.name,
+                                          style: GoogleFonts.outfit(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                            color: AppPallete.textPrimary,
+                                          ),
+                                        ),
+                                        Text(
+                                          device.macAddress,
+                                          style: GoogleFonts.outfit(
+                                            fontSize: 12,
+                                            color: AppPallete.textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const Icon(Icons.chevron_right_rounded, color: AppPallete.textSecondary),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -198,10 +324,13 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
     required StoreSettings storeSettings,
     required String cashierName,
   }) async {
+    final settings = _printerLocalService.getSettings();
     final now = DateFormat('dd MMM yyyy, HH:mm').format(DateTime.now());
 
     final profile = await CapabilityProfile.load();
-    final generator = Generator(PaperSize.mm58, profile);
+    final paperSize = settings.charsPerLine >= 42 ? PaperSize.mm80 : PaperSize.mm58;
+    final generator = Generator(paperSize, profile);
+    final divider = '-' * settings.charsPerLine;
     List<int> bytes = [];
 
     bytes += generator.setStyles(
@@ -222,7 +351,7 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
     );
     bytes += generator.feed(1);
     bytes += generator.text(
-      '--------------------------------',
+      divider,
       styles: const PosStyles(align: PosAlign.center),
     );
     bytes += generator.text(
@@ -234,7 +363,11 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
       styles: const PosStyles(align: PosAlign.center),
     );
     bytes += generator.text(
-      '--------------------------------',
+      'Konfigurasi: ${settings.charsPerLine} Chars',
+      styles: const PosStyles(align: PosAlign.center),
+    );
+    bytes += generator.text(
+      divider,
       styles: const PosStyles(align: PosAlign.center),
     );
     bytes += generator.text('Kasir: $cashierName');
@@ -252,8 +385,11 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
     required StoreSettings storeSettings,
     required String cashierName,
   }) async {
+    final settings = _printerLocalService.getSettings();
     final profile = await CapabilityProfile.load();
-    final generator = Generator(PaperSize.mm58, profile);
+    final paperSize = settings.charsPerLine >= 42 ? PaperSize.mm80 : PaperSize.mm58;
+    final generator = Generator(paperSize, profile);
+    final divider = '-' * settings.charsPerLine;
     List<int> bytes = [];
 
     final subtotal = order.items.fold<int>(
@@ -272,7 +408,7 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
       storeSettings.storeAddress,
       styles: const PosStyles(align: PosAlign.center),
     );
-    bytes += generator.text('--------------------------------');
+    bytes += generator.text(divider);
     bytes += generator.text('No: ${order.orderNumber}');
     bytes += generator.text('Meja: ${order.tableNumber}');
     if (order.customerName != null && order.customerName!.isNotEmpty) {
@@ -282,7 +418,7 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
     bytes += generator.text(
       'Waktu: ${DateFormat('dd MMM yyyy, HH:mm').format(order.createdAt)}',
     );
-    bytes += generator.text('--------------------------------');
+    bytes += generator.text(divider);
 
     for (final item in order.items) {
       bytes += generator.text(
@@ -349,7 +485,7 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
         styles: const PosStyles(align: PosAlign.right, bold: true),
       ),
     ]);
-    bytes += generator.text('--------------------------------');
+    bytes += generator.text(divider);
     if (order.payment != null) {
       bytes += generator.row([
         PosColumn(text: order.payment!.method.toUpperCase(), width: 6),
@@ -400,8 +536,11 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
     required int totalTransactions,
     required List<ShiftSoldProductSummary> soldProducts,
   }) async {
+    final settings = _printerLocalService.getSettings();
     final profile = await CapabilityProfile.load();
-    final generator = Generator(PaperSize.mm58, profile);
+    final paperSize = settings.charsPerLine >= 42 ? PaperSize.mm80 : PaperSize.mm58;
+    final generator = Generator(paperSize, profile);
+    final divider = '-' * settings.charsPerLine;
     List<int> bytes = [];
 
     bytes += generator.text(
@@ -412,7 +551,7 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
       'LAPORAN TUTUP KASIR',
       styles: const PosStyles(align: PosAlign.center),
     );
-    bytes += generator.text('--------------------------------');
+    bytes += generator.text(divider);
     bytes += generator.text('Kasir: $cashierName');
     bytes += generator.text(
       'Buka : ${DateFormat('dd/MM HH:mm').format(openedAt)}',
@@ -420,7 +559,7 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
     bytes += generator.text(
       'Tutup: ${DateFormat('dd/MM HH:mm').format(closedAt)}',
     );
-    bytes += generator.text('--------------------------------');
+    bytes += generator.text(divider);
     bytes += generator.row([
       PosColumn(text: 'Saldo Awal', width: 6),
       PosColumn(
@@ -445,7 +584,7 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
         styles: const PosStyles(align: PosAlign.right),
       ),
     ]);
-    bytes += generator.text('--------------------------------');
+    bytes += generator.text(divider);
     bytes += generator.row([
       PosColumn(
         text: 'Saldo Akhir',

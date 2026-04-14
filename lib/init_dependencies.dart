@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flow_pos/core/common/bloc/user_bloc.dart';
 import 'package:flow_pos/core/services/cashier_shift_local_service.dart';
+import 'package:flow_pos/core/services/printer_local_service.dart';
 import 'package:flow_pos/core/services/thermal_receipt_printer_service.dart';
 import 'package:flow_pos/core/secrets/app_secrets.dart';
 import 'package:flow_pos/features/auth/data/datasources/auth_remote_data_source.dart';
@@ -10,6 +11,7 @@ import 'package:flow_pos/features/auth/domain/usecases/current_user.dart';
 import 'package:flow_pos/features/auth/domain/usecases/logout.dart';
 import 'package:flow_pos/features/auth/domain/usecases/sign_in.dart';
 import 'package:flow_pos/features/auth/domain/usecases/sign_up.dart';
+import 'package:flow_pos/features/auth/domain/usecases/change_password.dart';
 import 'package:flow_pos/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:flow_pos/features/category/data/datasources/category_remote_data_source.dart';
 import 'package:flow_pos/features/category/data/repositories/category_repository_impl.dart';

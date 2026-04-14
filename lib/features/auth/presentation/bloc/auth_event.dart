@@ -37,3 +37,11 @@ final class SignInEvent extends AuthEvent {
 final class IsLoggedInEvent extends AuthEvent {}
 
 final class SignOutEvent extends AuthEvent {}
+
+final class AuthChangePasswordEvent extends AuthEvent {
+  final String newPassword;
+  const AuthChangePasswordEvent({required this.newPassword});
+
+  @override
+  List<Object> get props => [newPassword];
+}

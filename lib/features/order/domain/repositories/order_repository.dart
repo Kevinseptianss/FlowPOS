@@ -17,8 +17,9 @@ abstract interface class OrderRepository {
     required int amountPaid,
     required List<OrderItem> items,
     String? shiftId,
-    String status = 'PAID',
+    String status = 'UNPAID',
     String? customerName,
+    String? paymentLink,
   });
 
   Future<Either<Failure, MonthlyRevenue>> getMonthlyRevenue({

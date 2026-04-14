@@ -68,8 +68,9 @@ class CashierShiftLocalService {
     required String cashierId,
     required String cashierName,
     required double openingBalance,
+    DateTime? openedAt,
   }) async {
-    final openedAtUtc = _utcNow();
+    final openedAtUtc = openedAt?.toUtc() ?? _utcNow();
 
     await _box.put(_activeShiftKey(cashierId), {
       'shiftId': shiftId,
