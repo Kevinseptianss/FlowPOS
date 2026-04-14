@@ -376,26 +376,6 @@ class _OpenShiftPageState extends State<OpenShiftPage> {
       child: Row(
         children: [
           Expanded(
-            child: TextButton(
-              onPressed: () {
-                context.read<ShiftBloc>().add(SkipShiftEvent(cashierId: cashierId));
-              },
-              style: TextButton.styleFrom(
-                minimumSize: const Size.fromHeight(64),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              ),
-              child: Text(
-                'Lewati',
-                style: GoogleFonts.outfit(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: AppPallete.textSecondary,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
             flex: 2,
             child: Container(
               decoration: BoxDecoration(

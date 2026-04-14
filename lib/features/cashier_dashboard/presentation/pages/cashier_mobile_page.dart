@@ -1,5 +1,4 @@
 import 'package:flow_pos/core/common/bloc/user_bloc.dart';
-import 'package:flow_pos/core/services/cashier_shift_local_service.dart';
 import 'package:flow_pos/core/theme/app_pallete.dart';
 import 'package:flow_pos/core/utils/show_logout_dialog.dart';
 import 'package:flow_pos/core/utils/show_snackbar.dart';
@@ -16,7 +15,6 @@ import 'package:flow_pos/features/menu_item/presentation/bloc/menu_item_bloc.dar
 import 'package:flow_pos/features/cashier_dashboard/presentation/bloc/table_bloc.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/pages/select_table_mobile_page.dart';
 import 'package:flow_pos/features/shift/presentation/pages/open_shift_page.dart';
-import 'package:flow_pos/init_dependencies.dart';
 import 'package:flow_pos/features/shift/presentation/bloc/shift_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -36,17 +34,14 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
 
   late final CategoryBloc _categoryBloc;
   late final MenuItemBloc _menuItemBloc;
-  late final CashierShiftLocalService _cashierShiftLocalService;
 
   String? _cashierId;
-  bool _isWarningBannerDismissed = false;
 
   @override
   void initState() {
     super.initState();
     _categoryBloc = context.read<CategoryBloc>();
     _menuItemBloc = context.read<MenuItemBloc>();
-    _cashierShiftLocalService = serviceLocator<CashierShiftLocalService>();
 
     _categoryBloc.add(GetAllCategoriesEvent());
     _menuItemBloc.add(GetEnabledMenuItemsEvent());
@@ -54,8 +49,6 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
     final userState = context.read<UserBloc>().state;
     if (userState is UserLoggedIn) {
       _cashierId = userState.user.id;
-      // Fetch active shift from database on init
-      context.read<ShiftBloc>().add(GetActiveShiftEvent(cashierId: _cashierId!));
     }
   }
 
@@ -83,12 +76,11 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
   Widget build(BuildContext context) {
     final userState = context.watch<UserBloc>().state;
     final name = userState is UserLoggedIn ? userState.user.name : 'Unknown';
-    final userId = userState is UserLoggedIn ? userState.user.id : '';
 
     return BlocBuilder<ShiftBloc, ShiftState>(
       builder: (context, shiftState) {
+        final hasActiveShift = shiftState is ShiftOpened;
         final isProcessing = shiftState is ShiftLoading;
-        final isSkipped = shiftState is ShiftSkipped || _cashierShiftLocalService.isShiftSkipped(userId);
 
         return MultiBlocListener(
           listeners: [
@@ -102,16 +94,15 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
             BlocListener<ShiftBloc, ShiftState>(
               listener: (context, state) {
                 if (state is ShiftNone) {
-                  Navigator.of(context).push(
+                  Navigator.of(context).pushAndRemoveUntil(
                     MaterialPageRoute(builder: (context) => const OpenShiftPage()),
+                    (route) => false,
                   );
                 } else if (state is ShiftClosed) {
                   showSnackbar(
                     context,
                     'Shift ditutup. Data berhasil disimpan ke database.',
                   );
-                  // Refresh to show ShiftNone or check again
-                  context.read<ShiftBloc>().add(GetActiveShiftEvent(cashierId: _cashierId!));
                 } else if (state is ShiftFailure) {
                   showSnackbar(context, 'Gagal: ${state.message}');
                 }
@@ -130,8 +121,7 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
                       child: _buildHeader(
                         context,
                         name,
-                        userId,
-                        shiftState is ShiftOpened,
+                        hasActiveShift,
                         isProcessing,
                       ),
                     ),
@@ -194,52 +184,6 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
                         ),
                       ),
                     ),
-
-                    // Warning Banner for Skipped Shift (Integrated as Sliver)
-                    if (isSkipped && !_isWarningBannerDismissed)
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                          child: Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.orange.shade50,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.orange.shade200),
-                            ),
-                            child: Column(
-                              children: [
-                                Row(
-                                  children: [
-                                    const Icon(Icons.info_rounded, color: Colors.orange),
-                                    const SizedBox(width: 8),
-                                    const Expanded(
-                                      child: Text(
-                                        'Anda belum membuka shift hari ini.',
-                                        style: TextStyle(fontWeight: FontWeight.bold),
-                                      ),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.close),
-                                      onPressed: () => setState(() => _isWarningBannerDismissed = true),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    _cashierShiftLocalService.clearShiftSkipped(userId);
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(builder: (context) => const OpenShiftPage()),
-                                    );
-                                  },
-                                  child: const Text('Buka Shift Sekarang'),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
 
                     // Menu Section
                     ValueListenableBuilder<String>(
@@ -403,7 +347,6 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
   Widget _buildHeader(
     BuildContext context,
     String name,
-    String userId,
     bool hasActiveShift,
     bool isProcessing,
   ) {
@@ -456,11 +399,9 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
                             );
 
                             if (result == 'PAYOUT' && mounted) {
-                              // Small delay to ensure bloc listeners in parent (CashierPage) have synced the cart
                               await Future.delayed(const Duration(milliseconds: 100));
                               if (mounted) _showCartSheet(true);
                             } else if (result == 'ADD' && mounted) {
-                              // Ensure any automatic sync from parent is cleared so user starts with fresh cart
                               await Future.delayed(const Duration(milliseconds: 150));
                               if (mounted) context.read<CartBloc>().add(const ClearCartEvent());
                             }
@@ -523,7 +464,7 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
                     controller: _searchController,
                     onChanged: (val) => _searchQueryNotifier.value = val,
                     decoration: InputDecoration(
-                      hintText: 'Cari menu lezat Anda...',
+                      hintText: 'Cari menu...',
                       hintStyle: GoogleFonts.outfit(color: AppPallete.textSecondary),
                       border: InputBorder.none,
                       enabledBorder: InputBorder.none,

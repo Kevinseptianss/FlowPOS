@@ -37,7 +37,6 @@ final class ShiftOpened extends ShiftState {
 
 final class ShiftNone extends ShiftState {}
 
-final class ShiftSkipped extends ShiftState {}
 
 final class ShiftClosed extends ShiftState {
   final ShiftEntity shift;

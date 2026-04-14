@@ -1,5 +1,4 @@
 import 'package:flow_pos/core/common/bloc/user_bloc.dart';
-import 'package:flow_pos/core/services/cashier_shift_local_service.dart';
 import 'package:flow_pos/core/theme/app_pallete.dart';
 import 'package:flow_pos/core/utils/show_logout_dialog.dart';
 import 'package:flow_pos/core/utils/show_snackbar.dart';
@@ -13,7 +12,6 @@ import 'package:flow_pos/features/cashier_dashboard/domain/entities/cart.dart';
 import 'package:flow_pos/features/order/presentation/bloc/order_bloc.dart';
 import 'package:flow_pos/features/shift/presentation/bloc/shift_bloc.dart';
 import 'package:flow_pos/features/shift/presentation/pages/open_shift_page.dart';
-import 'package:flow_pos/init_dependencies.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -27,21 +25,15 @@ class CashierIpadPage extends StatefulWidget {
 }
 
 class _CashierIpadPageState extends State<CashierIpadPage> {
-  late final CashierShiftLocalService _cashierShiftLocalService;
-
   String? _cashierId;
-  bool _isWarningBannerDismissed = false;
 
   @override
   void initState() {
     super.initState();
-    _cashierShiftLocalService = serviceLocator<CashierShiftLocalService>();
 
     final userState = context.read<UserBloc>().state;
     if (userState is UserLoggedIn) {
       _cashierId = userState.user.id;
-      // Fetch active shift from database on init
-      context.read<ShiftBloc>().add(GetActiveShiftEvent(cashierId: _cashierId!));
       // Fetch initial orders to populate occupied tables
       context.read<OrderBloc>().add(GetAllOrdersEvent());
     }
@@ -63,9 +55,6 @@ class _CashierIpadPageState extends State<CashierIpadPage> {
   @override
   Widget build(BuildContext context) {
     final userState = context.watch<UserBloc>().state;
-    final userId = userState is UserLoggedIn ? userState.user.id : '';
-    final isSkipped = _cashierShiftLocalService.isShiftSkipped(userId);
-
     final shiftState = context.watch<ShiftBloc>().state;
     final hasActiveShift = shiftState is ShiftOpened;
 
@@ -143,11 +132,9 @@ class _CashierIpadPageState extends State<CashierIpadPage> {
               },
             )
           else
-            IconButton(
-              onPressed: _logout,
-              icon: const Icon(Icons.logout),
-              color: AppPallete.onPrimary,
-              tooltip: 'Logout',
+            _buildHeaderAction(
+              icon: Icons.logout_rounded,
+              onTap: _logout,
             ),
           const SizedBox(width: 8),
         ],
@@ -164,17 +151,14 @@ class _CashierIpadPageState extends State<CashierIpadPage> {
           BlocListener<ShiftBloc, ShiftState>(
             listener: (context, state) {
               if (state is ShiftNone) {
-                Navigator.of(context).push(
+                Navigator.of(context).pushAndRemoveUntil(
                   MaterialPageRoute(builder: (context) => const OpenShiftPage()),
+                  (route) => false,
                 );
               } else if (state is ShiftClosed) {
                 showSnackbar(
                   context,
                   'Shift ditutup. Data berhasil disimpan ke database.',
-                );
-                // Refresh
-                context.read<ShiftBloc>().add(
-                  GetActiveShiftEvent(cashierId: _cashierId!),
                 );
               } else if (state is ShiftFailure) {
                 showSnackbar(context, 'Gagal: ${state.message}');
@@ -274,7 +258,7 @@ class _CashierIpadPageState extends State<CashierIpadPage> {
                           notes: item.notes,
                         ),
                       )
-                      .toList();
+                          .toList();
                   context.read<CartBloc>().add(ReplaceCartItemsEvent(cartItems));
                 } else if (tableState.selectedTableNumber > 0) {
                   context.read<CartBloc>().add(const ClearCartEvent());
@@ -283,64 +267,35 @@ class _CashierIpadPageState extends State<CashierIpadPage> {
             },
           ),
         ],
-        child: Column(
+        child: Row(
           children: [
-            if (isSkipped && !_isWarningBannerDismissed)
-              Dismissible(
-                key: const Key('ipad_shift_warning_banner'),
-                onDismissed: (_) {
-                  setState(() {
-                    _isWarningBannerDismissed = true;
-                  });
-                },
-                child: Container(
-                  width: double.infinity,
-                  color: AppPallete.warning.withAlpha(50),
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 8,
-                    horizontal: 16,
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.warning_amber_rounded,
-                        color: AppPallete.warning,
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          'Shift belum dibuka. Tombol pembayaran akan dinonaktifkan sampai shift dibuka.',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: Colors.brown,
-                          ),
-                        ),
-                      ),
-                      ElevatedButton(
-                        onPressed: () {
-                          _cashierShiftLocalService.clearShiftSkipped(userId);
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => const OpenShiftPage(),
-                            ),
-                          );
-                        },
-                        child: const Text('Buka Shift Sekarang'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            Expanded(
-              child: Row(
-                children: [
-                  Expanded(flex: 1, child: TableSection()),
-                  Expanded(flex: 2, child: ListMenuSection()),
-                  Expanded(flex: 1, child: ListOrderSection()),
-                ],
-              ),
-            ),
+            Expanded(flex: 1, child: TableSection()),
+            Expanded(flex: 2, child: ListMenuSection()),
+            Expanded(flex: 1, child: ListOrderSection()),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeaderAction({
+    IconData? icon,
+    required VoidCallback onTap,
+    Color? color,
+    Widget? child,
+  }) {
+    return Material(
+      color: color ?? Colors.white.withAlpha(40),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          child: child ??
+              (icon != null
+                  ? Icon(icon, color: Colors.white, size: 24)
+                  : const SizedBox.shrink()),
         ),
       ),
     );

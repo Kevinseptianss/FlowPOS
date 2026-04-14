@@ -18,7 +18,6 @@ class ShiftBloc extends Bloc<ShiftEvent, ShiftState> {
   }) : super(ShiftInitial()) {
     on<GetShiftHistoryEvent>(_onGetShiftHistory);
     on<OpenShiftEvent>(_onOpenShift);
-    on<SkipShiftEvent>(_onSkipShift);
     on<CloseShiftEvent>(_onCloseShift);
     on<GetActiveShiftEvent>(_onGetActiveShift);
   }
@@ -39,6 +38,7 @@ class ShiftBloc extends Bloc<ShiftEvent, ShiftState> {
       (shift) {
         if (shift != null) {
           // Sync with local Hive
+          shiftLocalService.setShiftSkipped(event.cashierId, false);
           shiftLocalService.openShift(
             shiftId: shift.id,
             cashierId: event.cashierId,
@@ -115,7 +115,14 @@ class ShiftBloc extends Bloc<ShiftEvent, ShiftState> {
       );
 
       res.fold(
-        (failure) => emit(ShiftFailure(failure.message)),
+        (failure) {
+          if (failure.message.contains('Anda masih memiliki shift yang belum ditutup')) {
+            // Pre-emptively fetch the active shift instead of showing error
+            add(GetActiveShiftEvent(cashierId: event.cashierId));
+          } else {
+            emit(ShiftFailure(failure.message));
+          }
+        },
         (shift) {
           // Sync with local Hive
           shiftLocalService.setShiftSkipped(event.cashierId, false);
@@ -134,15 +141,4 @@ class ShiftBloc extends Bloc<ShiftEvent, ShiftState> {
     }
   }
 
-  Future<void> _onSkipShift(
-    SkipShiftEvent event,
-    Emitter<ShiftState> emit,
-  ) async {
-    try {
-      await shiftLocalService.setShiftSkipped(event.cashierId, true);
-      emit(ShiftSkipped());
-    } catch (e) {
-      emit(ShiftFailure(e.toString()));
-    }
-  }
 }

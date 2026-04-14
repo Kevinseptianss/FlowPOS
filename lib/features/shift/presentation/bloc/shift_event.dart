@@ -24,14 +24,6 @@ class OpenShiftEvent extends ShiftEvent {
   List<Object> get props => [cashierId, cashierName, openingBalance];
 }
 
-class SkipShiftEvent extends ShiftEvent {
-  final String cashierId;
-
-  const SkipShiftEvent({required this.cashierId});
-
-  @override
-  List<Object> get props => [cashierId];
-}
 
 class CloseShiftEvent extends ShiftEvent {
   final String cashierId;

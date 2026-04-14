@@ -1,5 +1,4 @@
 import 'package:flow_pos/core/common/bloc/user_bloc.dart';
-import 'package:flow_pos/core/services/cashier_shift_local_service.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/pages/cashier_ipad_page.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/pages/cashier_history_page.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/pages/cashier_mobile_page.dart';
@@ -10,11 +9,12 @@ import 'package:flow_pos/features/store_settings/presentation/bloc/store_setting
 import 'package:flow_pos/features/cashier_dashboard/presentation/bloc/table_bloc.dart';
 import 'package:flow_pos/features/cashier_dashboard/presentation/bloc/cart_bloc.dart';
 import 'package:flow_pos/features/order/presentation/bloc/order_bloc.dart';
+import 'package:flow_pos/features/shift/presentation/bloc/shift_bloc.dart';
 import 'package:flow_pos/core/theme/app_pallete.dart';
 import 'package:flow_pos/core/utils/show_snackbar.dart';
-import 'package:flow_pos/init_dependencies.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class CashierPage extends StatefulWidget {
   const CashierPage({super.key});
@@ -25,20 +25,24 @@ class CashierPage extends StatefulWidget {
 
 class _CashierPageState extends State<CashierPage> {
   late final StoreSettingsBloc _storeSettingsBloc;
-  late final CashierShiftLocalService _shiftLocalService;
   int _selectedTabIndex = 0;
+  
+  // Track if we have already determined that a shift is active.
+  // This prevents the "blinking" loading screen during background refreshes.
+  bool _isShiftActive = false;
+  bool _hasCheckedShift = false;
 
   @override
   void initState() {
     super.initState();
     _storeSettingsBloc = context.read<StoreSettingsBloc>();
     _storeSettingsBloc.add(GetStoreSettingsEvent());
-    _shiftLocalService = serviceLocator<CashierShiftLocalService>();
     
     // Initial data fetch
     final userState = context.read<UserBloc>().state;
     if (userState is UserLoggedIn) {
       context.read<OrderBloc>().add(GetAllOrdersEvent());
+      context.read<ShiftBloc>().add(GetActiveShiftEvent(cashierId: userState.user.id));
     }
 
     // Ensure cart is empty on start
@@ -47,25 +51,93 @@ class _CashierPageState extends State<CashierPage> {
 
   @override
   Widget build(BuildContext context) {
-    final userState = context.watch<UserBloc>().state;
-    if (userState is! UserLoggedIn) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
+    return BlocBuilder<ShiftBloc, ShiftState>(
+      builder: (context, state) {
+        // Update our persistence flags based on the state
+        if (state is ShiftOpened) {
+          _isShiftActive = true;
+          _hasCheckedShift = true;
+        } else if (state is ShiftNone || state is ShiftClosed) {
+          _isShiftActive = false;
+          _hasCheckedShift = true;
+        } else if (state is ShiftFailure) {
+          // If we fail, but we were already in the dashboard, don't kick the user out immediately
+          // unless it's a critical error. For now, we assume it's a network glitch.
+          _hasCheckedShift = true;
+        }
 
-    final userId = userState.user.id;
+        // 1. Initial Loading (First time checking shift)
+        if (!_hasCheckedShift && (state is ShiftInitial || state is ShiftLoading)) {
+          return _buildLoadingScreen();
+        }
 
-    return ValueListenableBuilder(
-      valueListenable: _shiftLocalService.listenable(),
-      builder: (context, box, child) {
-        final hasActiveShift = _shiftLocalService.hasActiveShift(userId);
-        final isSkipped = _shiftLocalService.isShiftSkipped(userId);
+        // 2. Active Dashboard
+        if (_isShiftActive) {
+          return _buildMainDashboard(context);
+        }
 
-        if (!hasActiveShift && !isSkipped) {
+        // 3. Mandatory Open Shift
+        if (_hasCheckedShift && !(_isShiftActive)) {
           return const OpenShiftPage();
         }
 
-        return _buildMainDashboard(context);
+        // Fallback to loading if something is uncertain
+        return _buildLoadingScreen();
       },
+    );
+  }
+
+  Widget _buildLoadingScreen() {
+    return Scaffold(
+      body: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              AppPallete.primary.withAlpha(20),
+              Colors.white,
+            ],
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 120,
+              height: 120,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppPallete.primary.withAlpha(30),
+                    blurRadius: 40,
+                    offset: const Offset(0, 20),
+                  ),
+                ],
+              ),
+              child: Image.asset(
+                'assets/images/logo.png',
+                errorBuilder: (context, error, stackTrace) => const Icon(
+                  Icons.restaurant_menu_rounded,
+                  size: 48,
+                  color: AppPallete.primary,
+                ),
+              ),
+            ),
+            const SizedBox(height: 48),
+            const CircularProgressIndicator(
+              strokeWidth: 3,
+              valueColor: AlwaysStoppedAnimation<Color>(AppPallete.primary),
+            ),
+            const SizedBox(height: 32),
+            const _PulsingText(text: 'Memeriksa status shift...'),
+          ],
+        ),
+      ),
     );
   }
 
@@ -153,10 +225,6 @@ class _CashierPageState extends State<CashierPage> {
                 final currentStoredName = names[o.tableNumber];
                 final candidateName = o.customerName?.trim();
                 
-                // Logic: 
-                // 1. If we don't have a name yet, take it (or Guest if empty)
-                // 2. If we have 'Guest' but find a real name now, upgrade to the real name
-                // 3. If we already have a real name, don't let it be downgraded to 'Guest'
                 if (currentStoredName == null || currentStoredName == 'Guest') {
                   if (candidateName != null && candidateName.isNotEmpty) {
                     names[o.tableNumber] = candidateName;
@@ -174,7 +242,7 @@ class _CashierPageState extends State<CashierPage> {
               );
             } else if (state is OrderCreated) {
               context.read<OrderBloc>().add(GetAllOrdersEvent());
-              context.read<CartBloc>().add(ClearCartEvent());
+              context.read<CartBloc>().add(const ClearCartEvent());
             } else if (state is OrderFailure) {
               showSnackbar(context, state.message);
             }
@@ -243,6 +311,53 @@ class _CashierPageState extends State<CashierPage> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PulsingText extends StatefulWidget {
+  final String text;
+  const _PulsingText({required this.text});
+
+  @override
+  State<_PulsingText> createState() => _PulsingTextState();
+}
+
+class _PulsingTextState extends State<_PulsingText> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: true);
+    _animation = Tween<double>(begin: 0.3, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _animation,
+      child: Text(
+        widget.text,
+        style: GoogleFonts.outfit(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: AppPallete.textSecondary,
+          letterSpacing: 0.5,
         ),
       ),
     );
