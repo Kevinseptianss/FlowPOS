@@ -20,6 +20,9 @@ abstract interface class OrderRemoteDataSource {
     required String method,
     required int amountPaid,
     required List<OrderItem> items,
+    String? shiftId,
+    String status = 'PAID',
+    String? customerName,
   });
 
   Future<MonthlyRevenue> getMonthlyRevenue({required DateTime month});
@@ -30,6 +33,19 @@ abstract interface class OrderRemoteDataSource {
   });
 
   Future<List<OrderModel>> getAllOrders();
+  Future<OrderModel> getOrderById(String orderId);
+  Future<void> softDeleteOrderItem({
+    required String orderItemId,
+    required String deletedById,
+  });
+  Future<void> settleOrder({
+    required String orderId,
+    required String method,
+    required int amountPaid,
+    required int amountDue,
+    required int changeGiven,
+  });
+  Future<void> voidOrder(String orderId);
 }
 
 class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
@@ -66,7 +82,8 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
           .from('orders')
           .select('id')
           .gte('created_at', start.toIso8601String())
-          .lte('created_at', end.toIso8601String());
+          .lte('created_at', end.toIso8601String())
+          .neq('status', 'VOIDED');
 
       if (orderRows.isEmpty) {
         return const MonthlyRevenue.empty();
@@ -121,6 +138,9 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
     required String method,
     required int amountPaid,
     required List<OrderItem> items,
+    String? shiftId,
+    String status = 'PAID',
+    String? customerName,
   }) async {
     try {
       final orderItemPayload = items
@@ -130,6 +150,7 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
               'menu_item_id': item.menuItemId,
               'quantity': item.quantity,
               'unit_price': item.unitPrice,
+              'variant_id': item.variantId,
               'notes': item.notes,
               'modifier_snapshot': item.modifierSnapshot,
             },
@@ -155,29 +176,50 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
           'p_amount_due': amountDue,
           'p_change_given': changeGiven,
           'p_items': orderItemPayload,
+          'p_shift_id': shiftId,
+          'p_status': status,
+          'p_customer_name': customerName,
         },
       );
 
+      // NEW: Clear previous UNPAID orders for this table if this is a PAID order
+      // This ensures the table becomes unoccupied after payout.
+      if (status == 'PAID' && tableNumber > 0) {
+        await supabaseClient
+            .from('orders')
+            .update({'status': 'SETTLED'})
+            .eq('table_number', tableNumber)
+            .eq('status', 'UNPAID');
+      }
+
       final resultMap = (result as Map<String, dynamic>);
       final orderId = resultMap['order_id'] as String;
-      final paymentId = resultMap['payment_id'] as String;
+      final paymentId = resultMap['payment_id'] as String?;
       final createdAtRaw = resultMap['created_at'] as String;
 
       return OrderModel(
         id: orderId,
         orderNumber: orderNumber,
         tableNumber: tableNumber,
+        subtotal: subtotal,
+        tax: tax.toInt(),
+        serviceCharge: serviceCharge.toInt(),
         total: total,
         createdAt: DateTime.parse(createdAtRaw),
-        payment: PaymentEntity(
-          id: paymentId,
-          orderId: orderId,
-          method: method,
-          amountPaid: safeAmountPaid,
-          amountDue: amountDue,
-          changeGiven: changeGiven,
-        ),
+        payment: paymentId != null
+            ? PaymentEntity(
+                id: paymentId,
+                orderId: orderId,
+                method: method,
+                amountPaid: safeAmountPaid,
+                amountDue: amountDue,
+                changeGiven: changeGiven,
+              )
+            : null,
         items: items,
+        shiftId: shiftId,
+        status: status,
+        customerName: customerName,
       );
     } catch (e) {
       throw ServerException(e.toString());
@@ -192,7 +234,8 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
       final orderRows = await supabaseClient
           .from('orders')
           .select('id, order_number')
-          .like('order_number', 'ORD-$yearMonth%');
+          .like('order_number', 'ORD-$yearMonth%')
+          .neq('status', 'VOIDED');
 
       if (orderRows.isEmpty) {
         return const MonthlyRevenue.empty();
@@ -244,8 +287,14 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
             id,
             order_number,
             table_number,
+            subtotal,
+            tax,
+            service_charge,
             total,
+            status,
+            customer_name,
             created_at,
+            shift_id,
             payments (
               id,
               order_id,
@@ -263,8 +312,12 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
               ),
               quantity,
               unit_price,
+              variant_id,
               notes,
-              modifier_snapshot
+              modifier_snapshot,
+              is_deleted,
+              deleted_at,
+              deleted_by_id
             )
           ''')
           .order('created_at', ascending: false);
@@ -280,14 +333,7 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
                 amountDue: (paymentData[0]['amount_due'] as num).toInt(),
                 changeGiven: (paymentData[0]['change_given'] as num).toInt(),
               )
-            : const PaymentEntity(
-                id: '',
-                orderId: '',
-                method: '',
-                amountPaid: 0,
-                amountDue: 0,
-                changeGiven: 0,
-              );
+            : null;
 
         final orderItemsData = row['order_items'] as List<dynamic>? ?? [];
         final items = orderItemsData.map((item) {
@@ -306,23 +352,196 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
           return OrderItem(
             menuItemId: item['menu_item_id'] as String,
             menuName: menuName,
-            quantity: item['quantity'] as int,
+            quantity: (item['quantity'] as num).toInt(),
             unitPrice: (item['unit_price'] as num).toInt(),
+            variantId: item['variant_id'] as String?,
             notes: item['notes'] as String?,
             modifierSnapshot: item['modifier_snapshot'] as String?,
+            id: item['id'] as String?,
+            isDeleted: item['is_deleted'] as bool? ?? false,
+            deletedAt: item['deleted_at'] != null
+                ? DateTime.parse(item['deleted_at'] as String)
+                : null,
+            deletedById: item['deleted_by_id'] as String?,
           );
         }).toList();
 
         return OrderModel(
           id: row['id'] as String,
           orderNumber: row['order_number'] as String,
-          tableNumber: row['table_number'] as int,
+          tableNumber: (row['table_number'] as num).toInt(),
+          subtotal: (row['subtotal'] as num?)?.toInt() ?? 0,
+          tax: (row['tax'] as num?)?.toInt() ?? 0,
+          serviceCharge: (row['service_charge'] as num?)?.toInt() ?? 0,
           total: (row['total'] as num).toInt(),
           createdAt: DateTime.parse(row['created_at'] as String),
           payment: payment,
           items: items,
+          status: row['status'] as String? ?? 'PAID',
+          customerName: row['customer_name'] as String?,
+          shiftId: row['shift_id'] as String?,
         );
       }).toList();
+    } catch (e) {
+      throw ServerException(e.toString());
+    }
+  }
+
+  @override
+  Future<OrderModel> getOrderById(String orderId) async {
+    try {
+      final row = await supabaseClient
+          .from('orders')
+          .select('''
+            id,
+            order_number,
+            table_number,
+            subtotal,
+            tax,
+            service_charge,
+            total,
+            status,
+            created_at,
+            shift_id,
+            customer_name,
+            payments (
+              id,
+              order_id,
+              method,
+              amount_paid,
+              amount_due,
+              change_given
+            ),
+            order_items (
+              id,
+              order_id,
+              menu_item_id,
+              menu_items (
+                name
+              ),
+              quantity,
+              unit_price,
+              variant_id,
+              notes,
+              modifier_snapshot,
+              is_deleted,
+              deleted_at,
+              deleted_by_id
+            )
+          ''')
+          .eq('id', orderId)
+          .single();
+
+      final paymentData = row['payments'] as List<dynamic>? ?? [];
+      final payment = paymentData.isNotEmpty
+          ? PaymentEntity(
+              id: paymentData[0]['id'] as String,
+              orderId: paymentData[0]['order_id'] as String,
+              method: paymentData[0]['method'] as String,
+              amountPaid: (paymentData[0]['amount_paid'] as num).toInt(),
+              amountDue: (paymentData[0]['amount_due'] as num).toInt(),
+              changeGiven: (paymentData[0]['change_given'] as num).toInt(),
+            )
+          : null;
+
+      final orderItemsData = row['order_items'] as List<dynamic>? ?? [];
+      final items = orderItemsData.map((item) {
+        final menuData = item['menu_items'];
+        var menuName = 'Unknown Menu';
+        if (menuData is Map<String, dynamic>) {
+          menuName = menuData['name'] as String? ?? menuName;
+        }
+        return OrderItem(
+          menuItemId: item['menu_item_id'] as String,
+          menuName: menuName,
+          quantity: (item['quantity'] as num).toInt(),
+          unitPrice: (item['unit_price'] as num).toInt(),
+          variantId: item['variant_id'] as String?,
+          notes: item['notes'] as String?,
+          modifierSnapshot: item['modifier_snapshot'] as String?,
+          id: item['id'] as String?,
+          isDeleted: item['is_deleted'] as bool? ?? false,
+          deletedAt: item['deleted_at'] != null
+              ? DateTime.parse(item['deleted_at'] as String)
+              : null,
+          deletedById: item['deleted_by_id'] as String?,
+        );
+      }).toList();
+
+      return OrderModel(
+        id: row['id'] as String,
+        orderNumber: row['order_number'] as String,
+        tableNumber: (row['table_number'] as num).toInt(),
+        subtotal: (row['subtotal'] as num?)?.toInt() ?? 0,
+        tax: (row['tax'] as num?)?.toInt() ?? 0,
+        serviceCharge: (row['service_charge'] as num?)?.toInt() ?? 0,
+        total: (row['total'] as num).toInt(),
+        createdAt: DateTime.parse(row['created_at'] as String),
+        payment: payment,
+        items: items,
+        status: row['status'] as String? ?? 'PAID',
+        customerName: row['customer_name'] as String?,
+        shiftId: row['shift_id'] as String?,
+      );
+    } catch (e) {
+      throw ServerException(e.toString());
+    }
+  }
+
+  @override
+  Future<void> softDeleteOrderItem({
+    required String orderItemId,
+    required String deletedById,
+  }) async {
+    try {
+      await supabaseClient
+          .from('order_items')
+          .update({
+            'is_deleted': true,
+            'deleted_at': DateTime.now().toIso8601String(),
+            'deleted_by_id': deletedById,
+          })
+          .eq('id', orderItemId);
+    } catch (e) {
+      throw ServerException(e.toString());
+    }
+  }
+
+  @override
+  Future<void> settleOrder({
+    required String orderId,
+    required String method,
+    required int amountPaid,
+    required int amountDue,
+    required int changeGiven,
+  }) async {
+    try {
+      await supabaseClient.from('payments').insert({
+        'id': _uuid.v4(),
+        'order_id': orderId,
+        'method': method,
+        'amount_paid': amountPaid,
+        'amount_due': amountDue,
+        'change_given': changeGiven,
+        'created_at': DateTime.now().toIso8601String(),
+      });
+
+      await supabaseClient
+          .from('orders')
+          .update({'status': 'PAID'})
+          .eq('id', orderId);
+    } catch (e) {
+      throw ServerException(e.toString());
+    }
+  }
+
+  @override
+  Future<void> voidOrder(String orderId) async {
+    try {
+      await supabaseClient
+          .from('orders')
+          .update({'status': 'VOIDED'})
+          .eq('id', orderId);
     } catch (e) {
       throw ServerException(e.toString());
     }

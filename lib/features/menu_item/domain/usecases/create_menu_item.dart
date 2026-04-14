@@ -28,8 +28,10 @@ class CreateMenuItem implements UseCase<MenuItem, CreateMenuItemParams> {
     return await menuItemRepository.createMenuItem(
       name: trimmedName,
       price: params.price,
+      basePrice: params.basePrice,
       categoryId: params.categoryId,
       unit: params.unit,
+      enabled: params.enabled,
       options: params.options,
     );
   }
@@ -38,15 +40,19 @@ class CreateMenuItem implements UseCase<MenuItem, CreateMenuItemParams> {
 class CreateMenuItemParams {
   final String name;
   final int price;
+  final int basePrice;
   final String categoryId;
   final String unit;
+  final bool enabled;
   final List<Map<String, dynamic>> options;
 
   const CreateMenuItemParams({
     required this.name,
     required this.price,
+    this.basePrice = 0,
     required this.categoryId,
     this.unit = 'pcs',
+    this.enabled = true,
     this.options = const [],
   });
 }

@@ -56,7 +56,7 @@ class OrderSection extends StatelessWidget {
                       final order = orders[index];
                       return OrderCard(
                         orderId: order.orderNumber,
-                        paymentType: order.payment.method,
+                        paymentType: order.payment?.method ?? (order.status == 'UNPAID' ? 'TAGIHAN MEJA' : 'LUNAS'),
                         datetime: DatetimeFormatter.formatDateTime(
                           order.createdAt,
                         ),

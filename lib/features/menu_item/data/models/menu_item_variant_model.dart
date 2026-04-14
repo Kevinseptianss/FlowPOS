@@ -7,6 +7,7 @@ class MenuItemVariantModel extends MenuItemVariant {
     required super.optionName,
     required super.variantName,
     required super.price,
+    super.basePrice = 0,
     required super.unit,
   });
 
@@ -17,6 +18,7 @@ class MenuItemVariantModel extends MenuItemVariant {
       optionName: map['option_name'] ?? '',
       variantName: map['variant_name'] ?? '',
       price: map['price'] ?? 0,
+      basePrice: map['base_price'] ?? 0,
       unit: map['unit'] ?? 'pcs',
     );
   }
@@ -28,6 +30,7 @@ class MenuItemVariantModel extends MenuItemVariant {
       'option_name': optionName,
       'variant_name': variantName,
       'price': price,
+      'base_price': basePrice,
       'unit': unit,
     };
   }

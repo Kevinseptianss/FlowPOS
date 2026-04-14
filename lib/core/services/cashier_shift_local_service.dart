@@ -1,13 +1,13 @@
-import 'package:hive/hive.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:uuid/uuid.dart';
+
 
 class CashierShiftLocalService {
   static const Duration _wibOffset = Duration(hours: 7);
 
   final Box<dynamic> _box;
   final SupabaseClient _supabaseClient;
-  final Uuid _uuid = const Uuid();
+
 
   CashierShiftLocalService(this._box, this._supabaseClient);
 
@@ -27,9 +27,25 @@ class CashierShiftLocalService {
     return getActiveShift(cashierId) != null;
   }
 
+  String _skipShiftKey(String cashierId) => 'skipped_shift_$cashierId';
+
+  Future<void> setShiftSkipped(String cashierId, bool skipped) async {
+    await _box.put(_skipShiftKey(cashierId), skipped);
+  }
+
+  bool isShiftSkipped(String cashierId) {
+    return _box.get(_skipShiftKey(cashierId), defaultValue: false) as bool;
+  }
+
+  Future<void> clearShiftSkipped(String cashierId) async {
+    await _box.delete(_skipShiftKey(cashierId));
+  }
+
   Stream<BoxEvent> watchActiveShift(String cashierId) {
     return _box.watch(key: _activeShiftKey(cashierId));
   }
+
+  dynamic listenable() => _box.listenable();
 
   DateTime _utcNow() => DateTime.now().toUtc();
 
@@ -45,23 +61,10 @@ class CashierShiftLocalService {
         '${threeDigits(wibDateTime.millisecond)}+07:00';
   }
 
-  DateTime? _parseOpenedAtUtc(Map<String, dynamic> activeShift) {
-    final openedAtUtcRaw = activeShift['openedAtUtc'] as String?;
-    final openedAtUtc = DateTime.tryParse(openedAtUtcRaw ?? '')?.toUtc();
-    if (openedAtUtc != null) {
-      return openedAtUtc;
-    }
 
-    final legacyOpenedAtRaw = activeShift['openedAt'] as String?;
-    final legacyOpenedAt = DateTime.tryParse(legacyOpenedAtRaw ?? '');
-    if (legacyOpenedAt == null) {
-      return null;
-    }
-
-    return legacyOpenedAt.toUtc();
-  }
 
   Future<void> openShift({
+    required String shiftId,
     required String cashierId,
     required String cashierName,
     required double openingBalance,
@@ -69,6 +72,7 @@ class CashierShiftLocalService {
     final openedAtUtc = _utcNow();
 
     await _box.put(_activeShiftKey(cashierId), {
+      'shiftId': shiftId,
       'cashierId': cashierId,
       'cashierName': cashierName,
       'openingBalance': openingBalance,
@@ -78,20 +82,16 @@ class CashierShiftLocalService {
     });
   }
 
-  Future<Map<String, dynamic>?> closeShift({required String cashierId}) async {
-    final activeShift = getActiveShift(cashierId);
+  String? getActiveShiftId(String cashierId) {
+    final shift = getActiveShift(cashierId);
+    return shift?['shiftId'] as String?;
+  }
 
-    if (activeShift == null) {
-      return null;
-    }
-
-    final openedAtUtc = _parseOpenedAtUtc(activeShift);
-    final closedAtUtc = _utcNow();
-
-    if (openedAtUtc == null) {
-      throw Exception('Invalid shift open time. Please reopen shift.');
-    }
-
+  Future<Map<String, int>> calculateShiftTotals({
+    required String cashierId,
+    required DateTime openedAtUtc,
+    required DateTime closedAtUtc,
+  }) async {
     final orderRows = await _supabaseClient
         .from('orders')
         .select('''
@@ -105,24 +105,12 @@ class CashierShiftLocalService {
         .gte('created_at', openedAtUtc.toIso8601String())
         .lte('created_at', closedAtUtc.toIso8601String());
 
-    // =======================================================
-    // 🔍 DEBUGGING POINT: Cek hasil query di Terminal/Console
-    // =======================================================
-    print('--- DEBUG CLOSE SHIFT ---');
-    print('Opened At (UTC): ${openedAtUtc.toIso8601String()}');
-    print('Closed At (UTC): ${closedAtUtc.toIso8601String()}');
-    print('Jumlah Order Ditemukan: ${orderRows.length}');
-    print('Data Order: $orderRows');
-    print('-------------------------');
-
     var totalCashSales = 0;
     var totalQrisSales = 0;
 
     for (final row in orderRows) {
       final paymentRows = row['payments'] as List<dynamic>? ?? [];
-      if (paymentRows.isEmpty) {
-        continue;
-      }
+      if (paymentRows.isEmpty) continue;
 
       final payment = paymentRows.first as Map<String, dynamic>;
       final method = (payment['method'] as String? ?? '').trim().toUpperCase();
@@ -135,42 +123,13 @@ class CashierShiftLocalService {
       }
     }
 
-    const totalCashIn = 0;
-    const totalCashOut = 0;
-    final openingBalance =
-        (activeShift['openingBalance'] as num?)?.toInt() ?? 0;
-    final closingBalance =
-        openingBalance + totalCashSales + totalCashIn - totalCashOut;
-
-    await _supabaseClient.from('shifts').insert({
-      'id': _uuid.v4(),
-      'cashier_id': cashierId,
-      'opened_at': openedAtUtc.toIso8601String(),
-      'closed_at': closedAtUtc.toIso8601String(),
-      'opening_balance': openingBalance,
-      'closing_balance': closingBalance,
-      'total_cash_sales': totalCashSales,
-      'total_qris_sales': totalQrisSales,
-      'total_cash_in': totalCashIn,
-      'total_cash_out': totalCashOut,
-    });
-
-    final closedShift = <String, dynamic>{
-      ...activeShift,
-      'openedAtUtc': openedAtUtc.toIso8601String(),
-      'openedAt': _toWibIso8601(openedAtUtc),
-      'closedAtUtc': closedAtUtc.toIso8601String(),
-      'closedAt': _toWibIso8601(closedAtUtc),
-      'syncStatus': 'uploaded',
+    return {
       'totalCashSales': totalCashSales,
       'totalQrisSales': totalQrisSales,
-      'totalCashIn': totalCashIn,
-      'totalCashOut': totalCashOut,
-      'closingBalance': closingBalance,
     };
+  }
 
+  Future<void> clearActiveShift(String cashierId) async {
     await _box.delete(_activeShiftKey(cashierId));
-
-    return closedShift;
   }
 }

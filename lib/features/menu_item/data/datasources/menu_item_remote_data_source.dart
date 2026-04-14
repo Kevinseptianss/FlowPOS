@@ -9,8 +9,10 @@ abstract interface class MenuItemRemoteDataSource {
   Future<MenuItemModel> createMenuItem({
     required String name,
     required int price,
+    required int basePrice,
     required String categoryId,
     required String unit,
+    required bool enabled,
     required List<Map<String, dynamic>> options,
   });
   Future<MenuItemModel> updateMenuItemAvailability({
@@ -21,8 +23,10 @@ abstract interface class MenuItemRemoteDataSource {
     required String id,
     required String name,
     required int price,
+    required int basePrice,
     required String categoryId,
     required String unit,
+    required bool enabled,
     required List<Map<String, dynamic>> options,
   });
 }
@@ -70,8 +74,10 @@ class MenuItemRemoteDataSourceImpl implements MenuItemRemoteDataSource {
   Future<MenuItemModel> createMenuItem({
     required String name,
     required int price,
+    required int basePrice,
     required String categoryId,
     required String unit,
+    required bool enabled,
     required List<Map<String, dynamic>> options,
   }) async {
     try {
@@ -81,9 +87,10 @@ class MenuItemRemoteDataSourceImpl implements MenuItemRemoteDataSource {
         'id': menuItemId,
         'name': name,
         'price': price,
+        'base_price': basePrice,
         'category_id': categoryId,
         'unit': unit,
-        'is_available': true,
+        'is_available': enabled,
       });
 
       if (options.isNotEmpty) {
@@ -99,7 +106,8 @@ class MenuItemRemoteDataSourceImpl implements MenuItemRemoteDataSource {
               'menu_item_id': menuItemId,
               'option_name': optionName,
               'variant_name': variant['name'] as String,
-              'price': variant['price'] as int,
+              'price': (variant['price'] as num).toInt(),
+              'base_price': (variant['base_price'] as num?)?.toInt() ?? 0,
               'unit': variant['unit'] as String,
             });
           }
@@ -146,8 +154,10 @@ class MenuItemRemoteDataSourceImpl implements MenuItemRemoteDataSource {
     required String id,
     required String name,
     required int price,
+    required int basePrice,
     required String categoryId,
     required String unit,
+    required bool enabled,
     required List<Map<String, dynamic>> options,
   }) async {
     try {
@@ -155,8 +165,10 @@ class MenuItemRemoteDataSourceImpl implements MenuItemRemoteDataSource {
       await supabaseClient.from('menu_items').update({
         'name': name,
         'price': price,
+        'base_price': basePrice,
         'category_id': categoryId,
         'unit': unit,
+        'is_available': enabled,
       }).eq('id', id);
 
       // 2. Delete existing variants
@@ -178,7 +190,8 @@ class MenuItemRemoteDataSourceImpl implements MenuItemRemoteDataSource {
               'menu_item_id': id,
               'option_name': optionName,
               'variant_name': variant['name'] as String,
-              'price': variant['price'] as int,
+              'price': (variant['price'] as num).toInt(),
+              'base_price': (variant['base_price'] as num?)?.toInt() ?? 0,
               'unit': variant['unit'] as String,
             });
           }

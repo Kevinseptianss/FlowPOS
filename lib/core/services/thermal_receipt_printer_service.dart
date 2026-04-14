@@ -79,13 +79,16 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
     if (!hasPermission) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Izin Bluetooth diperlukan untuk mencari printer.')),
+          const SnackBar(
+            content: Text('Izin Bluetooth diperlukan untuk mencari printer.'),
+          ),
         );
       }
       return null;
     }
 
-    final List<BluetoothDevice> pairedDevices = await _bluetooth.getBondedDevices();
+    final List<BluetoothDevice> pairedDevices = await _bluetooth
+        .getBondedDevices();
     final devices = pairedDevices
         .map(
           (d) => PrinterDevice(
@@ -201,15 +204,39 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
     final generator = Generator(PaperSize.mm58, profile);
     List<int> bytes = [];
 
-    bytes += generator.setStyles(const PosStyles(bold: true, align: PosAlign.center, height: PosTextSize.size2));
-    bytes += generator.text(storeSettings.storeName, styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.setStyles(
+      const PosStyles(
+        bold: true,
+        align: PosAlign.center,
+        height: PosTextSize.size2,
+      ),
+    );
+    bytes += generator.text(
+      storeSettings.storeName,
+      styles: const PosStyles(align: PosAlign.center),
+    );
     bytes += generator.setStyles(const PosStyles(align: PosAlign.center));
-    bytes += generator.text(storeSettings.storeAddress, styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text(
+      storeSettings.storeAddress,
+      styles: const PosStyles(align: PosAlign.center),
+    );
     bytes += generator.feed(1);
-    bytes += generator.text('--------------------------------', styles: const PosStyles(align: PosAlign.center));
-    bytes += generator.text('TEST PRINT', styles: const PosStyles(align: PosAlign.center));
-    bytes += generator.text('Printer siap digunakan!', styles: const PosStyles(align: PosAlign.center));
-    bytes += generator.text('--------------------------------', styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text(
+      '--------------------------------',
+      styles: const PosStyles(align: PosAlign.center),
+    );
+    bytes += generator.text(
+      'TEST PRINT',
+      styles: const PosStyles(align: PosAlign.center),
+    );
+    bytes += generator.text(
+      'Printer siap digunakan!',
+      styles: const PosStyles(align: PosAlign.center),
+    );
+    bytes += generator.text(
+      '--------------------------------',
+      styles: const PosStyles(align: PosAlign.center),
+    );
     bytes += generator.text('Kasir: $cashierName');
     bytes += generator.text('Waktu: $now');
     bytes += generator.feed(2);
@@ -234,58 +261,123 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
       (sum, item) => sum + (item.quantity * item.unitPrice),
     );
     final taxAmount = ((subtotal * storeSettings.taxPercentage) / 100).round();
-    final serviceAmount = ((subtotal * storeSettings.serviceChargePercentage) / 100).round();
+    final serviceAmount =
+        ((subtotal * storeSettings.serviceChargePercentage) / 100).round();
 
-    bytes += generator.text(storeSettings.storeName, styles: const PosStyles(align: PosAlign.center, bold: true));
-    bytes += generator.text(storeSettings.storeAddress, styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text(
+      storeSettings.storeName,
+      styles: const PosStyles(align: PosAlign.center, bold: true),
+    );
+    bytes += generator.text(
+      storeSettings.storeAddress,
+      styles: const PosStyles(align: PosAlign.center),
+    );
     bytes += generator.text('--------------------------------');
     bytes += generator.text('No: ${order.orderNumber}');
     bytes += generator.text('Meja: ${order.tableNumber}');
+    if (order.customerName != null && order.customerName!.isNotEmpty) {
+      bytes += generator.text('Nama: ${order.customerName}');
+    }
     bytes += generator.text('Kasir: $cashierName');
-    bytes += generator.text('Waktu: ${DateFormat('dd MMM yyyy, HH:mm').format(order.createdAt)}');
+    bytes += generator.text(
+      'Waktu: ${DateFormat('dd MMM yyyy, HH:mm').format(order.createdAt)}',
+    );
     bytes += generator.text('--------------------------------');
 
     for (final item in order.items) {
-      bytes += generator.text(item.menuName, styles: const PosStyles(bold: true));
+      bytes += generator.text(
+        item.menuName,
+        styles: const PosStyles(bold: true),
+      );
       if (item.modifierSnapshot != null && item.modifierSnapshot!.isNotEmpty) {
-        bytes += generator.text(' - ${item.modifierSnapshot}', styles: const PosStyles(fontType: PosFontType.fontB));
+        bytes += generator.text(
+          ' - ${item.modifierSnapshot}',
+          styles: const PosStyles(fontType: PosFontType.fontB),
+        );
       }
       bytes += generator.row([
-        PosColumn(text: '${item.quantity} x ${formatRupiah(item.unitPrice)}', width: 6),
-        PosColumn(text: formatRupiah(item.quantity * item.unitPrice), width: 6, styles: const PosStyles(align: PosAlign.right)),
+        PosColumn(
+          text: '${item.quantity} x ${formatRupiah(item.unitPrice)}',
+          width: 6,
+        ),
+        PosColumn(
+          text: formatRupiah(item.quantity * item.unitPrice),
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
       ]);
     }
 
     bytes += generator.text('--------------------------------');
     bytes += generator.row([
       PosColumn(text: 'Subtotal', width: 6),
-      PosColumn(text: formatRupiah(subtotal), width: 6, styles: const PosStyles(align: PosAlign.right)),
+      PosColumn(
+        text: formatRupiah(subtotal),
+        width: 6,
+        styles: const PosStyles(align: PosAlign.right),
+      ),
     ]);
     bytes += generator.row([
-      PosColumn(text: 'Pajak (${storeSettings.taxPercentage.toInt()}%)', width: 6),
-      PosColumn(text: formatRupiah(taxAmount), width: 6, styles: const PosStyles(align: PosAlign.right)),
+      PosColumn(
+        text: 'Pajak (${storeSettings.taxPercentage.toInt()}%)',
+        width: 6,
+      ),
+      PosColumn(
+        text: formatRupiah(taxAmount),
+        width: 6,
+        styles: const PosStyles(align: PosAlign.right),
+      ),
     ]);
     if (serviceAmount > 0) {
       bytes += generator.row([
-        PosColumn(text: 'Layanan (${storeSettings.serviceChargePercentage.toInt()}%)', width: 6),
-        PosColumn(text: formatRupiah(serviceAmount), width: 6, styles: const PosStyles(align: PosAlign.right)),
+        PosColumn(
+          text: 'Layanan (${storeSettings.serviceChargePercentage.toInt()}%)',
+          width: 6,
+        ),
+        PosColumn(
+          text: formatRupiah(serviceAmount),
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
       ]);
     }
     bytes += generator.row([
       PosColumn(text: 'Total', width: 6, styles: const PosStyles(bold: true)),
-      PosColumn(text: formatRupiah(order.total), width: 6, styles: const PosStyles(align: PosAlign.right, bold: true)),
+      PosColumn(
+        text: formatRupiah(order.total),
+        width: 6,
+        styles: const PosStyles(align: PosAlign.right, bold: true),
+      ),
     ]);
     bytes += generator.text('--------------------------------');
-    bytes += generator.row([
-      PosColumn(text: order.payment.method.toUpperCase(), width: 6),
-      PosColumn(text: formatRupiah(order.payment.amountPaid), width: 6, styles: const PosStyles(align: PosAlign.right)),
-    ]);
-    bytes += generator.row([
-      PosColumn(text: 'Kembali', width: 6),
-      PosColumn(text: formatRupiah(order.payment.changeGiven), width: 6, styles: const PosStyles(align: PosAlign.right)),
-    ]);
+    if (order.payment != null) {
+      bytes += generator.row([
+        PosColumn(text: order.payment!.method.toUpperCase(), width: 6),
+        PosColumn(
+          text: formatRupiah(order.payment!.amountPaid),
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+      bytes += generator.row([
+        PosColumn(text: 'Kembali', width: 6),
+        PosColumn(
+          text: formatRupiah(order.payment!.changeGiven),
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+    } else {
+      bytes += generator.text(
+        'PAYMENT PENDING',
+        styles: const PosStyles(align: PosAlign.center, bold: true),
+      );
+    }
     bytes += generator.feed(1);
-    bytes += generator.text('Terima Kasih', styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text(
+      'Terima Kasih',
+      styles: const PosStyles(align: PosAlign.center),
+    );
     bytes += generator.feed(2);
     bytes += generator.cut();
 
@@ -312,37 +404,74 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
     final generator = Generator(PaperSize.mm58, profile);
     List<int> bytes = [];
 
-    bytes += generator.text(storeSettings.storeName, styles: const PosStyles(align: PosAlign.center, bold: true));
-    bytes += generator.text('LAPORAN TUTUP KASIR', styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text(
+      storeSettings.storeName,
+      styles: const PosStyles(align: PosAlign.center, bold: true),
+    );
+    bytes += generator.text(
+      'LAPORAN TUTUP KASIR',
+      styles: const PosStyles(align: PosAlign.center),
+    );
     bytes += generator.text('--------------------------------');
     bytes += generator.text('Kasir: $cashierName');
-    bytes += generator.text('Buka : ${DateFormat('dd/MM HH:mm').format(openedAt)}');
-    bytes += generator.text('Tutup: ${DateFormat('dd/MM HH:mm').format(closedAt)}');
+    bytes += generator.text(
+      'Buka : ${DateFormat('dd/MM HH:mm').format(openedAt)}',
+    );
+    bytes += generator.text(
+      'Tutup: ${DateFormat('dd/MM HH:mm').format(closedAt)}',
+    );
     bytes += generator.text('--------------------------------');
     bytes += generator.row([
       PosColumn(text: 'Saldo Awal', width: 6),
-      PosColumn(text: formatRupiah(openingBalance), width: 6, styles: const PosStyles(align: PosAlign.right)),
+      PosColumn(
+        text: formatRupiah(openingBalance),
+        width: 6,
+        styles: const PosStyles(align: PosAlign.right),
+      ),
     ]);
     bytes += generator.row([
       PosColumn(text: 'Total CASH', width: 6),
-      PosColumn(text: formatRupiah(totalCashSales), width: 6, styles: const PosStyles(align: PosAlign.right)),
+      PosColumn(
+        text: formatRupiah(totalCashSales),
+        width: 6,
+        styles: const PosStyles(align: PosAlign.right),
+      ),
     ]);
     bytes += generator.row([
       PosColumn(text: 'Total QRIS', width: 6),
-      PosColumn(text: formatRupiah(totalQrisSales), width: 6, styles: const PosStyles(align: PosAlign.right)),
+      PosColumn(
+        text: formatRupiah(totalQrisSales),
+        width: 6,
+        styles: const PosStyles(align: PosAlign.right),
+      ),
     ]);
     bytes += generator.text('--------------------------------');
     bytes += generator.row([
-      PosColumn(text: 'Saldo Akhir', width: 6, styles: const PosStyles(bold: true)),
-      PosColumn(text: formatRupiah(closingBalance), width: 6, styles: const PosStyles(align: PosAlign.right, bold: true)),
+      PosColumn(
+        text: 'Saldo Akhir',
+        width: 6,
+        styles: const PosStyles(bold: true),
+      ),
+      PosColumn(
+        text: formatRupiah(closingBalance),
+        width: 6,
+        styles: const PosStyles(align: PosAlign.right, bold: true),
+      ),
     ]);
     bytes += generator.feed(1);
-    bytes += generator.text('RINGKASAN MENU', styles: const PosStyles(align: PosAlign.center, bold: true));
+    bytes += generator.text(
+      'RINGKASAN MENU',
+      styles: const PosStyles(align: PosAlign.center, bold: true),
+    );
 
     for (final item in soldProducts) {
       bytes += generator.row([
         PosColumn(text: item.name, width: 8),
-        PosColumn(text: 'x ${item.quantity}', width: 4, styles: const PosStyles(align: PosAlign.right)),
+        PosColumn(
+          text: 'x ${item.quantity}',
+          width: 4,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
       ]);
     }
     bytes += generator.feed(2);
@@ -373,7 +502,7 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
     // For Android 12 (API 31) and higher
     // Needs BLUETOOTH_SCAN, BLUETOOTH_CONNECT
     // For older versions, needs ACCESS_FINE_LOCATION
-    
+
     final Map<Permission, PermissionStatus> statuses = await [
       Permission.bluetoothScan,
       Permission.bluetoothConnect,
@@ -382,8 +511,8 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
 
     // For Android 12+, bluetoothConnect is the primary permission for bonded devices
     // For older versions, location is often required for Bluetooth operations
-    return statuses[Permission.bluetoothConnect]?.isGranted == true || 
-           statuses[Permission.location]?.isGranted == true ||
-           statuses[Permission.bluetoothScan]?.isGranted == true;
+    return statuses[Permission.bluetoothConnect]?.isGranted == true ||
+        statuses[Permission.location]?.isGranted == true ||
+        statuses[Permission.bluetoothScan]?.isGranted == true;
   }
 }

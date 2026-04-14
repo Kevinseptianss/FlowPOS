@@ -24,6 +24,7 @@ class _OwnerProductCreatePageState extends State<OwnerProductCreatePage> {
   String? _selectedCategoryId;
   String _selectedUnit = 'pcs';
   bool _hasVariants = false;
+  bool _isAvailable = true;
   bool _isSubmitting = false;
 
   final List<Map<String, dynamic>> _options = [];
@@ -67,7 +68,6 @@ class _OwnerProductCreatePageState extends State<OwnerProductCreatePage> {
     setState(() {
       _options[index]['nameController'].dispose();
       for (var variant in _options[index]['variants']) {
-        variant['nameController'].dispose();
         variant['priceController'].dispose();
       }
       _options.removeAt(index);
@@ -124,6 +124,7 @@ class _OwnerProductCreatePageState extends State<OwnerProductCreatePage> {
                 return {
                   'name': v['nameController'].text.trim(),
                   'price': int.parse(priceText.isEmpty ? '0' : priceText),
+                  'base_price': 0,
                   'unit': v['unit'],
                 };
               }).toList(),
@@ -137,8 +138,10 @@ class _OwnerProductCreatePageState extends State<OwnerProductCreatePage> {
           CreateMenuItemEvent(
             name: _nameController.text.trim(),
             price: int.parse(mainPriceText.isEmpty ? '0' : mainPriceText),
+            basePrice: 0,
             categoryId: _selectedCategoryId!,
             unit: _selectedUnit,
+            enabled: _isAvailable,
             options: optionsData,
           ),
         );
@@ -197,7 +200,48 @@ class _OwnerProductCreatePageState extends State<OwnerProductCreatePage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildSectionTitle('Informasi Dasar'),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
+                _buildModernField(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.inventory_2_outlined, color: AppPallete.textSecondary),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                'Status Produk',
+                                style: TextStyle(color: AppPallete.textSecondary, fontSize: 12),
+                              ),
+                              Text(
+                                _isAvailable ? 'Tersedia' : 'Tidak Tersedia',
+                                style: const TextStyle(
+                                  color: AppPallete.textPrimary,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Switch.adaptive(
+                          value: _isAvailable,
+                          activeThumbColor: Colors.green,
+                          onChanged: (value) {
+                            setState(() {
+                              _isAvailable = value;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
                 _buildModernField(
                   child: TextFormField(
                     controller: _nameController,
@@ -212,7 +256,7 @@ class _OwnerProductCreatePageState extends State<OwnerProductCreatePage> {
                     ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'Nama produk tidak boleh kosong.';
+                        return 'Nama produk wajib diisi';
                       }
                       return null;
                     },
@@ -226,16 +270,17 @@ class _OwnerProductCreatePageState extends State<OwnerProductCreatePage> {
                     inputFormatters: [CurrencyInputFormatter()],
                     style: const TextStyle(color: AppPallete.textPrimary, fontSize: 16),
                     decoration: const InputDecoration(
-                      labelText: 'Harga Dasar (Rp)',
-                      hintText: 'Masukkan harga dasar produk',
+                      labelText: 'Harga Jual (Rp)',
+                      hintText: 'Masukkan harga jual produk',
                       prefixIcon: Icon(Icons.payments_outlined),
+                      prefixText: 'Rp ',
                       border: InputBorder.none,
                       enabledBorder: InputBorder.none,
                       focusedBorder: InputBorder.none,
                     ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'Harga dasar tidak boleh kosong.';
+                        return 'Harga jual tidak boleh kosong.';
                       }
                       final stripped = value.replaceAll(RegExp(r'[^0-9]'), '');
                       if (int.tryParse(stripped) == null) {
@@ -248,7 +293,7 @@ class _OwnerProductCreatePageState extends State<OwnerProductCreatePage> {
                 const SizedBox(height: 20),
                 _buildModernField(
                   child: DropdownButtonFormField<String>(
-                    value: _selectedUnit,
+                    initialValue: _selectedUnit,
                     dropdownColor: Colors.white,
                     borderRadius: BorderRadius.circular(20),
                     style: const TextStyle(color: AppPallete.textPrimary, fontSize: 16),
@@ -287,7 +332,7 @@ class _OwnerProductCreatePageState extends State<OwnerProductCreatePage> {
                     if (state is CategoryLoaded) {
                       return _buildModernField(
                         child: DropdownButtonFormField<String>(
-                          value: _selectedCategoryId,
+                          initialValue: _selectedCategoryId,
                           dropdownColor: Colors.white,
                           borderRadius: BorderRadius.circular(20),
                           style: const TextStyle(color: AppPallete.textPrimary, fontSize: 16),
@@ -349,7 +394,7 @@ class _OwnerProductCreatePageState extends State<OwnerProductCreatePage> {
                     _buildSectionTitle('Opsi & Varian'),
                     Switch(
                       value: _hasVariants,
-                      activeColor: AppPallete.primary,
+                      activeThumbColor: AppPallete.primary,
                       onChanged: (value) {
                         setState(() => _hasVariants = value);
                         if (value && _options.isEmpty) {
@@ -431,12 +476,15 @@ class _OwnerProductCreatePageState extends State<OwnerProductCreatePage> {
                                     style: const TextStyle(color: AppPallete.textPrimary, fontSize: 16),
                                     keyboardType: TextInputType.number,
                                     inputFormatters: [CurrencyInputFormatter()],
-                                    decoration: const InputDecoration(labelText: 'Harga Tambahan'),
+                                    decoration: const InputDecoration(
+                                      labelText: 'Harga Jual Tambahan',
+                                      prefixText: 'Rp ',
+                                    ),
                                     validator: (value) => value == null || value.isEmpty ? 'Wajib' : null,
                                   ),
                                   const SizedBox(height: 12),
                                   DropdownButtonFormField<String>(
-                                    value: variant['unit'],
+                                    initialValue: variant['unit'],
                                     dropdownColor: Colors.white,
                                     style: const TextStyle(color: AppPallete.textPrimary, fontSize: 16),
                                     decoration: const InputDecoration(

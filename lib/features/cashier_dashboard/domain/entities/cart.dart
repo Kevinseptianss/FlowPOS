@@ -9,6 +9,9 @@ class Cart extends Equatable {
   final int quantity;
   final Map<String, SelectedModifier?> selectedModifiers;
   final int totalPrice;
+  final String? variantId;
+  final String? notes;
+  final String? modifierSnapshot; // NEW: For reloaded items
 
   const Cart({
     required this.id,
@@ -18,6 +21,9 @@ class Cart extends Equatable {
     required this.quantity,
     required this.selectedModifiers,
     required this.totalPrice,
+    this.variantId,
+    this.notes,
+    this.modifierSnapshot,
   });
 
   Cart copyWith({
@@ -28,6 +34,9 @@ class Cart extends Equatable {
     int? quantity,
     Map<String, SelectedModifier?>? selectedModifiers,
     int? totalPrice,
+    String? variantId,
+    String? notes,
+    String? modifierSnapshot,
   }) {
     return Cart(
       id: id ?? this.id,
@@ -37,17 +46,23 @@ class Cart extends Equatable {
       quantity: quantity ?? this.quantity,
       selectedModifiers: selectedModifiers ?? this.selectedModifiers,
       totalPrice: totalPrice ?? this.totalPrice,
+      variantId: variantId ?? this.variantId,
+      notes: notes ?? this.notes,
+      modifierSnapshot: modifierSnapshot ?? this.modifierSnapshot,
     );
   }
 
   @override
   List<Object?> get props => [
-    id,
-    menuItemId,
-    name,
-    basePrice,
-    quantity,
-    selectedModifiers,
-    totalPrice,
-  ];
+        id,
+        menuItemId,
+        name,
+        basePrice,
+        quantity,
+        selectedModifiers,
+        totalPrice,
+        variantId,
+        notes,
+        modifierSnapshot,
+      ];
 }

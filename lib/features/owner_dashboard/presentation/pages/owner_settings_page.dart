@@ -2,9 +2,6 @@ import 'package:flow_pos/core/theme/app_pallete.dart';
 import 'package:flow_pos/core/utils/show_logout_dialog.dart';
 import 'package:flow_pos/core/utils/show_snackbar.dart';
 import 'package:flow_pos/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_modifier_group_create_page.dart';
-import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_store_profile_settings_page.dart';
-import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_store_settings_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -60,36 +57,7 @@ class OwnerSettingsPage extends StatelessWidget {
               },
             ),
 
-            const SizedBox(height: 32),
-            _buildSectionHeader(context, 'Menu & Produk'),
-            _buildSettingCard(
-              context,
-              icon: Icons.auto_awesome_motion_rounded,
-              title: 'Grup Tambahan',
-              subtitle: 'Kelola topping, level pedas, atau pilihan lainnya',
-              iconColor: Colors.deepPurple,
-              onTap: () => Navigator.push(context, OwnerModifierGroupCreatePage.route()),
-            ),
-
-            const SizedBox(height: 32),
-            _buildSectionHeader(context, 'Toko'),
-            _buildSettingCard(
-              context,
-              icon: Icons.store_rounded,
-              title: 'Profil Toko',
-              subtitle: 'Ubah nama, alamat, dan informasi kontak toko',
-              iconColor: Colors.blue,
-              onTap: () => Navigator.push(context, OwnerStoreProfileSettingsPage.route()),
-            ),
-            const SizedBox(height: 12),
-            _buildSettingCard(
-              context,
-              icon: Icons.receipt_long_rounded,
-              title: 'Pajak & Biaya Layanan',
-              subtitle: 'Atur persentase pajak dan biaya tambahan',
-              iconColor: Colors.orange,
-              onTap: () => Navigator.push(context, OwnerStoreSettingsPage.route()),
-            ),
+            // Only Akun section remains here
           ],
         ),
       ),

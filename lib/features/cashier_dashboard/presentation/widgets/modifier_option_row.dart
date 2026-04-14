@@ -1,4 +1,5 @@
 import 'package:flow_pos/core/theme/app_pallete.dart';
+import 'package:flow_pos/core/utils/format_rupiah.dart';
 import 'package:flutter/material.dart';
 
 class ModifierOptionRow extends StatelessWidget {
@@ -44,7 +45,7 @@ class ModifierOptionRow extends StatelessWidget {
               ),
             ),
             Text(
-              additionalPrice == 0 ? '+ Rp 0' : '+ Rp $additionalPrice',
+              additionalPrice == 0 ? '+ Rp 0' : '+ ${formatRupiah(additionalPrice)}',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: isSelected ? AppPallete.primary : AppPallete.textPrimary,
                 fontWeight: FontWeight.w600,

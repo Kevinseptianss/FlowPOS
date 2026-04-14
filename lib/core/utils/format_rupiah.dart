@@ -1,5 +1,7 @@
-String formatRupiah(int value) {
-  final digits = value.toString();
+String formatRupiah(num value, {bool includeSymbol = true}) {
+  // Use floor or round since Rupiah doesn't use decimals in this context
+  final intValue = value.round();
+  final digits = intValue.toString();
   final buffer = StringBuffer();
 
   for (var i = 0; i < digits.length; i++) {
@@ -10,5 +12,5 @@ String formatRupiah(int value) {
     }
   }
 
-  return 'Rp ${buffer.toString()}';
+  return includeSymbol ? 'Rp ${buffer.toString()}' : buffer.toString();
 }

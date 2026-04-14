@@ -18,6 +18,9 @@ final class CreateOrderEvent extends OrderEvent {
   final String method;
   final int amountPaid;
   final List<OrderItem> items;
+  final String? shiftId;
+  final String? status;
+  final String? customerName;
 
   const CreateOrderEvent({
     required this.orderNumber,
@@ -30,6 +33,9 @@ final class CreateOrderEvent extends OrderEvent {
     required this.method,
     required this.amountPaid,
     required this.items,
+    this.shiftId,
+    this.status,
+    this.customerName,
   });
 
   @override
@@ -44,6 +50,9 @@ final class CreateOrderEvent extends OrderEvent {
     method,
     amountPaid,
     items,
+    if (shiftId != null) shiftId!,
+    if (status != null) status!,
+    if (customerName != null) customerName!,
   ];
 }
 
@@ -62,11 +71,55 @@ final class GetRevenueRangeEvent extends OrderEvent {
   final DateTime startDate;
   final DateTime endDate;
 
-  const GetRevenueRangeEvent({
-    required this.startDate,
-    required this.endDate,
-  });
+  const GetRevenueRangeEvent({required this.startDate, required this.endDate});
 
   @override
   List<Object> get props => [startDate, endDate];
+}
+
+final class SoftDeleteOrderItemEvent extends OrderEvent {
+  final String orderItemId;
+  final String deletedById;
+
+  const SoftDeleteOrderItemEvent({
+    required this.orderItemId,
+    required this.deletedById,
+  });
+
+  @override
+  List<Object> get props => [orderItemId, deletedById];
+}
+
+final class SettleOrderEvent extends OrderEvent {
+  final String orderId;
+  final String method;
+  final int amountPaid;
+  final int amountDue;
+  final int changeGiven;
+
+  const SettleOrderEvent({
+    required this.orderId,
+    required this.method,
+    required this.amountPaid,
+    required this.amountDue,
+    required this.changeGiven,
+  });
+
+  @override
+  List<Object> get props => [
+    orderId,
+    method,
+    amountPaid,
+    amountDue,
+    changeGiven,
+  ];
+}
+
+final class VoidOrderEvent extends OrderEvent {
+  final String orderId;
+
+  const VoidOrderEvent({required this.orderId});
+
+  @override
+  List<Object> get props => [orderId];
 }

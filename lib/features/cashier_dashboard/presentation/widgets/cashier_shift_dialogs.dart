@@ -1,38 +1,46 @@
 import 'package:flow_pos/core/theme/app_pallete.dart';
 import 'package:flutter/material.dart';
+import 'package:flow_pos/core/utils/show_snackbar.dart';
 import 'package:intl/intl.dart';
 
-Future<double> showOpeningBalanceDialog(
+Future<Map<String, dynamic>?> showOpenShiftDialog(
   BuildContext context, {
   required String cashierName,
 }) async {
-  final openingBalance = await showDialog<double>(
+  final result = await showGeneralDialog<Map<String, dynamic>>(
     context: context,
     barrierDismissible: false,
-    builder: (dialogContext) {
-      return PopScope(
-        canPop: false,
-        child: _OpeningBalanceDialog(cashierName: cashierName),
+    pageBuilder: (context, animation, secondaryAnimation) => const SizedBox(),
+    transitionBuilder: (context, animation, secondaryAnimation, child) {
+      final curve = CurvedAnimation(parent: animation, curve: Curves.easeOutBack);
+      return ScaleTransition(
+        scale: curve,
+        child: FadeTransition(
+          opacity: animation,
+          child: _OpenShiftDialog(cashierName: cashierName),
+        ),
       );
     },
   );
 
-  return openingBalance ?? 0;
+  return result;
 }
 
-class _OpeningBalanceDialog extends StatefulWidget {
+class _OpenShiftDialog extends StatefulWidget {
   final String cashierName;
 
-  const _OpeningBalanceDialog({required this.cashierName});
+  const _OpenShiftDialog({required this.cashierName});
 
   @override
-  State<_OpeningBalanceDialog> createState() => _OpeningBalanceDialogState();
+  State<_OpenShiftDialog> createState() => _OpenShiftDialogState();
 }
 
-class _OpeningBalanceDialogState extends State<_OpeningBalanceDialog> {
+class _OpenShiftDialogState extends State<_OpenShiftDialog> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late final TextEditingController _controller;
   late final NumberFormat _currency;
+
+  final List<double> _quickAmounts = [50000, 100000, 250000, 500000];
 
   @override
   void initState() {
@@ -47,159 +55,234 @@ class _OpeningBalanceDialogState extends State<_OpeningBalanceDialog> {
     super.dispose();
   }
 
+  void _addAmount(double amount) {
+    setState(() {
+      _controller.text = amount.toInt().toString();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final parsedAmount = _parseRupiah(_controller.text);
 
-    return AlertDialog(
+    return Dialog(
+      backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      contentPadding: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      content: Container(
-        width: 440,
+      child: Container(
+        width: 460,
         decoration: BoxDecoration(
           color: AppPallete.surface,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(32),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.15),
+              blurRadius: 30,
+              offset: const Offset(0, 10),
+            ),
+          ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 18),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [AppPallete.primary, AppPallete.primaryDark],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+            // Header
+            Stack(
+              children: [
+                Container(
+                  padding: const EdgeInsets.fromLTRB(32, 40, 32, 32),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [AppPallete.primary, AppPallete.primaryDark],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: AppPallete.onPrimary.withValues(alpha: 0.18),
-                          borderRadius: BorderRadius.circular(14),
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(16),
                         ),
                         child: const Icon(
-                          Icons.payments_rounded,
-                          color: AppPallete.onPrimary,
-                          size: 22,
+                          Icons.rocket_launch_rounded,
+                          color: Colors.white,
+                          size: 32,
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(height: 20),
                       Text(
-                        'Buka Kasir',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: AppPallete.onPrimary,
-                          fontWeight: FontWeight.w700,
-                        ),
+                        'Mulai Shift Baru',
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.5,
+                            ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Halo ${widget.cashierName}, masukkan modal awal di laci kasir untuk mulai berjualan.',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Colors.white.withValues(alpha: 0.8),
+                              height: 1.5,
+                            ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Halo, ${widget.cashierName}',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: AppPallete.onPrimary,
-                      fontWeight: FontWeight.w600,
-                    ),
+                ),
+                Positioned(
+                  right: -20,
+                  top: -20,
+                  child: CircleAvatar(
+                    radius: 60,
+                    backgroundColor: Colors.white.withValues(alpha: 0.05),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Input Modal Awal untuk memulai shift.',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppPallete.onPrimary.withValues(alpha: 0.86),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
+
+            // Content
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 22, 24, 24),
+              padding: const EdgeInsets.all(32),
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
-                  mainAxisSize: MainAxisSize.min,
                   children: [
+                    Text(
+                      'Modal Awal (Cash in Drawer)',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            color: AppPallete.textSecondary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    const SizedBox(height: 12),
                     TextFormField(
                       controller: _controller,
                       autofocus: true,
                       keyboardType: TextInputType.number,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: AppPallete.textPrimary,
-                      ),
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: AppPallete.primary,
+                          ),
                       decoration: InputDecoration(
-                        labelText: 'Modal Awal',
-                        hintText: 'Contoh: 250000',
-                        prefixIcon: const Icon(
-                          Icons.account_balance_wallet_rounded,
-                        ),
+                        prefixText: 'Rp ',
+                        prefixStyle: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                              color: AppPallete.primary.withValues(alpha: 0.5),
+                              fontWeight: FontWeight.w800,
+                            ),
+                        hintText: '0',
+                        hintStyle: TextStyle(color: AppPallete.divider),
                         filled: true,
                         fillColor: AppPallete.background,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 20),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(20),
                           borderSide: BorderSide.none,
                         ),
-                        errorMaxLines: 2,
                       ),
                       onChanged: (_) => setState(() {}),
-                      validator: (value) {
-                        final amount = _parseRupiah(value ?? '');
-
-                        if (amount <= 0) {
-                          return 'Modal awal harus lebih dari Rp 0.';
-                        }
-
-                        return null;
-                      },
                     ),
-                    const SizedBox(height: 12),
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: parsedAmount > 0
-                            ? AppPallete.success.withValues(alpha: 0.12)
-                            : AppPallete.warning.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        parsedAmount > 0
-                            ? 'Modal tersimpan: ${_currency.format(parsedAmount)}'
-                            : 'Masukkan nominal untuk mengaktifkan shift.',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppPallete.textPrimary,
-                          fontWeight: FontWeight.w600,
+                    const SizedBox(height: 16),
+
+                    // Quick Amounts
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: _quickAmounts.map((amount) {
+                        return Expanded(
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              right: amount == _quickAmounts.last ? 0 : 8,
+                            ),
+                            child: InkWell(
+                              onTap: () => _addAmount(amount),
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: AppPallete.divider,
+                                    width: 1.5,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  _currency.format(amount).replaceAll('Rp ', ''),
+                                  textAlign: TextAlign.center,
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: AppPallete.textPrimary,
+                                      ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 32),
+
+                    // Action Buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 18),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            onPressed: () {
+                              Navigator.of(context).pop({'action': 'skip'});
+                            },
+                            child: Text(
+                              'Nanti Saja',
+                              style: TextStyle(
+                                color: AppPallete.textSecondary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppPallete.primary,
-                        foregroundColor: AppPallete.onPrimary,
-                        minimumSize: const Size.fromHeight(50),
-                      ),
-                      onPressed: () {
-                        if (!(_formKey.currentState?.validate() ?? false)) {
-                          return;
-                        }
-
-                        Navigator.of(context).pop(parsedAmount);
-                      },
-                      icon: const Icon(Icons.lock_open_rounded),
-                      label: const Text('Simpan & Mulai Shift'),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          flex: 2,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppPallete.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 18),
+                              elevation: 4,
+                              shadowColor: AppPallete.primary.withValues(alpha: 0.4),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            onPressed: () {
+                              if (parsedAmount <= 0) {
+                                showSnackbar(context, 'Masukkan modal awal terlebih dahulu');
+                                return;
+                              }
+                              Navigator.of(context).pop({
+                                'action': 'open',
+                                'openingBalance': parsedAmount,
+                              });
+                            },
+                            child: const Text(
+                              'Buka Kasir',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -226,179 +309,159 @@ Future<bool> showCloseShiftDialog(
   final shiftHours = shiftDuration.inHours;
   final shiftMinutes = shiftDuration.inMinutes.remainder(60);
 
-  final confirmed = await showDialog<bool>(
+  final confirmed = await showGeneralDialog<bool>(
     context: context,
-    builder: (dialogContext) {
-      return Dialog(
-        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: Container(
-          width: 420,
-          decoration: BoxDecoration(
-            color: AppPallete.surface,
-            borderRadius: BorderRadius.circular(24),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [AppPallete.warning, AppPallete.secondary],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(9),
-                      decoration: BoxDecoration(
-                        color: AppPallete.onPrimary.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Icon(
-                        Icons.lock_clock_rounded,
-                        color: AppPallete.onPrimary,
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Akhiri Shift Kasir',
-                            style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(
-                                  color: AppPallete.onPrimary,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Pastikan semua transaksi sudah selesai.',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  color: AppPallete.onPrimary.withValues(
-                                    alpha: 0.9,
-                                  ),
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+    barrierDismissible: true,
+    barrierLabel: 'Close Shift',
+    pageBuilder: (context, anim1, anim2) => const SizedBox(),
+    transitionBuilder: (context, animation, secondaryAnimation, child) {
+      return FadeTransition(
+        opacity: animation,
+        child: ScaleTransition(
+          scale: animation,
+          child: Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            child: Container(
+              width: 440,
+              decoration: BoxDecoration(
+                color: AppPallete.surface,
+                borderRadius: BorderRadius.circular(32),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(22, 18, 22, 22),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppPallete.warning.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: AppPallete.warning.withValues(alpha: 0.4),
-                        ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(32),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [AppPallete.warning, AppPallete.secondary],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.info_outline_rounded,
-                            color: AppPallete.primary,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Data shift disimpan lokal dan siap dikirim ke database.',
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    color: AppPallete.textPrimary,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                            ),
-                          ),
-                        ],
-                      ),
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
                     ),
-                    const SizedBox(height: 14),
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: AppPallete.background,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Column(
-                        children: [
-                          _ShiftInfoRow(
-                            icon: Icons.account_balance_wallet_rounded,
-                            label: 'Modal Awal',
-                            value: currency.format(openingBalance),
-                            valueColor: AppPallete.primary,
-                          ),
-                          const SizedBox(height: 10),
-                          _ShiftInfoRow(
-                            icon: Icons.play_circle_outline_rounded,
-                            label: 'Mulai Shift',
-                            value: '${formatter.format(openedAtWib)} WIB',
-                          ),
-                          const SizedBox(height: 10),
-                          _ShiftInfoRow(
-                            icon: Icons.timelapse_rounded,
-                            label: 'Durasi Shift',
-                            value: '${shiftHours}j ${shiftMinutes}m',
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Row(
+                    child: Row(
                       children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () =>
-                                Navigator.of(dialogContext).pop(false),
-                            style: OutlinedButton.styleFrom(
-                              minimumSize: const Size.fromHeight(46),
-                              side: BorderSide(
-                                color: AppPallete.textPrimary.withValues(
-                                  alpha: 0.24,
-                                ),
-                              ),
-                            ),
-                            child: const Text('Lanjut Shift'),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: const Icon(
+                            Icons.lock_clock_rounded,
+                            color: Colors.white,
+                            size: 28,
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 20),
                         Expanded(
-                          child: FilledButton.icon(
-                            style: FilledButton.styleFrom(
-                              backgroundColor: AppPallete.primary,
-                              foregroundColor: AppPallete.onPrimary,
-                              minimumSize: const Size.fromHeight(46),
-                            ),
-                            onPressed: () =>
-                                Navigator.of(dialogContext).pop(true),
-                            icon: const Icon(Icons.check_circle_rounded),
-                            label: const Text('Tutup Kasir'),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Akhiri Shift Kasir',
+                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Konfirmasi untuk menutup sesi hari ini.',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Colors.white.withValues(alpha: 0.8),
+                                    ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Summary Card
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: AppPallete.background,
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(color: AppPallete.divider),
+                          ),
+                          child: Column(
+                            children: [
+                              _ShiftInfoRow(
+                                icon: Icons.account_balance_wallet_rounded,
+                                label: 'Modal Awal',
+                                value: currency.format(openingBalance),
+                                valueColor: AppPallete.primary,
+                              ),
+                              const Divider(height: 24),
+                              _ShiftInfoRow(
+                                icon: Icons.play_circle_outline_rounded,
+                                label: 'Waktu Mulai',
+                                value: formatter.format(openedAtWib),
+                              ),
+                              const SizedBox(height: 12),
+                              _ShiftInfoRow(
+                                icon: Icons.timelapse_rounded,
+                                label: 'Durasi Kerja',
+                                value: '${shiftHours}j ${shiftMinutes}m',
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextButton(
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 18),
+                                ),
+                                onPressed: () => Navigator.of(context).pop(false),
+                                child: Text(
+                                  'Batal',
+                                  style: TextStyle(
+                                    color: AppPallete.textSecondary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              flex: 2,
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppPallete.primary,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 18),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                                onPressed: () => Navigator.of(context).pop(true),
+                                child: const Text(
+                                  'Tutup Kasir Sekarang',
+                                  style: TextStyle(fontWeight: FontWeight.w800),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       );
@@ -439,7 +502,7 @@ class _ShiftInfoRow extends StatelessWidget {
           child: Text(
             label,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppPallete.textPrimary.withValues(alpha: 0.74),
+              color: AppPallete.textSecondary,
             ),
           ),
         ),

@@ -21,6 +21,13 @@ class DatetimeFormatter {
     return "${d.day} ${monthsId[d.month - 1]} ${d.year}";
   }
 
+  static String formatIndonesian(DateTime date, {bool includeTime = false}) {
+    final timeStr = includeTime 
+      ? " • ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}" 
+      : "";
+    return "${date.day} ${monthsId[date.month - 1]} ${date.year}$timeStr";
+  }
+
   static String formatDateTime(DateTime date) {
     return "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}";
   }

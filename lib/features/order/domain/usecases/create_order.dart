@@ -12,7 +12,7 @@ class CreateOrder implements UseCase<OrderEntity, CreateOrderParams> {
 
   const CreateOrder(this.orderRepository);
 
-  static const Set<String> supportedMethods = {'QRIS', 'CASH'};
+  static const Set<String> supportedMethods = {'QRIS', 'CASH', 'NONE'};
 
   @override
   Future<Either<Failure, OrderEntity>> call(CreateOrderParams params) async {
@@ -26,8 +26,8 @@ class CreateOrder implements UseCase<OrderEntity, CreateOrderParams> {
       return left(const Failure('Order items cannot be empty.'));
     }
 
-    if (params.tableNumber <= 0) {
-      return left(const Failure('Table number must be greater than 0.'));
+    if (params.tableNumber < 0) {
+      return left(const Failure('Table number must be at least 0.'));
     }
 
     if (params.subtotal < 0 || params.total < 0) {
@@ -55,13 +55,21 @@ class CreateOrder implements UseCase<OrderEntity, CreateOrderParams> {
       );
     }
 
-    if (normalizedMethod == 'QRIS' && params.amountPaid != params.total) {
+    if (normalizedMethod == 'QRIS' &&
+        params.status != 'UNPAID' &&
+        params.amountPaid != params.total) {
       return left(const Failure('For QRIS, amount paid must equal total.'));
     }
 
     if (normalizedMethod == 'CASH' && params.amountPaid < params.total) {
       return left(
         const Failure('For CASH, amount paid cannot be less than total.'),
+      );
+    }
+
+    if (normalizedMethod == 'NONE' && params.status != 'UNPAID') {
+      return left(
+        const Failure('For payment method NONE, order status must be UNPAID.'),
       );
     }
 
@@ -78,6 +86,9 @@ class CreateOrder implements UseCase<OrderEntity, CreateOrderParams> {
       method: normalizedMethod,
       amountPaid: safeAmountPaid,
       items: params.items,
+      shiftId: params.shiftId,
+      status: params.status,
+      customerName: params.customerName,
     );
   }
 }
@@ -93,6 +104,9 @@ class CreateOrderParams {
   final String method;
   final int amountPaid;
   final List<OrderItem> items;
+  final String? shiftId;
+  final String status;
+  final String? customerName;
 
   const CreateOrderParams({
     required this.orderNumber,
@@ -105,5 +119,8 @@ class CreateOrderParams {
     required this.method,
     required this.amountPaid,
     required this.items,
+    this.shiftId,
+    this.status = 'PAID',
+    this.customerName,
   });
 }

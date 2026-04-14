@@ -7,9 +7,17 @@ part 'table_state.dart';
 class TableBloc extends Bloc<TableEvent, TableState> {
   TableBloc() : super(const TableState(selectedTableNumber: 1)) {
     on<SelectTableEvent>(_onSelectTable);
+    on<UpdateOccupiedTablesEvent>(_onUpdateOccupiedTables);
   }
 
   void _onSelectTable(SelectTableEvent event, Emitter<TableState> emit) {
-    emit(TableState(selectedTableNumber: event.tableNumber));
+    emit(state.copyWith(selectedTableNumber: event.tableNumber));
+  }
+
+  void _onUpdateOccupiedTables(UpdateOccupiedTablesEvent event, Emitter<TableState> emit) {
+    emit(state.copyWith(
+      occupiedTableNumbers: event.occupiedTableNumbers,
+      occupiedTableNames: event.occupiedTableNames,
+    ));
   }
 }

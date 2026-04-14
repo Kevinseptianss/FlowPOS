@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS public.orders (
 CREATE TABLE IF NOT EXISTS public.payments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     order_id UUID NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
-    method TEXT NOT NULL CHECK (method IN ('QRIS', 'CASH')),
+    method TEXT NOT NULL CHECK (method IN ('QRIS', 'CASH', 'CARD', 'TRANSFER')),
     amount_paid BIGINT NOT NULL,
     amount_due BIGINT NOT NULL,
     change_given BIGINT NOT NULL DEFAULT 0,
@@ -104,6 +104,19 @@ CREATE TABLE IF NOT EXISTS public.store_settings (
     service_charge_percentage NUMERIC NOT NULL DEFAULT 0,
     store_name TEXT NOT NULL DEFAULT 'FlowPOS',
     store_address TEXT NOT NULL DEFAULT 'No Address',
+    is_cash_enabled BOOLEAN NOT NULL DEFAULT true,
+    is_card_enabled BOOLEAN NOT NULL DEFAULT true,
+    is_transfer_enabled BOOLEAN NOT NULL DEFAULT false,
+    bank_name TEXT,
+    bank_account_number TEXT,
+    is_qris_enabled BOOLEAN NOT NULL DEFAULT false,
+    is_midtrans_sandbox BOOLEAN NOT NULL DEFAULT true,
+    midtrans_merchant_id TEXT,
+    midtrans_client_key TEXT,
+    midtrans_server_key TEXT,
+    midtrans_merchant_id_sandbox TEXT,
+    midtrans_client_key_sandbox TEXT,
+    midtrans_server_key_sandbox TEXT,
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 

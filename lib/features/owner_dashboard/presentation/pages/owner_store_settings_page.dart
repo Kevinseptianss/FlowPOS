@@ -4,6 +4,7 @@ import 'package:flow_pos/features/store_settings/presentation/bloc/store_setting
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class OwnerStoreSettingsPage extends StatefulWidget {
   static MaterialPageRoute route() =>
@@ -19,11 +20,22 @@ class _OwnerStoreSettingsPageState extends State<OwnerStoreSettingsPage> {
   final _formKey = GlobalKey<FormState>();
   final _taxController = TextEditingController();
   final _serviceController = TextEditingController();
-
+  final _storeNameController = TextEditingController();
+  final _storeAddressController = TextEditingController();
+  
   String? _currentSettingsId;
-  String _currentStoreName = 'FlowPOS';
-  String _currentStoreAddress = 'No Address';
   bool _didInitializeForm = false;
+
+  // Existing payment states (to be preserved during save)
+  bool _isCashEnabled = true;
+  bool _isCardEnabled = true;
+  bool _isTransferEnabled = false;
+  bool _isQrisEnabled = false;
+  String? _bankName;
+  String? _bankNumber;
+  String? _midtransMerchantId;
+  String? _midtransClientKey;
+  String? _midtransServerKey;
 
   @override
   void initState() {
@@ -35,19 +47,18 @@ class _OwnerStoreSettingsPageState extends State<OwnerStoreSettingsPage> {
   void dispose() {
     _taxController.dispose();
     _serviceController.dispose();
+    _storeNameController.dispose();
+    _storeAddressController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppPallete.background,
       appBar: AppBar(
-        title: Text(
-          'Pajak & Biaya Layanan',
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(color: AppPallete.onPrimary),
-        ),
+        title: Text('Profil Toko', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+        centerTitle: true,
       ),
       body: BlocConsumer<StoreSettingsBloc, StoreSettingsState>(
         listener: (context, state) {
@@ -56,7 +67,7 @@ class _OwnerStoreSettingsPageState extends State<OwnerStoreSettingsPage> {
           }
 
           if (state is StoreSettingsUpdated) {
-            showSnackbar(context, 'Pengaturan toko berhasil diperbarui');
+            showSnackbar(context, 'Profil toko berhasil diperbarui');
           }
 
           if (state is StoreSettingsLoaded || state is StoreSettingsUpdated) {
@@ -65,15 +76,24 @@ class _OwnerStoreSettingsPageState extends State<OwnerStoreSettingsPage> {
                 : (state as StoreSettingsUpdated).storeSettings;
 
             _currentSettingsId = settings.id.isEmpty ? null : settings.id;
-            _currentStoreName = settings.storeName;
-            _currentStoreAddress = settings.storeAddress;
+
+            _isCashEnabled = settings.isCashEnabled;
+            _isCardEnabled = settings.isCardEnabled;
+            _isTransferEnabled = settings.isTransferEnabled;
+            _isQrisEnabled = settings.isQrisEnabled;
+            _bankName = settings.bankName;
+            _bankNumber = settings.bankAccountNumber;
+            _midtransMerchantId = settings.midtransMerchantId;
+            _midtransClientKey = settings.midtransClientKey;
+            _midtransServerKey = settings.midtransServerKey;
 
             if (!_didInitializeForm) {
+              _storeNameController.text = settings.storeName;
+              _storeAddressController.text = settings.storeAddress;
               _taxController.text = _formatInitial(settings.taxPercentage);
-              _serviceController.text = _formatInitial(
-                settings.serviceChargePercentage,
-              );
+              _serviceController.text = _formatInitial(settings.serviceChargePercentage);
               _didInitializeForm = true;
+              setState(() {});
             }
           }
         },
@@ -82,72 +102,70 @@ class _OwnerStoreSettingsPageState extends State<OwnerStoreSettingsPage> {
           final isSaving = state is StoreSettingsUpdating;
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
             child: Form(
               key: _formKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppPallete.surface,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppPallete.divider),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Atur nilai persentase yang digunakan pada kasir.',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: AppPallete.textPrimary),
+                  _buildSectionHeader('Informasi Dasar'),
+                  const SizedBox(height: 12),
+                  _buildCard(
+                    children: [
+                      TextFormField(
+                        controller: _storeNameController,
+                        decoration: const InputDecoration(
+                          labelText: 'Nama Restoran',
+                          prefixIcon: Icon(Icons.store_rounded),
                         ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _taxController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          inputFormatters: [
-                            FilteringTextInputFormatter.allow(
-                              RegExp(r'^\d{0,3}(\.\d{0,2})?$'),
-                            ),
-                          ],
-                          style: Theme.of(context).textTheme.bodyLarge
-                              ?.copyWith(color: AppPallete.textPrimary),
-                          decoration: const InputDecoration(
-                            labelText: 'Persentase Pajak',
-                            hintText: 'Contoh: 11.00',
-                            suffixText: '%',
-                          ),
-                          validator: _validatePercentage,
+                        validator: (v) => v?.trim().isEmpty ?? true ? 'Nama wajib diisi' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _storeAddressController,
+                        maxLines: 2,
+                        decoration: const InputDecoration(
+                          labelText: 'Alamat Toko',
+                          prefixIcon: Icon(Icons.map_rounded),
                         ),
-                        const SizedBox(height: 14),
-                        TextFormField(
-                          controller: _serviceController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          style: Theme.of(context).textTheme.bodyLarge
-                              ?.copyWith(color: AppPallete.textPrimary),
-                          inputFormatters: [
-                            FilteringTextInputFormatter.allow(
-                              RegExp(r'^\d{0,3}(\.\d{0,2})?$'),
-                            ),
-                          ],
-                          decoration: const InputDecoration(
-                            labelText: 'Persentase Biaya Layanan',
-                            hintText: 'Contoh: 5.00',
-                            suffixText: '%',
-                          ),
-                          validator: _validatePercentage,
-                        ),
-                      ],
-                    ),
+                        validator: (v) => v?.trim().isEmpty ?? true ? 'Alamat wajib diisi' : null,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 20),
+
+                  const SizedBox(height: 32),
+
+                  _buildSectionHeader('Biaya & Pajak'),
+                  const SizedBox(height: 12),
+                  _buildCard(
+                    children: [
+                      TextFormField(
+                        controller: _taxController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d{0,3}(\.\d{0,2})?$'))],
+                        decoration: const InputDecoration(
+                          labelText: 'Pajak Restoran',
+                          suffixText: '%',
+                          prefixIcon: Icon(Icons.receipt_long_rounded),
+                        ),
+                        validator: _validatePercentage,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _serviceController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d{0,3}(\.\d{0,2})?$'))],
+                        decoration: const InputDecoration(
+                          labelText: 'Biaya Layanan (Service)',
+                          suffixText: '%',
+                          prefixIcon: Icon(Icons.room_service_rounded),
+                        ),
+                        validator: _validatePercentage,
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 48),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -155,18 +173,18 @@ class _OwnerStoreSettingsPageState extends State<OwnerStoreSettingsPage> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppPallete.primary,
                         foregroundColor: AppPallete.onPrimary,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        elevation: 0,
                       ),
                       child: isSaving
                           ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: AppPallete.onPrimary,
-                              ),
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: AppPallete.onPrimary),
                             )
-                          : const Text('Simpan Pengaturan'),
+                          : Text('Simpan Perubahan', style: GoogleFonts.outfit(
+                              color: AppPallete.onPrimary, fontWeight: FontWeight.bold, fontSize: 16)),
                     ),
                   ),
                 ],
@@ -178,47 +196,62 @@ class _OwnerStoreSettingsPageState extends State<OwnerStoreSettingsPage> {
     );
   }
 
+  Widget _buildSectionHeader(String title) {
+    return Text(
+      title,
+      style: GoogleFonts.outfit(
+        fontSize: 18,
+        fontWeight: FontWeight.w800,
+        color: AppPallete.textPrimary,
+      ),
+    );
+  }
+
+  Widget _buildCard({required List<Widget> children}) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppPallete.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppPallete.divider.withAlpha(50)),
+      ),
+      child: Column(children: children),
+    );
+  }
+
   String? _validatePercentage(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Nilai wajib diisi';
-    }
-
-    final parsed = double.tryParse(value.trim());
-    if (parsed == null) {
-      return 'Angka tidak valid';
-    }
-
-    if (parsed < 0 || parsed > 100) {
-      return 'Nilai harus antara 0 dan 100';
-    }
-
+    if (value == null || value.trim().isEmpty) return 'Wajib diisi';
+    final parsed = double.tryParse(value);
+    if (parsed == null) return 'Angka tidak valid';
+    if (parsed < 0 || parsed > 100) return '0-100%';
     return null;
   }
 
   void _onSave() {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    final tax = double.parse(_taxController.text.trim());
-    final service = double.parse(_serviceController.text.trim());
+    if (!_formKey.currentState!.validate()) return;
 
     context.read<StoreSettingsBloc>().add(
       UpdateStoreSettingsEvent(
         id: _currentSettingsId,
-        taxPercentage: tax,
-        serviceChargePercentage: service,
-        storeName: _currentStoreName,
-        storeAddress: _currentStoreAddress,
+        storeName: _storeNameController.text.trim(),
+        storeAddress: _storeAddressController.text.trim(),
+        taxPercentage: double.parse(_taxController.text.trim()),
+        serviceChargePercentage: double.parse(_serviceController.text.trim()),
+        isCashEnabled: _isCashEnabled,
+        isCardEnabled: _isCardEnabled,
+        isTransferEnabled: _isTransferEnabled,
+        isQrisEnabled: _isQrisEnabled,
+        bankName: _bankName,
+        bankAccountNumber: _bankNumber,
+        midtransMerchantId: _midtransMerchantId,
+        midtransClientKey: _midtransClientKey,
+        midtransServerKey: _midtransServerKey,
       ),
     );
   }
 
   String _formatInitial(double value) {
-    if (value == value.truncateToDouble()) {
-      return value.toStringAsFixed(0);
-    }
-
+    if (value == value.truncateToDouble()) return value.toStringAsFixed(0);
     return value.toStringAsFixed(2);
   }
 }

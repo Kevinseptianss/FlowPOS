@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flow_pos/core/theme/app_pallete.dart';
 import 'package:flow_pos/core/utils/format_rupiah.dart';
 import 'package:flow_pos/features/category/presentation/bloc/category_bloc.dart';
@@ -7,6 +8,7 @@ import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_produ
 import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_product_create_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class OwnerProductsPage extends StatefulWidget {
   const OwnerProductsPage({super.key});
@@ -22,7 +24,6 @@ class _OwnerProductsPageState extends State<OwnerProductsPage> {
   @override
   void initState() {
     super.initState();
-    // Load initial data
     _fetchData();
   }
 
@@ -34,294 +35,469 @@ class _OwnerProductsPageState extends State<OwnerProductsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppPallete.background,
-      body: SafeArea(
+      backgroundColor: const Color(0xFFF9FAFB),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isMobile = constraints.maxWidth < 700;
+          final topPadding = MediaQuery.of(context).padding.top;
+
+          return Stack(
+            children: [
+              // --- PREMIUM BACKGROUND BLUR ---
+              Positioned(
+                top: -100,
+                right: -100,
+                child: Container(
+                  width: 300,
+                  height: 300,
+                  decoration: BoxDecoration(
+                    color: AppPallete.primary.withAlpha(40),
+                    shape: BoxShape.circle,
+                  ),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 100, sigmaY: 100),
+                    child: Container(color: Colors.transparent),
+                  ),
+                ),
+              ),
+
+              RefreshIndicator(
+                onRefresh: () async => _fetchData(),
+                child: CustomScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  slivers: [
+                    _buildSliverHeader(context, isMobile, topPadding),
+                    _buildSearchAndFilterSliver(isMobile),
+                    _buildProductSliverList(isMobile),
+                    const SliverToBoxAdapter(child: SizedBox(height: 100)),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+      floatingActionButton: _buildPremiumFAB(context),
+    );
+  }
+
+  Widget _buildSliverHeader(
+    BuildContext context,
+    bool isMobile,
+    double topPadding,
+  ) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          isMobile ? 16 : 32,
+          (isMobile ? 16 : 32) + topPadding,
+          isMobile ? 16 : 32,
+          32,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildHeader(context),
-            _buildSearchAndFilter(context),
-            Expanded(
-              child: _buildProductList(context),
+            Text(
+              'Manajemen Produk',
+              style: GoogleFonts.outfit(
+                fontSize: isMobile ? 28 : 36,
+                fontWeight: FontWeight.w800,
+                color: AppPallete.textPrimary,
+                letterSpacing: -1,
+              ),
             ),
+            Text(
+              'Kelola katalog menu dan ketersediaan.',
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                color: AppPallete.textSecondary,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+            const SizedBox(height: 32),
+            _buildMetricsRow(isMobile),
           ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(context, OwnerProductCreatePage.route()).then((_) {
-            _fetchData(); // Refresh list after returning
-          });
-        },
-        backgroundColor: AppPallete.primary,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text(
-          'Tambah Produk',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
       ),
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+  Widget _buildMetricsRow(bool isMobile) {
+    return BlocBuilder<MenuItemBloc, MenuItemState>(
+      builder: (context, state) {
+        if (state is MenuItemLoaded) {
+          final total = state.menuItems.length;
+          final active = state.menuItems.where((i) => i.enabled).length;
+          final inactive = total - active;
+
+          return Row(
+            children: [
+              _buildMetricOrb(
+                'Total Menu',
+                total.toString(),
+                Icons.restaurant_menu_rounded,
+                Colors.blue,
+              ),
+              const SizedBox(width: 12),
+              _buildMetricOrb(
+                'Tersedia',
+                active.toString(),
+                Icons.check_circle_rounded,
+                Colors.green,
+              ),
+              const SizedBox(width: 12),
+              _buildMetricOrb(
+                'Habis',
+                inactive.toString(),
+                Icons.cancel_rounded,
+                Colors.red,
+              ),
+            ],
+          );
+        }
+        return const SizedBox.shrink();
+      },
+    );
+  }
+
+  Widget _buildMetricOrb(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
+    return Expanded(
+      child: Container(
+        height: 90,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [color.withAlpha(190), color],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: color.withAlpha(60),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              right: -5,
+              bottom: -5,
+              child: Icon(icon, size: 44, color: Colors.white.withAlpha(40)),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    value,
+                    style: GoogleFonts.outfit(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                    ),
+                  ),
+                  Text(
+                    label,
+                    style: GoogleFonts.outfit(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white.withAlpha(200),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchAndFilterSliver(bool isMobile) {
+    return SliverToBoxAdapter(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Manajemen Produk',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppPallete.primary,
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: isMobile ? 20 : 32),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withAlpha(5), blurRadius: 20),
+                ],
+              ),
+              child: TextField(
+                onChanged: (value) => setState(() => _searchQuery = value),
+                style: GoogleFonts.outfit(
+                  fontWeight: FontWeight.w600,
+                  color: AppPallete.textPrimary,
                 ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Kelola daftar menu dan kategori anda',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppPallete.textSecondary,
+                decoration: InputDecoration(
+                  hintText: 'Cari produk...',
+                  hintStyle: GoogleFonts.outfit(
+                    color: Colors.grey,
+                    fontSize: 14,
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search_rounded,
+                    color: AppPallete.primary,
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 16),
                 ),
+              ),
+            ),
           ),
+          const SizedBox(height: 24),
+          _buildCategoryFilterList(isMobile),
+          const SizedBox(height: 24),
         ],
       ),
     );
   }
 
-  Widget _buildSearchAndFilter(BuildContext context) {
-    return Column(
-      children: [
-        // Search Bar
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withAlpha(5),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: TextField(
-              onChanged: (value) => setState(() => _searchQuery = value),
-              decoration: InputDecoration(
-                hintText: 'Cari produk...',
-                prefixIcon: const Icon(Icons.search, color: AppPallete.primary),
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 15),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        // Category Chips
-        BlocBuilder<CategoryBloc, CategoryState>(
-          builder: (context, state) {
-            final categories = <Map<String, String>>[
-              {'id': 'all', 'name': 'Semua'}
-            ];
+  Widget _buildCategoryFilterList(bool isMobile) {
+    return BlocBuilder<CategoryBloc, CategoryState>(
+      builder: (context, state) {
+        final categories = <Map<String, String>>[
+          {'id': 'all', 'name': 'Semua'},
+        ];
+        if (state is CategoryLoaded) {
+          for (var cat in state.categories) {
+            categories.add({'id': cat.id, 'name': cat.name});
+          }
+        }
 
-            if (state is CategoryLoaded) {
-              for (var cat in state.categories) {
-                categories.add({'id': cat.id, 'name': cat.name});
-              }
-            }
-
-            return SizedBox(
-              height: 50,
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                scrollDirection: Axis.horizontal,
-                itemCount: categories.length,
-                itemBuilder: (context, index) {
-                  final cat = categories[index];
-                  final isSelected = _selectedCategoryId == cat['id'];
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(cat['name']!),
-                      selected: isSelected,
-                      onSelected: (selected) {
-                        if (selected) {
-                          setState(() => _selectedCategoryId = cat['id']!);
-                        }
-                      },
-                      selectedColor: AppPallete.primary,
-                      labelStyle: TextStyle(
-                        color: isSelected ? Colors.white : AppPallete.textPrimary,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      ),
-                      backgroundColor: Colors.white,
-                      side: BorderSide(
-                        color: isSelected ? AppPallete.primary : AppPallete.divider,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
+        return SizedBox(
+          height: 44,
+          child: ListView.builder(
+            padding: EdgeInsets.symmetric(horizontal: isMobile ? 20 : 32),
+            scrollDirection: Axis.horizontal,
+            itemCount: categories.length,
+            itemBuilder: (context, index) {
+              final cat = categories[index];
+              final isSelected = _selectedCategoryId == cat['id'];
+              return Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: ChoiceChip(
+                  label: Text(
+                    cat['name']!,
+                    style: GoogleFonts.outfit(
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.w500,
+                      fontSize: 13,
                     ),
-                  );
-                },
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 8),
-      ],
+                  ),
+                  selected: isSelected,
+                  onSelected: (selected) =>
+                      setState(() => _selectedCategoryId = cat['id']!),
+                  selectedColor: AppPallete.primary,
+                  labelStyle: TextStyle(
+                    color: isSelected ? Colors.white : AppPallete.textPrimary,
+                  ),
+                  backgroundColor: Colors.white,
+                  showCheckmark: false,
+                  elevation: isSelected ? 4 : 0,
+                  shadowColor: AppPallete.primary.withAlpha(80),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(
+                      color: isSelected
+                          ? AppPallete.primary
+                          : Colors.grey[200]!,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildProductList(BuildContext context) {
-    return BlocBuilder<MenuItemBloc, MenuItemState>(
-      builder: (context, state) {
-        if (state is MenuItemLoading) {
-          return const Center(child: CircularProgressIndicator());
-        }
+  Widget _buildProductSliverList(bool isMobile) {
+    return SliverPadding(
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 20 : 32),
+      sliver: BlocBuilder<MenuItemBloc, MenuItemState>(
+        builder: (context, state) {
+          if (state is MenuItemLoaded) {
+            final filtered = state.menuItems.where((item) {
+              final matchesSearch = item.name.toLowerCase().contains(
+                _searchQuery.toLowerCase(),
+              );
+              final matchesCategory =
+                  _selectedCategoryId == 'all' ||
+                  item.category.id == _selectedCategoryId;
+              return matchesSearch && matchesCategory;
+            }).toList();
 
-        if (state is MenuItemLoaded) {
-          final filteredItems = state.menuItems.where((item) {
-            final matchesSearch =
-                item.name.toLowerCase().contains(_searchQuery.toLowerCase());
-            final matchesCategory = _selectedCategoryId == 'all' ||
-                item.category.id == _selectedCategoryId;
-            return matchesSearch && matchesCategory;
-          }).toList();
-
-          if (filteredItems.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.search_off, size: 64, color: AppPallete.divider),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Produk tidak ditemukan',
-                    style: TextStyle(color: AppPallete.textSecondary),
-                  ),
-                ],
-              ),
-            );
+            return filtered.isEmpty
+                ? const SliverToBoxAdapter(
+                    child: Center(child: Text('Produk tidak ditemukan')),
+                  )
+                : SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) =>
+                          _buildProductCard(context, filtered[index]),
+                      childCount: filtered.length,
+                    ),
+                  );
           }
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(20),
-            itemCount: filteredItems.length,
-            itemBuilder: (context, index) {
-              final product = filteredItems[index];
-              return _buildProductCard(context, product);
-            },
+          return const SliverToBoxAdapter(
+            child: Center(child: CircularProgressIndicator()),
           );
-        }
-
-        if (state is MenuItemFailure) {
-          return Center(child: Text(state.message));
-        }
-
-        return const Center(child: Text('Memuat menu...'));
-      },
+        },
+      ),
     );
   }
 
   Widget _buildProductCard(BuildContext context, MenuItem product) {
-    return InkWell(
-      onTap: () {
-        // Navigate directly to edit page
-        Navigator.push(
-          context,
-          OwnerProductEditPage.route(product),
-        ).then((_) {
-          _fetchData();
-        });
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(5),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            // Image Placeholder
-            Container(
-              width: 70,
-              height: 70,
-              decoration: BoxDecoration(
-                color: AppPallete.primary.withAlpha(10),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.fastfood, color: AppPallete.primary),
-            ),
-            const SizedBox(width: 16),
-            // Product Info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(5),
+            blurRadius: 15,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => Navigator.push(
+              context,
+              OwnerProductEditPage.route(product),
+            ).then((_) => _fetchData()),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
                 children: [
-                  Text(
-                    product.name,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: AppPallete.textPrimary,
+                  Container(
+                    width: 70,
+                    height: 70,
+                    decoration: BoxDecoration(
+                      color: AppPallete.primary.withAlpha(15),
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    product.category.name,
-                    style: TextStyle(
-                      color: AppPallete.textSecondary,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    formatRupiah(product.price),
-                    style: const TextStyle(
+                    child: const Icon(
+                      Icons.fastfood_rounded,
                       color: AppPallete.primary,
-                      fontWeight: FontWeight.bold,
+                      size: 32,
                     ),
                   ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          product.name,
+                          style: GoogleFonts.outfit(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 17,
+                            color: AppPallete.textPrimary,
+                          ),
+                        ),
+                        Text(
+                          product.category.name,
+                          style: GoogleFonts.outfit(
+                            color: AppPallete.textSecondary,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          formatRupiah(product.price),
+                          style: GoogleFonts.outfit(
+                            color: AppPallete.primary,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _buildStatusBadge(product.enabled),
+                  const Icon(Icons.chevron_right_rounded, color: Colors.grey),
                 ],
               ),
             ),
-            // Status Badge
-            Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: product.enabled
-                        ? AppPallete.success.withAlpha(20)
-                        : AppPallete.error.withAlpha(20),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    product.enabled ? 'Tersedia' : 'Habis',
-                    style: TextStyle(
-                      color: product.enabled ? AppPallete.success : AppPallete.error,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Icon(Icons.chevron_right, color: AppPallete.divider),
-              ],
-            ),
-          ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(bool enabled) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: enabled
+            ? AppPallete.success.withAlpha(20)
+            : AppPallete.error.withAlpha(20),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        enabled ? 'Tersedia' : 'Habis',
+        style: GoogleFonts.outfit(
+          color: enabled ? AppPallete.success : AppPallete.error,
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPremiumFAB(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: AppPallete.primary.withAlpha(80),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: FloatingActionButton.extended(
+        onPressed: () => Navigator.push(
+          context,
+          OwnerProductCreatePage.route(),
+        ).then((_) => _fetchData()),
+        backgroundColor: AppPallete.primary,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        icon: const Icon(Icons.add_rounded, color: Colors.white),
+        label: Text(
+          'TAMBAH PRODUK',
+          style: GoogleFonts.outfit(
+            fontWeight: FontWeight.w900,
+            color: Colors.white,
+            letterSpacing: 1,
+          ),
         ),
       ),
     );

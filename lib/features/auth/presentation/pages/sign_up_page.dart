@@ -38,8 +38,6 @@ class _SignUpPageState extends State<SignUpPage> {
         listener: (context, state) {
           if (state is AuthFailure) {
             showSnackbar(context, state.message);
-          } else if (state is AuthSuccess) {
-            Navigator.popUntil(context, (route) => route.isFirst);
           }
         },
         builder: (context, state) {
@@ -111,7 +109,7 @@ class _SignUpPageState extends State<SignUpPage> {
                             const SizedBox(height: 12),
                             AuthTextField(
                               controller: _emailController,
-                              label: 'Email',
+                              label: 'Email / Username',
                             ),
                             const SizedBox(height: 12),
                             AuthTextField(

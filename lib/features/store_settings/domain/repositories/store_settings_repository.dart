@@ -10,5 +10,18 @@ abstract interface class StoreSettingsRepository {
     required double serviceChargePercentage,
     required String storeName,
     required String storeAddress,
+    required bool isCashEnabled,
+    required bool isCardEnabled,
+    required bool isTransferEnabled,
+    String? bankName,
+    String? bankAccountNumber,
+    required bool isQrisEnabled,
+    String? midtransMerchantId,
+    String? midtransClientKey,
+    String? midtransServerKey,
+    required bool isMidtransSandbox,
+    String? midtransMerchantIdSandbox,
+    String? midtransClientKeySandbox,
+    String? midtransServerKeySandbox,
   });
 }

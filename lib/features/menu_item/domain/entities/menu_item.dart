@@ -6,6 +6,7 @@ class MenuItem extends Equatable {
   final String id;
   final String name;
   final int price;
+  final int basePrice;
   final Category category;
   final bool enabled;
   final String unit;
@@ -15,6 +16,7 @@ class MenuItem extends Equatable {
     required this.id,
     required this.name,
     required this.price,
+    this.basePrice = 0,
     required this.category,
     required this.enabled,
     this.unit = 'pcs',
@@ -22,5 +24,5 @@ class MenuItem extends Equatable {
   });
 
   @override
-  List<Object?> get props => [id, name, price, category, enabled, unit, variants];
+  List<Object?> get props => [id, name, price, basePrice, category, enabled, unit, variants];
 }

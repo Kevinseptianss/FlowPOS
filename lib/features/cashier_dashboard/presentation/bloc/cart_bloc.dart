@@ -15,6 +15,19 @@ class CartBloc extends Bloc<CartEvent, CartState> {
     on<RemoveFromCartEvent>(_onRemoveFromCart);
     on<UpdateCartItemQuantityEvent>(_onUpdateCartItemQuantity);
     on<ClearCartEvent>(_onClearCart);
+    on<ReplaceCartItemsEvent>(_onReplaceCartItems);
+  }
+
+  void _onReplaceCartItems(ReplaceCartItemsEvent event, Emitter<CartState> emit) {
+    if (event.items.isEmpty) {
+      emit(const CartEmpty());
+    } else {
+      final totalAmount = event.items.fold<int>(
+        0,
+        (sum, item) => sum + item.totalPrice,
+      );
+      emit(CartLoaded(List.from(event.items), totalAmount));
+    }
   }
 
   void _onAddToCart(AddToCartEvent event, Emitter<CartState> emit) {
@@ -27,10 +40,11 @@ class CartBloc extends Bloc<CartEvent, CartState> {
       currentItems = [];
     }
 
-    // Check if item with same menuItemId and same modifiers already exists
+    // Check if item with same menuItemId, same modifiers, AND same notes already exists
     final existingIndex = currentItems.indexWhere(
       (item) =>
           item.menuItemId == event.menuItemId &&
+          item.notes == event.notes &&
           _modifiersEqual(item.selectedModifiers, event.selectedModifiers),
     );
 
@@ -56,6 +70,8 @@ class CartBloc extends Bloc<CartEvent, CartState> {
         quantity: event.quantity,
         selectedModifiers: event.selectedModifiers,
         totalPrice: event.totalPrice,
+        variantId: event.variantId,
+        notes: event.notes,
       );
       currentItems.add(newItem);
     }
