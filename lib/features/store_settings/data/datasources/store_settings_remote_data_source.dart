@@ -1,5 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flow_pos/features/store_settings/data/models/store_settings_model.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 abstract interface class StoreSettingsRemoteDataSource {
   Future<StoreSettingsModel> getStoreSettings();
@@ -25,25 +25,20 @@ abstract interface class StoreSettingsRemoteDataSource {
   });
 }
 
-class StoreSettingsRemoteDataSourceImpl
-    implements StoreSettingsRemoteDataSource {
-  final SupabaseClient supabaseClient;
+class StoreSettingsRemoteDataSourceImpl implements StoreSettingsRemoteDataSource {
+  final FirebaseFirestore _firestore;
 
-  StoreSettingsRemoteDataSourceImpl(this.supabaseClient);
+  StoreSettingsRemoteDataSourceImpl(this._firestore);
 
   @override
   Future<StoreSettingsModel> getStoreSettings() async {
-    final rows = await supabaseClient
-        .from('store_settings')
-        .select()
-        .order('updated_at', ascending: false)
-        .limit(1);
+    final doc = await _firestore.collection('store_settings').doc('current').get();
 
-    if (rows.isEmpty) {
+    if (!doc.exists) {
       return const StoreSettingsModel.zero();
     }
 
-    return StoreSettingsModel.fromJson(rows.first);
+    return StoreSettingsModel.fromJson(doc.data()!);
   }
 
   @override
@@ -68,6 +63,7 @@ class StoreSettingsRemoteDataSourceImpl
     String? midtransServerKeySandbox,
   }) async {
     final payload = {
+      'id': id ?? 'current',
       'tax_percentage': taxPercentage,
       'service_charge_percentage': serviceChargePercentage,
       'store_name': storeName,
@@ -83,26 +79,11 @@ class StoreSettingsRemoteDataSourceImpl
       'midtrans_merchant_id_sandbox': midtransMerchantIdSandbox,
       'midtrans_client_key_sandbox': midtransClientKeySandbox,
       'midtrans_server_key_sandbox': midtransServerKeySandbox,
-      'updated_at': DateTime.now().toIso8601String(),
+      'updated_at': FieldValue.serverTimestamp(),
     };
 
-    if (id != null && id.trim().isNotEmpty) {
-      final row = await supabaseClient
-          .from('store_settings')
-          .update(payload)
-          .eq('id', id)
-          .select()
-          .single();
+    await _firestore.collection('store_settings').doc('current').set(payload, SetOptions(merge: true));
 
-      return StoreSettingsModel.fromJson(row);
-    }
-
-    final row = await supabaseClient
-        .from('store_settings')
-        .insert(payload)
-        .select()
-        .single();
-
-    return StoreSettingsModel.fromJson(row);
+    return StoreSettingsModel.fromJson(payload);
   }
 }

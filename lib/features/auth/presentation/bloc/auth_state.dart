@@ -15,6 +15,8 @@ final class AuthSuccess extends AuthState {}
 
 final class AuthPasswordChangedSuccess extends AuthState {}
 
+final class AuthSignUpSuccess extends AuthState {}
+
 final class AuthFailure extends AuthState {
   final String message;
   const AuthFailure(this.message);

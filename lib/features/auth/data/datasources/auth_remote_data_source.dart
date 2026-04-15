@@ -1,10 +1,10 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flow_pos/core/error/server_exception.dart';
 import 'package:flow_pos/features/auth/data/models/user_model.dart';
-import 'package:flutter/foundation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 abstract interface class AuthRemoteDataSource {
-  Session? get currentUserSession;
+  User? get currentUser;
   Future<UserModel> signUpWithEmailAndPassword(
     String name,
     String email,
@@ -15,14 +15,17 @@ abstract interface class AuthRemoteDataSource {
   Future<UserModel?> getCurrentUserData();
   Future<void> signOut();
   Future<void> updatePassword(String newPassword);
+  Future<bool> checkOwnerExists();
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
-  final SupabaseClient supabaseClient;
-  AuthRemoteDataSourceImpl(this.supabaseClient);
+  final FirebaseAuth _firebaseAuth;
+  final FirebaseFirestore _firestore;
+
+  AuthRemoteDataSourceImpl(this._firebaseAuth, this._firestore);
 
   @override
-  Session? get currentUserSession => supabaseClient.auth.currentSession;
+  User? get currentUser => _firebaseAuth.currentUser;
 
   @override
   Future<UserModel> signUpWithEmailAndPassword(
@@ -32,25 +35,53 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     String role = 'owner',
   }) async {
     try {
-      final response = await supabaseClient.auth.signUp(
-        password: password,
-        email: email,
-        data: {
-          'name': name, 
-          'role': role,
-          'username': email.contains('@flowpos.local') 
-              ? email.split('@')[0] 
-              : null,
-        },
-      );
+      // Limit to 1 Owner only
+      if (role == 'owner') {
+        final ownerQuery = await _firestore
+            .collection('profiles')
+            .where('role', isEqualTo: 'owner')
+            .limit(1)
+            .get();
 
-      if (response.user == null) {
-        throw const ServerException('User is null');
+        if (ownerQuery.docs.isNotEmpty) {
+          throw const ServerException(
+              'Aplikasi sudah memiliki Owner. Silakan hubungi Owner untuk akses.');
+        }
       }
 
-      return _resolveUserData(response.user!);
-    } on AuthException catch (e) {
-      throw ServerException(e.message);
+      final credential = await _firebaseAuth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      if (credential.user == null) {
+        throw const ServerException('User creation failed');
+      }
+
+      final userModel = UserModel(
+        id: credential.user!.uid,
+        email: email,
+        name: name,
+        role: role,
+        username: email.contains('@flowpos.local') 
+            ? email.split('@')[0] 
+            : null,
+      );
+
+      // Save to Firestore 'profiles' collection
+      await _firestore.collection('profiles').doc(credential.user!.uid).set({
+        'id': userModel.id,
+        'email': userModel.email,
+        'name': userModel.name,
+        'role': userModel.role,
+        'username': userModel.username,
+        'created_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+      });
+
+      return userModel;
+    } on FirebaseAuthException catch (e) {
+      throw ServerException(e.message ?? 'Authentication error');
     } catch (e) {
       throw ServerException(e.toString());
     }
@@ -62,104 +93,47 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     String password,
   ) async {
     try {
-      // Support username login: if no @, append @flowpos.local
       final effectiveEmail = email.contains('@') ? email : '${email.trim().toLowerCase()}@flowpos.local';
       
-      debugPrint('Attempting login for: $effectiveEmail');
-
-      final response = await supabaseClient.auth.signInWithPassword(
-        password: password,
+      final credential = await _firebaseAuth.signInWithEmailAndPassword(
         email: effectiveEmail,
+        password: password,
       );
 
-      if (response.user == null) {
-        debugPrint('Login failed: User object is null');
-        throw const ServerException('User is null');
+      if (credential.user == null) {
+        throw const ServerException('Login failed');
       }
 
-      debugPrint('Login success for ID: ${response.user!.id}, Role in metadata: ${response.user!.userMetadata?['role']}');
-      return _resolveUserData(response.user!);
-    } on AuthException catch (e) {
-      debugPrint('AuthException during login: ${e.message}');
-      throw ServerException(e.message);
+      final userData = await getCurrentUserData();
+      if (userData == null) {
+        throw const ServerException('User profile not found');
+      }
+
+      return userData;
+    } on FirebaseAuthException catch (e) {
+      throw ServerException(e.message ?? 'Login failed');
     } catch (e) {
-      debugPrint('Unexpected error during login: $e');
       throw ServerException(e.toString());
     }
-  }
-
-  Future<UserModel> _resolveUserData(User authUser) async {
-    final metadata = authUser.userMetadata ?? const <String, dynamic>{};
-    dynamic profile;
-
-    try {
-      debugPrint('Fetching profile for User ID: ${authUser.id}');
-      profile = await supabaseClient
-          .from('profiles')
-          .select()
-          .eq('id', authUser.id)
-          .maybeSingle();
-
-      if (profile != null) {
-        debugPrint('Found DB Profile: $profile');
-        return UserModel.fromJson(profile).copyWith(
-          email: authUser.email,
-          name: profile['name']?.toString() ?? metadata['name']?.toString(),
-          role: profile['role']?.toString() ?? metadata['role']?.toString(),
-        );
-      } else {
-        debugPrint('No profile row found for ID: ${authUser.id}');
-      }
-    } on PostgrestException catch (e) {
-      debugPrint('Database Error fetching profile: ${e.message}');
-      if (e.code != 'PGRST116') {
-        throw ServerException('Database Error: ${e.message}');
-      }
-    } catch (e) {
-      debugPrint('System Error fetching profile: $e');
-      throw ServerException('System Error: $e');
-    }
-
-    final name = (profile != null ? profile['name']?.toString() : null) ??
-        metadata['name']?.toString() ??
-        'User';
-
-    final role = (profile != null ? profile['role']?.toString() : null) ??
-        metadata['role']?.toString() ??
-        'owner';
-
-    return UserModel.fromJson(authUser.toJson()).copyWith(
-      email: authUser.email,
-      name: name,
-      role: role,
-      username: metadata['username']?.toString(),
-    );
   }
 
   @override
   Future<UserModel?> getCurrentUserData() async {
     try {
-      if (currentUserSession != null) {
-        final profile = await supabaseClient
-            .from('profiles')
-            .select()
-            .eq('id', currentUserSession!.user.id)
-            .maybeSingle();
-
-        if (profile != null) {
-          return UserModel.fromJson(profile).copyWith(
-            email: currentUserSession!.user.email,
+      final user = _firebaseAuth.currentUser;
+      if (user != null) {
+        final doc = await _firestore.collection('profiles').doc(user.uid).get();
+        if (doc.exists) {
+          final data = doc.data()!;
+          return UserModel(
+            id: data['id'] ?? user.uid,
+            email: data['email'] ?? user.email ?? '',
+            name: data['name'] ?? '',
+            role: data['role'] ?? 'cashier',
+            username: data['username'],
           );
         }
-
-        // Fallback: If profile row is missing, use session data temporarily
-        return UserModel.fromJson(currentUserSession!.user.toJson()).copyWith(
-          email: currentUserSession!.user.email,
-          name: currentUserSession!.user.userMetadata?['name']?.toString(),
-          role: currentUserSession!.user.userMetadata?['role']?.toString(),
-        );
       }
-
       return null;
     } catch (e) {
       throw ServerException('Failed to fetch user data: $e');
@@ -169,9 +143,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   @override
   Future<void> signOut() async {
     try {
-      await supabaseClient.auth.signOut();
-    } on AuthException catch (e) {
-      throw ServerException(e.message);
+      await _firebaseAuth.signOut();
     } catch (e) {
       throw ServerException(e.toString());
     }
@@ -180,13 +152,25 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   @override
   Future<void> updatePassword(String newPassword) async {
     try {
-      await supabaseClient.auth.updateUser(
-        UserAttributes(password: newPassword),
-      );
-    } on AuthException catch (e) {
-      throw ServerException(e.message);
+      await _firebaseAuth.currentUser?.updatePassword(newPassword);
+    } on FirebaseAuthException catch (e) {
+      throw ServerException(e.message ?? 'Password update failed');
     } catch (e) {
       throw ServerException(e.toString());
+    }
+  }
+
+  @override
+  Future<bool> checkOwnerExists() async {
+    try {
+      final query = await _firestore
+          .collection('profiles')
+          .where('role', isEqualTo: 'owner')
+          .limit(1)
+          .get();
+      return query.docs.isNotEmpty;
+    } catch (e) {
+      return false;
     }
   }
 }

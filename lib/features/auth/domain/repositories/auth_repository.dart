@@ -16,4 +16,5 @@ abstract interface class AuthRepository {
   Future<Either<Failure, User>> getCurrentUserData();
   Future<Either<Failure, void>> signOut();
   Future<Either<Failure, void>> updatePassword(String newPassword);
+  Future<Either<Failure, bool>> checkOwnerExists();
 }

@@ -4,6 +4,9 @@ import 'package:flow_pos/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:flow_pos/features/auth/presentation/widgets/auth_text_field.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flow_pos/init_dependencies.dart';
+import 'package:flow_pos/features/auth/domain/usecases/check_owner_exists.dart';
+import 'package:flow_pos/core/usecase/use_case.dart';
 
 class SignUpPage extends StatefulWidget {
   static MaterialPageRoute route() =>
@@ -20,6 +23,35 @@ class _SignUpPageState extends State<SignUpPage> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  bool _ownerExists = false;
+  bool _isCheckingOwner = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkOwnerStatus();
+  }
+
+  Future<void> _checkOwnerStatus() async {
+    final result = await serviceLocator<CheckOwnerExists>().call(NoParams());
+    result.fold(
+      (failure) {
+        if (mounted) {
+          setState(() {
+            _isCheckingOwner = false;
+          });
+        }
+      },
+      (exists) {
+        if (mounted) {
+          setState(() {
+            _ownerExists = exists;
+            _isCheckingOwner = false;
+          });
+        }
+      },
+    );
+  }
 
   @override
   void dispose() {
@@ -38,6 +70,9 @@ class _SignUpPageState extends State<SignUpPage> {
         listener: (context, state) {
           if (state is AuthFailure) {
             showSnackbar(context, state.message);
+          } else if (state is AuthSignUpSuccess) {
+            showSnackbar(context, 'Akun berhasil dibuat! Silakan masuk.');
+            Navigator.pop(context);
           }
         },
         builder: (context, state) {
@@ -71,7 +106,9 @@ class _SignUpPageState extends State<SignUpPage> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Siapkan akun pemilik Anda dalam hitungan menit.',
+                          _ownerExists 
+                            ? 'Akun Owner Sudah Terdaftar'
+                            : 'Siapkan akun pemilik Anda dalam hitungan menit.',
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(color: AppPallete.onPrimary),
                         ),
@@ -131,35 +168,59 @@ class _SignUpPageState extends State<SignUpPage> {
                               },
                             ),
                             const SizedBox(height: 18),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  if (_formKey.currentState?.validate() ??
-                                      false) {
-                                    context.read<AuthBloc>().add(
-                                      SignUpEvent(
-                                        name: _nameController.text,
-                                        email: _emailController.text,
-                                        password: _passwordController.text,
-                                        role: 'owner',
-                                      ),
-                                    );
-                                  }
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppPallete.primary,
-                                  foregroundColor: AppPallete.onPrimary,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 14,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
+                            if (_ownerExists)
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.red.withOpacity(0.3)),
                                 ),
-                                child: const Text('Buat Akun'),
+                                child: Text(
+                                  'Aplikasi sudah memiliki Owner. Silakan hubungi Owner untuk mendapatkan akses sebagai Staff.',
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.red[700],
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
                               ),
-                            ),
+                            if (!_ownerExists)
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  onPressed: _isCheckingOwner ? null : () {
+                                    if (_formKey.currentState?.validate() ??
+                                        false) {
+                                      context.read<AuthBloc>().add(
+                                        SignUpEvent(
+                                          name: _nameController.text,
+                                          email: _emailController.text,
+                                          password: _passwordController.text,
+                                          role: 'owner',
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppPallete.primary,
+                                    foregroundColor: AppPallete.onPrimary,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  child: _isCheckingOwner 
+                                    ? const SizedBox(
+                                        height: 20, 
+                                        width: 20, 
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)
+                                      )
+                                    : const Text('Buat Akun'),
+                                ),
+                              ),
                             const SizedBox(height: 12),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,

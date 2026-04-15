@@ -15,7 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' show SupabaseClient;
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class CashierShiftPage extends StatefulWidget {
   const CashierShiftPage({super.key});
@@ -26,7 +26,7 @@ class CashierShiftPage extends StatefulWidget {
 
 class _CashierShiftPageState extends State<CashierShiftPage> {
   late final CashierShiftLocalService _cashierShiftLocalService;
-  late final SupabaseClient _supabaseClient;
+  late final FirebaseFirestore _firestore;
 
   String? _cachedCashierId;
   String? _cachedShiftId;
@@ -38,7 +38,7 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
   void initState() {
     super.initState();
     _cashierShiftLocalService = serviceLocator<CashierShiftLocalService>();
-    _supabaseClient = serviceLocator<SupabaseClient>();
+    _firestore = serviceLocator<FirebaseFirestore>();
 
     _durationTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
@@ -102,30 +102,24 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
     required String shiftId,
   }) async {
     try {
-      final orderRows = await _supabaseClient
-          .from('orders')
-          .select('''
-            id,
-            total,
-            status,
-            payments (
-              method,
-              amount_due
-            )
-          ''')
-          .eq('shift_id', shiftId)
-          .neq('status', 'VOIDED');
+      final orderSnapshot = await _firestore
+          .collection('orders')
+          .where('shift_id', isEqualTo: shiftId)
+          .get();
 
       var totalCashSales = 0;
       var totalQrisSales = 0;
-      final orderIds = <String>[];
+      var totalTransactions = 0;
+      final soldByProduct = <String, int>{};
 
-      for (final row in orderRows) {
-        orderIds.add(row['id'] as String);
-        final paymentRows = row['payments'] as List<dynamic>? ?? [];
-        if (paymentRows.isEmpty) continue;
+      for (final doc in orderSnapshot.docs) {
+        final data = doc.data();
+        if (data['status'] == 'VOIDED') continue;
+        
+        totalTransactions++;
 
-        for (final payment in paymentRows) {
+        final payment = data['payment'] as Map<String, dynamic>?;
+        if (payment != null) {
           final method = (payment['method'] as String? ?? '').trim().toUpperCase();
           final amountPaid = (payment['amount_due'] as num?)?.toInt() ?? 0;
 
@@ -135,25 +129,13 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
             totalCashSales += amountPaid;
           }
         }
-      }
 
-      final soldByProduct = <String, int>{};
-      if (orderIds.isNotEmpty) {
-        final orderItemsRows = await _supabaseClient
-            .from('order_items')
-            .select('''
-              quantity,
-              menu_items (
-                name
-              )
-            ''')
-            .inFilter('order_id', orderIds)
-            .eq('is_deleted', false);
-
-        for (final row in orderItemsRows) {
-          final quantity = (row['quantity'] as num?)?.toInt() ?? 0;
-          final menuData = row['menu_items'] as Map<String, dynamic>?;
-          final menuName = menuData?['name'] as String? ?? 'Produk Tidak Dikenal';
+        final itemsData = data['items'] as List<dynamic>? ?? [];
+        for (final item in itemsData) {
+          if (item['is_deleted'] == true) continue;
+          
+          final quantity = (item['quantity'] as num?)?.toInt() ?? 0;
+          final menuName = item['menu_name'] as String? ?? 'Produk Tidak Dikenal';
 
           soldByProduct.update(
             menuName,
@@ -171,7 +153,7 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
       return _CurrentShiftStats(
         totalCashSales: totalCashSales,
         totalQrisSales: totalQrisSales,
-        totalTransactions: orderRows.length,
+        totalTransactions: totalTransactions,
         soldProducts: soldProducts,
       );
     } catch (e) {

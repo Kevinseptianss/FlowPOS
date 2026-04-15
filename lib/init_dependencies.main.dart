@@ -17,16 +17,16 @@ Future<void> initDependencies() async {
   _initShift();
 
   try {
-    debugPrint('Initializing Supabase...');
-    final supabase = await Supabase.initialize(
-      url: AppSecrets.supabaseURL,
-      anonKey: AppSecrets.supabaseKey,
+    debugPrint('Initializing Firebase...');
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
     ).timeout(const Duration(seconds: 15));
-    serviceLocator.registerLazySingleton(() => supabase.client);
+    
+    serviceLocator.registerLazySingleton(() => FirebaseAuth.instance);
+    serviceLocator.registerLazySingleton(() => FirebaseFirestore.instance);
+    serviceLocator.registerLazySingleton(() => FirebaseStorage.instance);
   } catch (e) {
-    debugPrint('Supabase Initialization Error: $e');
-    // If Supabase fails, we still register a dummy client to avoid crashes elsewhere
-    // but the app should show the error caught in main.dart
+    debugPrint('Firebase Initialization Error: $e');
     rethrow;
   }
 
@@ -196,7 +196,10 @@ void _initAuth() {
   serviceLocator
     // Datasources
     ..registerFactory<AuthRemoteDataSource>(
-      () => AuthRemoteDataSourceImpl(serviceLocator()),
+      () => AuthRemoteDataSourceImpl(
+        serviceLocator<FirebaseAuth>(),
+        serviceLocator<FirebaseFirestore>(),
+      ),
     )
     // Repositories
     ..registerFactory<AuthRepository>(
@@ -208,6 +211,7 @@ void _initAuth() {
     ..registerFactory(() => CurrentUser(serviceLocator()))
     ..registerFactory(() => Logout(serviceLocator()))
     ..registerFactory(() => ChangePassword(serviceLocator()))
+    ..registerFactory(() => CheckOwnerExists(serviceLocator()))
     // Bloc
     ..registerLazySingleton(
       () => AuthBloc(
@@ -253,7 +257,9 @@ void _initStaff() {
   serviceLocator
     // Datasources
     ..registerFactory<StaffRemoteDataSource>(
-      () => StaffRemoteDataSourceImpl(serviceLocator()),
+      () => StaffRemoteDataSourceImpl(
+        serviceLocator<FirebaseFirestore>(),
+      ),
     )
     // Repositories
     ..registerFactory<StaffRepository>(

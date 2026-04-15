@@ -1,15 +1,14 @@
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 
 class CashierShiftLocalService {
   static const Duration _wibOffset = Duration(hours: 7);
 
   final Box<dynamic> _box;
-  final SupabaseClient _supabaseClient;
+  final FirebaseFirestore _firestore;
 
-
-  CashierShiftLocalService(this._box, this._supabaseClient);
+  CashierShiftLocalService(this._box, this._firestore);
 
   String _activeShiftKey(String cashierId) => 'active_shift_$cashierId';
 
@@ -93,27 +92,23 @@ class CashierShiftLocalService {
     required DateTime openedAtUtc,
     required DateTime closedAtUtc,
   }) async {
-    final orderRows = await _supabaseClient
-        .from('orders')
-        .select('''
-          id,
-          payments (
-            method,
-            amount_due
-          )
-        ''')
-        .eq('cashier_id', cashierId)
-        .gte('created_at', openedAtUtc.toIso8601String())
-        .lte('created_at', closedAtUtc.toIso8601String());
+    final orderSnapshot = await _firestore
+        .collection('orders')
+        .where('cashier_id', isEqualTo: cashierId)
+        .where('created_at', isGreaterThanOrEqualTo: Timestamp.fromDate(openedAtUtc))
+        .where('created_at', isLessThanOrEqualTo: Timestamp.fromDate(closedAtUtc))
+        .get();
 
     var totalCashSales = 0;
     var totalQrisSales = 0;
 
-    for (final row in orderRows) {
-      final paymentRows = row['payments'] as List<dynamic>? ?? [];
-      if (paymentRows.isEmpty) continue;
+    for (final doc in orderSnapshot.docs) {
+      final data = doc.data();
+      if (data['status'] == 'VOIDED') continue;
+      
+      final payment = data['payment'] as Map<String, dynamic>?;
+      if (payment == null) continue;
 
-      final payment = paymentRows.first as Map<String, dynamic>;
       final method = (payment['method'] as String? ?? '').trim().toUpperCase();
       final amountDue = (payment['amount_due'] as num?)?.toInt() ?? 0;
 

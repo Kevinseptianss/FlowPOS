@@ -1,5 +1,5 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:uuid/uuid.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flow_pos/core/error/server_exception.dart';
 
 abstract interface class InventoryRemoteDataSource {
   Future<List<Map<String, dynamic>>> getStockLevels();
@@ -24,30 +24,22 @@ abstract interface class InventoryRemoteDataSource {
 }
 
 class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
-  final SupabaseClient supabaseClient;
-  final Uuid _uuid = const Uuid();
+  final FirebaseFirestore _firestore;
 
-  InventoryRemoteDataSourceImpl(this.supabaseClient);
+  InventoryRemoteDataSourceImpl(this._firestore);
 
   @override
   Future<List<Map<String, dynamic>>> getStockLevels() async {
-    // We join with menu_items and menu_item_variants to get names
-    final response = await supabaseClient
-        .from('stocks')
-        .select('''
-          *,
-          menu_items:menu_item_id(name, category_id, base_price, price),
-          menu_item_variants:variant_id(
-            variant_name, 
-            option_name,
-            base_price,
-            menu_items:menu_item_id(name, category_id, base_price, price)
-          ),
-          purchase_order_items!left(id)
-        ''')
-        .order('updated_at', ascending: false);
-    
-    return List<Map<String, dynamic>>.from(response);
+    try {
+      final snapshot = await _firestore
+          .collection('stocks')
+          .orderBy('updated_at', descending: true)
+          .get();
+      
+      return snapshot.docs.map((doc) => doc.data()..['id'] = doc.id).toList();
+    } catch (e) {
+      throw ServerException(e.toString());
+    }
   }
 
   @override
@@ -57,47 +49,38 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
     required String reason,
     String? referenceId,
   }) async {
-    // 1. Get current stock
-    final currentStock = await supabaseClient
-        .from('stocks')
-        .select()
-        .eq('id', stockId)
-        .single();
-    
-    final double currentQty = (currentStock['quantity'] as num).toDouble();
-    final double newQty = currentQty + amount;
+    try {
+      return await _firestore.runTransaction((transaction) async {
+        final stockRef = _firestore.collection('stocks').doc(stockId);
+        final stockDoc = await transaction.get(stockRef);
 
-    // 2. Update stock
-    final updatedStock = await supabaseClient
-        .from('stocks')
-        .update({
+        if (!stockDoc.exists) throw const ServerException('Stock not found');
+
+        final double currentQty = (stockDoc.data()?['quantity'] as num?)?.toDouble() ?? 0;
+        final double newQty = currentQty + amount;
+
+        transaction.update(stockRef, {
           'quantity': newQty,
-          'updated_at': DateTime.now().toIso8601String(),
-        })
-        .eq('id', stockId)
-        .select('''
-          *,
-          menu_items:menu_item_id(name, category_id, base_price, price),
-          menu_item_variants:variant_id(
-            variant_name, 
-            option_name,
-            base_price,
-            menu_items:menu_item_id(name, category_id, base_price, price)
-          )
-        ''')
-        .single();
-    
-    // 3. Create transaction log
-    await supabaseClient.from('stock_transactions').insert({
-      'stock_id': stockId,
-      'type': amount > 0 ? 'IN' : 'OUT',
-      'reason': reason,
-      'amount': amount.abs(),
-      'reference_id': referenceId,
-      'created_at': DateTime.now().toIso8601String(),
-    });
+          'updated_at': FieldValue.serverTimestamp(),
+        });
 
-    return updatedStock;
+        final logRef = _firestore.collection('stock_transactions').doc();
+        transaction.set(logRef, {
+          'id': logRef.id,
+          'stock_id': stockId,
+          'type': amount > 0 ? 'IN' : 'OUT',
+          'reason': reason,
+          'amount': amount.abs(),
+          'reference_id': referenceId,
+          'created_at': FieldValue.serverTimestamp(),
+        });
+
+        final updatedData = (await transaction.get(stockRef)).data()!;
+        return updatedData..['id'] = stockId;
+      });
+    } catch (e) {
+      throw ServerException(e.toString());
+    }
   }
 
   @override
@@ -105,116 +88,116 @@ class InventoryRemoteDataSourceImpl implements InventoryRemoteDataSource {
     required String supplierName,
     required List<Map<String, dynamic>> items,
   }) async {
-    // Simple implementation: Create PO header, then items, then update stocks
-    final poId = _uuid.v4();
-    int totalCost = 0;
-    for (var item in items) {
-      totalCost += (item['quantity'] as num).toInt() * (item['price_per_unit'] as num).toInt();
-    }
+    try {
+      final batch = _firestore.batch();
+      final poRef = _firestore.collection('purchase_orders').doc();
+      final poId = poRef.id;
 
-    // 1. Create PO
-    await supabaseClient.from('purchase_orders').insert({
-      'id': poId,
-      'supplier_name': supplierName,
-      'total_amount': totalCost,
-      'status': 'RECEIVED', // Marking as received immediately for this simple flow
-      'created_at': DateTime.now().toIso8601String(),
-    });
-
-    // 2. Create Items & Update Stock
-    for (var item in items) {
-      final stockId = item['stock_id'] as String;
-      final double qty = (item['quantity'] as num).toDouble();
-
-      await supabaseClient.from('purchase_order_items').insert({
-        'po_id': poId,
-        'stock_id': stockId,
-        'quantity': qty,
-        'price_per_unit': item['price_per_unit'],
-      });
-
-      // Update current stock levels and log transaction with poId as reference
-      await adjustStock(
-        stockId: stockId,
-        amount: qty,
-        reason: 'PURCHASE',
-        referenceId: poId,
-      );
-
-      // --- AUTOMATION: Sync price_per_unit back to MenuItem/Variant ---
-      final stockDetails = await supabaseClient
-          .from('stocks')
-          .select('menu_item_id, variant_id')
-          .eq('id', stockId)
-          .single();
-      
-      final String? menuItemId = stockDetails['menu_item_id'] as String?;
-      final String? variantId = stockDetails['variant_id'] as String?;
-      final int newBasePrice = (item['price_per_unit'] as num).toInt();
-
-      if (variantId != null) {
-        await supabaseClient
-            .from('menu_item_variants')
-            .update({'base_price': newBasePrice})
-            .eq('id', variantId);
-      } else if (menuItemId != null) {
-        await supabaseClient
-            .from('menu_items')
-            .update({'base_price': newBasePrice})
-            .eq('id', menuItemId);
+      int totalAmount = 0;
+      for (var item in items) {
+        totalAmount += ((item['quantity'] as num) * (item['price_per_unit'] as num)).toInt();
       }
-    }
 
-    final response = await supabaseClient
-        .from('purchase_orders')
-        .select('*, purchase_order_items(*)')
-        .eq('id', poId)
-        .single();
-    
-    return response;
+      final poData = {
+        'id': poId,
+        'supplier_name': supplierName,
+        'total_amount': totalAmount,
+        'status': 'RECEIVED',
+        'items': items,
+        'created_at': FieldValue.serverTimestamp(),
+      };
+
+      batch.set(poRef, poData);
+
+      // We need to update stocks too. Since batches can't read, we have to do it carefully or use transactions.
+      // For simplicity in this migration, I'll use a transaction for the whole operation if consistency is key.
+      // But multiple stocks update in one transaction might hit limits.
+      // Actually, let's use a simpler approach for the PO creation to match the original "loop and update" logic but using Firestore.
+      
+      await _firestore.collection('purchase_orders').doc(poId).set(poData);
+
+      for (var item in items) {
+        final stockId = item['stock_id'] as String;
+        final qty = (item['quantity'] as num).toDouble();
+        final pricePerUnit = (item['price_per_unit'] as num).toInt();
+
+        await adjustStock(
+          stockId: stockId,
+          amount: qty,
+          reason: 'PURCHASE',
+          referenceId: poId,
+        );
+
+        // Sync price back to MenuItem/Variant
+        final stockDoc = await _firestore.collection('stocks').doc(stockId).get();
+        final data = stockDoc.data();
+        if (data != null) {
+          final String? menuItemId = data['menu_item_id'];
+          final String? variantId = data['variant_id'];
+
+          if (variantId != null && menuItemId != null) {
+            // Update the variant inside menu_items doc
+            final menuRef = _firestore.collection('menu_items').doc(menuItemId);
+            final menuSnapshot = await menuRef.get();
+            if (menuSnapshot.exists) {
+              List variants = List.from(menuSnapshot.data()?['variants'] ?? []);
+              for (var i = 0; i < variants.length; i++) {
+                if (variants[i]['id'] == variantId) {
+                  variants[i]['base_price'] = pricePerUnit;
+                  break;
+                }
+              }
+              await menuRef.update({'variants': variants});
+            }
+          } else if (menuItemId != null) {
+            await _firestore.collection('menu_items').doc(menuItemId).update({'base_price': pricePerUnit});
+          }
+        }
+      }
+
+      return poData;
+    } catch (e) {
+      throw ServerException(e.toString());
+    }
   }
 
   @override
   Future<List<Map<String, dynamic>>> getPurchaseOrders() async {
-    final response = await supabaseClient
-        .from('purchase_orders')
-        .select('*, purchase_order_items(*)')
-        .order('created_at', ascending: false);
-    
-    return List<Map<String, dynamic>>.from(response);
+    try {
+      final snapshot = await _firestore
+          .collection('purchase_orders')
+          .orderBy('created_at', descending: true)
+          .get();
+      
+      return snapshot.docs.map((doc) => doc.data()).toList();
+    } catch (e) {
+      throw ServerException(e.toString());
+    }
   }
 
   @override
   Future<List<Map<String, dynamic>>> getStockHistory(String stockId) async {
-    final response = await supabaseClient
-        .from('stock_transactions')
-        .select()
-        .eq('stock_id', stockId)
-        .order('created_at', ascending: false);
-    
-    return List<Map<String, dynamic>>.from(response);
+    try {
+      final snapshot = await _firestore
+          .collection('stock_transactions')
+          .where('stock_id', isEqualTo: stockId)
+          .orderBy('created_at', descending: true)
+          .get();
+      
+      return snapshot.docs.map((doc) => doc.data()).toList();
+    } catch (e) {
+      throw ServerException(e.toString());
+    }
   }
 
   @override
   Future<Map<String, dynamic>> getPurchaseOrderById(String poId) async {
-    final response = await supabaseClient
-        .from('purchase_orders')
-        .select('''
-          *,
-          purchase_order_items(
-            *,
-            stocks(
-               id,
-               menu_item_id,
-               variant_id,
-               menu_items:menu_item_id(name),
-               menu_item_variants:variant_id(variant_name, option_name)
-            )
-          )
-        ''')
-        .eq('id', poId)
-        .single();
-    
-    return response;
+    try {
+      final doc = await _firestore.collection('purchase_orders').doc(poId).get();
+      if (!doc.exists) throw const ServerException('PO not found');
+      return doc.data()!;
+    } catch (e) {
+      throw ServerException(e.toString());
+    }
   }
 }

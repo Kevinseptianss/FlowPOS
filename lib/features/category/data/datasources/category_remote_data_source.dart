@@ -1,7 +1,6 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flow_pos/core/error/server_exception.dart';
 import 'package:flow_pos/features/category/data/models/category_model.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:uuid/uuid.dart';
 
 abstract interface class CategoryRemoteDataSource {
   Future<List<CategoryModel>> getAllCategories();
@@ -9,21 +8,20 @@ abstract interface class CategoryRemoteDataSource {
 }
 
 class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
-  final SupabaseClient supabaseClient;
-  final Uuid _uuid = const Uuid();
+  final FirebaseFirestore _firestore;
 
-  CategoryRemoteDataSourceImpl(this.supabaseClient);
+  CategoryRemoteDataSourceImpl(this._firestore);
 
   @override
   Future<List<CategoryModel>> getAllCategories() async {
     try {
-      final response = await supabaseClient
-          .from('categories')
-          .select()
-          .order('name', ascending: true);
+      final snapshot = await _firestore
+          .collection('categories')
+          .orderBy('name', descending: false)
+          .get();
 
-      return response
-          .map((category) => CategoryModel.fromJson(category))
+      return snapshot.docs
+          .map((doc) => CategoryModel.fromJson({'id': doc.id, ...doc.data()}))
           .toList();
     } catch (e) {
       throw ServerException(e.toString());
@@ -33,13 +31,16 @@ class CategoryRemoteDataSourceImpl implements CategoryRemoteDataSource {
   @override
   Future<CategoryModel> createCategory(String name) async {
     try {
-      final response = await supabaseClient
-          .from('categories')
-          .insert({'id': _uuid.v4(), 'name': name})
-          .select()
-          .single();
+      final docRef = _firestore.collection('categories').doc();
+      final data = {
+        'id': docRef.id,
+        'name': name,
+        'created_at': FieldValue.serverTimestamp(),
+      };
+      
+      await docRef.set(data);
 
-      return CategoryModel.fromJson(response);
+      return CategoryModel.fromJson(data);
     } catch (e) {
       throw ServerException(e.toString());
     }

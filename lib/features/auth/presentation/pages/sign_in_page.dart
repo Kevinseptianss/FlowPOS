@@ -1,5 +1,4 @@
 import 'package:flow_pos/core/theme/app_pallete.dart';
-import 'package:flow_pos/core/utils/show_snackbar.dart';
 import 'package:flow_pos/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:flow_pos/features/auth/presentation/pages/sign_up_page.dart';
 import 'package:flow_pos/features/auth/presentation/widgets/auth_text_field.dart';
@@ -34,13 +33,23 @@ class _SignInPageState extends State<SignInPage> {
       body: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthFailure) {
-            showSnackbar(context, state.message);
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Gagal Masuk'),
+                content: Text(state.message),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+            );
           }
         },
         builder: (context, state) {
-          if (state is AuthLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
+          final isLoading = state is AuthLoading;
 
           return SafeArea(
             child: SingleChildScrollView(
@@ -122,33 +131,42 @@ class _SignInPageState extends State<SignInPage> {
                               ),
                             ),
                             const SizedBox(height: 8),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  if (_formKey.currentState?.validate() ??
-                                      false) {
-                                    context.read<AuthBloc>().add(
-                                      SignInEvent(
-                                        email: _emailController.text,
-                                        password: _passwordController.text,
-                                      ),
-                                    );
-                                  }
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppPallete.primary,
-                                  foregroundColor: AppPallete.onPrimary,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 14,
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  onPressed: isLoading ? null : () {
+                                    if (_formKey.currentState?.validate() ??
+                                        false) {
+                                      context.read<AuthBloc>().add(
+                                        SignInEvent(
+                                          email: _emailController.text,
+                                          password: _passwordController.text,
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppPallete.primary,
+                                    foregroundColor: AppPallete.onPrimary,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
                                   ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
+                                  child: isLoading
+                                      ? const SizedBox(
+                                          height: 20,
+                                          width: 20,
+                                          child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Text('Masuk'),
                                 ),
-                                child: const Text('Masuk'),
                               ),
-                            ),
                             const SizedBox(height: 12),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,

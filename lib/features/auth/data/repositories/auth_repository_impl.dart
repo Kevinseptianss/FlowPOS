@@ -81,4 +81,14 @@ class AuthRepositoryImpl implements AuthRepository {
       return left(Failure(e.message));
     }
   }
+
+  @override
+  Future<Either<Failure, bool>> checkOwnerExists() async {
+    try {
+      final result = await authRemoteDataSource.checkOwnerExists();
+      return right(result);
+    } on ServerException catch (e) {
+      return left(Failure(e.message));
+    }
+  }
 }

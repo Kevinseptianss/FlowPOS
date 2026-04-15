@@ -1,6 +1,6 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flow_pos/core/error/server_exception.dart';
 import 'package:flow_pos/features/shift/data/models/shift_model.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 abstract interface class ShiftRemoteDataSource {
   Future<List<ShiftModel>> getShiftHistory();
@@ -16,23 +16,22 @@ abstract interface class ShiftRemoteDataSource {
 }
 
 class ShiftRemoteDataSourceImpl implements ShiftRemoteDataSource {
-  final SupabaseClient supabaseClient;
-  ShiftRemoteDataSourceImpl(this.supabaseClient);
+  final FirebaseFirestore _firestore;
+
+  ShiftRemoteDataSourceImpl(this._firestore);
 
   @override
   Future<ShiftModel?> getActiveShift(String cashierId) async {
     try {
-      final response = await supabaseClient
-          .from('shifts')
-          .select('*, profiles(name)')
-          .eq('cashier_id', cashierId)
-          .filter('closed_at', 'is', null)
-          .maybeSingle();
+      final snapshot = await _firestore
+          .collection('shifts')
+          .where('cashier_id', isEqualTo: cashierId)
+          .where('closed_at', isNull: true)
+          .limit(1)
+          .get();
 
-      if (response == null) return null;
-      return ShiftModel.fromJson(response);
-    } on PostgrestException catch (e) {
-      throw ServerException(e.message);
+      if (snapshot.docs.isEmpty) return null;
+      return ShiftModel.fromJson(snapshot.docs.first.data()..['id'] = snapshot.docs.first.id);
     } catch (e) {
       throw ServerException(e.toString());
     }
@@ -41,16 +40,14 @@ class ShiftRemoteDataSourceImpl implements ShiftRemoteDataSource {
   @override
   Future<List<ShiftModel>> getShiftHistory() async {
     try {
-      final response = await supabaseClient
-          .from('shifts')
-          .select('*, profiles(name)')
-          .order('opened_at', ascending: false);
+      final snapshot = await _firestore
+          .collection('shifts')
+          .orderBy('opened_at', descending: true)
+          .get();
       
-      return (response as List)
-          .map((data) => ShiftModel.fromJson(data))
+      return snapshot.docs
+          .map((doc) => ShiftModel.fromJson(doc.data()..['id'] = doc.id))
           .toList();
-    } on PostgrestException catch (e) {
-      throw ServerException(e.message);
     } catch (e) {
       throw ServerException(e.toString());
     }
@@ -62,21 +59,30 @@ class ShiftRemoteDataSourceImpl implements ShiftRemoteDataSource {
     required double openingBalance,
   }) async {
     try {
-      final response = await supabaseClient
-          .from('shifts')
-          .insert({
-            'cashier_id': cashierId,
-            'opening_balance': openingBalance.toInt(),
-          })
-          .select('*, profiles(name)')
-          .single();
-      
-      return ShiftModel.fromJson(response);
-    } on PostgrestException catch (e) {
-      if (e.message.contains('unique_open_shift_per_cashier')) {
+      // 1. Check for existing active shift
+      final active = await getActiveShift(cashierId);
+      if (active != null) {
         throw const ServerException('Anda masih memiliki shift yang belum ditutup. Tutup shift tersebut terlebih dahulu sebelum membuka shift baru.');
       }
-      throw ServerException(e.message);
+
+      // 2. Get cashier name for denormalization
+      final profileDoc = await _firestore.collection('profiles').doc(cashierId).get();
+      final cashierName = profileDoc.data()?['name'] ?? 'Unknown';
+
+      // 3. Create shift record
+      final docRef = _firestore.collection('shifts').doc();
+      final data = {
+        'id': docRef.id,
+        'cashier_id': cashierId,
+        'opening_balance': openingBalance.toInt(),
+        'opened_at': FieldValue.serverTimestamp(),
+        'closed_at': null,
+        'profiles': {'name': cashierName}, // Replicate Supabase join structure for model compat
+      };
+
+      await docRef.set(data);
+      
+      return ShiftModel.fromJson(data..['opened_at'] = DateTime.now().toIso8601String());
     } catch (e) {
       throw ServerException(e.toString());
     }
@@ -88,19 +94,13 @@ class ShiftRemoteDataSourceImpl implements ShiftRemoteDataSource {
     required double closingBalance,
   }) async {
     try {
-      final response = await supabaseClient
-          .from('shifts')
-        .update({
-          'closed_at': DateTime.now().toUtc().toIso8601String(),
-          'closing_balance': closingBalance.toInt(),
-        })
-          .eq('id', shiftId)
-          .select('*, profiles(name)')
-          .single();
+      await _firestore.collection('shifts').doc(shiftId).update({
+        'closed_at': FieldValue.serverTimestamp(),
+        'closing_balance': closingBalance.toInt(),
+      });
       
-      return ShiftModel.fromJson(response);
-    } on PostgrestException catch (e) {
-      throw ServerException(e.message);
+      final doc = await _firestore.collection('shifts').doc(shiftId).get();
+      return ShiftModel.fromJson(doc.data()!..['id'] = shiftId);
     } catch (e) {
       throw ServerException(e.toString());
     }

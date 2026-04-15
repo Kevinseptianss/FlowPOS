@@ -1,8 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flow_pos/core/error/server_exception.dart';
 import 'package:flow_pos/features/modifier_option/data/models/modifier_option_model.dart';
 import 'package:flow_pos/features/modifier_option/domain/entities/create_modifier_option_input.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:uuid/uuid.dart';
 
 abstract interface class ModifierOptionRemoteDataSource {
   Future<List<ModifierOptionModel>> getAllModifierOptionsByMenuId(
@@ -20,46 +19,35 @@ abstract interface class ModifierOptionRemoteDataSource {
   });
 }
 
-class ModifierOptionRemoteDataSourceImpl
-    implements ModifierOptionRemoteDataSource {
-  final SupabaseClient supabaseClient;
-  final Uuid _uuid = const Uuid();
+class ModifierOptionRemoteDataSourceImpl implements ModifierOptionRemoteDataSource {
+  final FirebaseFirestore _firestore;
 
-  ModifierOptionRemoteDataSourceImpl(this.supabaseClient);
+  ModifierOptionRemoteDataSourceImpl(this._firestore);
 
   @override
   Future<List<ModifierOptionModel>> getAllModifierOptionsByMenuId(
     String menuId,
   ) async {
     try {
-      final mappings = await supabaseClient
-          .from('menu_modifier_mappings')
-          .select('modifier_group_id')
-          .eq('menu_item_id', menuId);
+      final menuDoc = await _firestore.collection('menu_items').doc(menuId).get();
+      if (!menuDoc.exists) return [];
 
-      final groupIds = mappings
-          .map((mapping) => mapping['modifier_group_id'] as String?)
-          .whereType<String>()
-          .toSet()
-          .toList();
-
-      if (groupIds.isEmpty) {
-        return [];
-      }
-
-      final groups = await supabaseClient
-          .from('modifier_groups')
-          .select('id, name, modifier_options(id, name, additional_price)')
-          .inFilter('id', groupIds)
-          .order('name', ascending: true);
+      final List<String> groupIds = List<String>.from(menuDoc.data()?['modifier_group_ids'] ?? []);
+      if (groupIds.isEmpty) return [];
 
       final result = <ModifierOptionModel>[];
+      
+      // Firestore 'in' query limited to 30 items
+      final groupSnapshots = await _firestore
+          .collection('modifier_groups')
+          .where(FieldPath.documentId, whereIn: groupIds)
+          .get();
 
-      for (final group in groups) {
-        final groupId = group['id'] as String? ?? '';
-        final groupName = group['name'] as String? ?? '';
-        final options = (group['modifier_options'] as List<dynamic>? ?? [])
-            .cast<Map<String, dynamic>>();
+      for (final doc in groupSnapshots.docs) {
+        final data = doc.data();
+        final groupId = doc.id;
+        final groupName = data['name'] ?? '';
+        final options = List<Map<String, dynamic>>.from(data['options'] ?? []);
 
         for (final option in options) {
           result.add(
@@ -81,18 +69,18 @@ class ModifierOptionRemoteDataSourceImpl
   @override
   Future<List<ModifierOptionModel>> getAllModifierOptions() async {
     try {
-      final groups = await supabaseClient
-          .from('modifier_groups')
-          .select('id, name, modifier_options(id, name, additional_price)')
-          .order('name', ascending: true);
+      final snapshot = await _firestore
+          .collection('modifier_groups')
+          .orderBy('name', descending: false)
+          .get();
 
       final result = <ModifierOptionModel>[];
 
-      for (final group in groups) {
-        final groupId = group['id'] as String? ?? '';
-        final groupName = group['name'] as String? ?? '';
-        final options = (group['modifier_options'] as List<dynamic>? ?? [])
-            .cast<Map<String, dynamic>>();
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final groupId = doc.id;
+        final groupName = data['name'] ?? '';
+        final options = List<Map<String, dynamic>>.from(data['options'] ?? []);
 
         for (final option in options) {
           result.add(
@@ -116,97 +104,33 @@ class ModifierOptionRemoteDataSourceImpl
     required String groupName,
     required List<CreateModifierOptionInput> options,
   }) async {
-    String? createdGroupId;
-
     try {
-      final groupId = _uuid.v4();
-      createdGroupId = groupId;
+      final docRef = _firestore.collection('modifier_groups').doc();
+      final optionsData = options.map((opt) => {
+        'id': _firestore.collection('placeholder').doc().id, // Generate pseudo-id for option
+        'name': opt.name,
+        'additional_price': opt.additionalPrice,
+      }).toList();
 
-      await supabaseClient.from('modifier_groups').insert({
-        'id': groupId,
+      await docRef.set({
+        'id': docRef.id,
         'name': groupName,
+        'options': optionsData,
+        'created_at': FieldValue.serverTimestamp(),
       });
-
-      if (options.isEmpty) {
-        return;
-      }
-
-      await _insertModifierOptions(groupId: groupId, options: options);
     } catch (e) {
-      // If option insert fails after group creation, remove the new group to avoid orphan data.
-      if (createdGroupId != null) {
-        try {
-          await supabaseClient
-              .from('modifier_groups')
-              .delete()
-              .eq('id', createdGroupId);
-        } catch (_) {}
-      }
-
       throw ServerException(e.toString());
-    }
-  }
-
-  Future<void> _insertModifierOptions({
-    required String groupId,
-    required List<CreateModifierOptionInput> options,
-  }) async {
-    final candidateGroupColumns = <String>[
-      'modifier_group_id',
-      'group_id',
-      'modifier_id',
-    ];
-
-    PostgrestException? lastSchemaError;
-
-    for (final groupColumn in candidateGroupColumns) {
-      final payload = options
-          .map(
-            (option) => {
-              'id': _uuid.v4(),
-              groupColumn: groupId,
-              'name': option.name,
-              'additional_price': option.additionalPrice,
-            },
-          )
-          .toList();
-
-      try {
-        await supabaseClient.from('modifier_options').insert(payload);
-        return;
-      } on PostgrestException catch (e) {
-        final message = e.message.toLowerCase();
-        final missingColumn =
-            message.contains('could not find the') &&
-            message.contains('column') &&
-            message.contains(groupColumn);
-
-        if (missingColumn) {
-          lastSchemaError = e;
-          continue;
-        }
-
-        rethrow;
-      }
-    }
-
-    if (lastSchemaError != null) {
-      throw ServerException(lastSchemaError.toString());
     }
   }
 
   @override
   Future<Set<String>> getSelectedModifierGroupIdsByMenuId(String menuId) async {
     try {
-      final mappings = await supabaseClient
-          .from('menu_modifier_mappings')
-          .select('modifier_group_id')
-          .eq('menu_item_id', menuId);
-
-      return mappings
-          .map((mapping) => mapping['modifier_group_id'] as String?)
-          .whereType<String>()
-          .toSet();
+      final doc = await _firestore.collection('menu_items').doc(menuId).get();
+      if (doc.exists) {
+        return Set<String>.from(doc.data()?['modifier_group_ids'] ?? []);
+      }
+      return {};
     } catch (e) {
       throw ServerException(e.toString());
     }
@@ -218,26 +142,9 @@ class ModifierOptionRemoteDataSourceImpl
     required Set<String> modifierGroupIds,
   }) async {
     try {
-      await supabaseClient
-          .from('menu_modifier_mappings')
-          .delete()
-          .eq('menu_item_id', menuId);
-
-      if (modifierGroupIds.isEmpty) {
-        return;
-      }
-
-      final payload = modifierGroupIds
-          .map(
-            (groupId) => {
-              'id': _uuid.v4(),
-              'menu_item_id': menuId,
-              'modifier_group_id': groupId,
-            },
-          )
-          .toList();
-
-      await supabaseClient.from('menu_modifier_mappings').insert(payload);
+      await _firestore.collection('menu_items').doc(menuId).update({
+        'modifier_group_ids': modifierGroupIds.toList(),
+      });
     } catch (e) {
       throw ServerException(e.toString());
     }

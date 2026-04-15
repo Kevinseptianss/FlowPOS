@@ -1,9 +1,14 @@
 import 'package:flutter/foundation.dart';
+import 'firebase_options.dart';
 import 'package:flow_pos/core/common/bloc/user_bloc.dart';
 import 'package:flow_pos/core/services/cashier_shift_local_service.dart';
 import 'package:flow_pos/core/services/printer_local_service.dart';
 import 'package:flow_pos/core/services/thermal_receipt_printer_service.dart';
-import 'package:flow_pos/core/secrets/app_secrets.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+// import 'package:flow_pos/core/secrets/app_secrets.dart'; // No longer needed
 import 'package:flow_pos/features/auth/data/datasources/auth_remote_data_source.dart';
 import 'package:flow_pos/features/auth/data/repositories/auth_repository_impl.dart';
 import 'package:flow_pos/features/auth/domain/repositories/auth_repository.dart';
@@ -12,6 +17,7 @@ import 'package:flow_pos/features/auth/domain/usecases/logout.dart';
 import 'package:flow_pos/features/auth/domain/usecases/sign_in.dart';
 import 'package:flow_pos/features/auth/domain/usecases/sign_up.dart';
 import 'package:flow_pos/features/auth/domain/usecases/change_password.dart';
+import 'package:flow_pos/features/auth/domain/usecases/check_owner_exists.dart';
 import 'package:flow_pos/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:flow_pos/features/category/data/datasources/category_remote_data_source.dart';
 import 'package:flow_pos/features/category/data/repositories/category_repository_impl.dart';
@@ -71,6 +77,6 @@ import 'package:flow_pos/features/shift/domain/repositories/shift_repository.dar
 import 'package:flow_pos/features/shift/presentation/bloc/shift_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+// Supabase removed
 
 part 'init_dependencies.main.dart';

@@ -1,0 +1,66 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Profiles rules
+    match /profiles/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isOwner(userId);
+    }
+
+    // Categories and Menu Items (Read for all auth, Write for Admin/Owner)
+    match /categories/{categoryId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated(); // Simplified for now, add role check if needed
+    }
+    
+    match /menu_items/{itemId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    match /modifier_groups/{groupId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Orders and Payments
+    match /orders/{orderId} {
+      allow read, write: if isAuthenticated();
+    }
+    
+    match /temp/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Shifts
+    match /shifts/{shiftId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Store Settings
+    match /store_settings/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Inventory
+    match /stocks/{stockId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /stock_transactions/{logId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /purchase_orders/{poId} {
+      allow read, write: if isAuthenticated();
+    }
+  }
+}

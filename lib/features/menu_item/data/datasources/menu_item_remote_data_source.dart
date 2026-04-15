@@ -1,7 +1,6 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flow_pos/core/error/server_exception.dart';
 import 'package:flow_pos/features/menu_item/data/models/menu_item_model.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:uuid/uuid.dart';
 
 abstract interface class MenuItemRemoteDataSource {
   Future<List<MenuItemModel>> getAllMenuItems();
@@ -32,21 +31,20 @@ abstract interface class MenuItemRemoteDataSource {
 }
 
 class MenuItemRemoteDataSourceImpl implements MenuItemRemoteDataSource {
-  final SupabaseClient supabaseClient;
-  final Uuid _uuid = const Uuid();
+  final FirebaseFirestore _firestore;
 
-  MenuItemRemoteDataSourceImpl(this.supabaseClient);
+  MenuItemRemoteDataSourceImpl(this._firestore);
 
   @override
   Future<List<MenuItemModel>> getAllMenuItems() async {
     try {
-      final response = await supabaseClient
-          .from('menu_items')
-          .select("*, categories!category_id(id, name), menu_item_variants(*)")
-          .order('name', ascending: true);
+      final snapshot = await _firestore
+          .collection('menu_items')
+          .orderBy('name', descending: false)
+          .get();
 
-      return response
-          .map((menuItem) => MenuItemModel.fromJson(menuItem))
+      return snapshot.docs
+          .map((doc) => _mapToModel(doc.id, doc.data()))
           .toList();
     } catch (e) {
       throw ServerException(e.toString());
@@ -56,14 +54,14 @@ class MenuItemRemoteDataSourceImpl implements MenuItemRemoteDataSource {
   @override
   Future<List<MenuItemModel>> getEnabledMenuItems() async {
     try {
-      final response = await supabaseClient
-          .from('menu_items')
-          .select("*, categories!category_id(id, name), menu_item_variants(*)")
-          .eq('is_available', true)
-          .order('name', ascending: true);
+      final snapshot = await _firestore
+          .collection('menu_items')
+          .where('is_available', isEqualTo: true)
+          .orderBy('name', descending: false)
+          .get();
 
-      return response
-          .map((menuItem) => MenuItemModel.fromJson(menuItem))
+      return snapshot.docs
+          .map((doc) => _mapToModel(doc.id, doc.data()))
           .toList();
     } catch (e) {
       throw ServerException(e.toString());
@@ -81,50 +79,30 @@ class MenuItemRemoteDataSourceImpl implements MenuItemRemoteDataSource {
     required List<Map<String, dynamic>> options,
   }) async {
     try {
-      final menuItemId = _uuid.v4();
+      final docRef = _firestore.collection('menu_items').doc();
       
-      await supabaseClient.from('menu_items').insert({
-        'id': menuItemId,
+      // Get category name for denormalization
+      final catDoc = await _firestore.collection('categories').doc(categoryId).get();
+      final categoryName = catDoc.exists ? (catDoc.data()?['name'] ?? 'Unknown') : 'Unknown';
+
+      final variants = _processOptions(options);
+
+      final data = {
+        'id': docRef.id,
         'name': name,
         'price': price,
         'base_price': basePrice,
         'category_id': categoryId,
+        'category_name': categoryName,
         'unit': unit,
         'is_available': enabled,
-      });
+        'menu_item_variants': variants,
+        'created_at': FieldValue.serverTimestamp(),
+      };
 
-      if (options.isNotEmpty) {
-        final List<Map<String, dynamic>> variantPayload = [];
-        
-        for (final option in options) {
-          final optionName = option['option_name'] as String;
-          final variants = option['variants'] as List<dynamic>;
-          
-          for (final variant in variants) {
-            variantPayload.add({
-              'id': _uuid.v4(),
-              'menu_item_id': menuItemId,
-              'option_name': optionName,
-              'variant_name': variant['name'] as String,
-              'price': (variant['price'] as num).toInt(),
-              'base_price': (variant['base_price'] as num?)?.toInt() ?? 0,
-              'unit': variant['unit'] as String,
-            });
-          }
-        }
+      await docRef.set(data);
 
-        if (variantPayload.isNotEmpty) {
-          await supabaseClient.from('menu_item_variants').insert(variantPayload);
-        }
-      }
-
-      final menuItem = await supabaseClient
-          .from('menu_items')
-          .select('*, categories!category_id(id, name), menu_item_variants(*)')
-          .eq('id', menuItemId)
-          .single();
-
-      return MenuItemModel.fromJson(menuItem);
+      return _mapToModel(docRef.id, data);
     } catch (e) {
       throw ServerException(e.toString());
     }
@@ -136,14 +114,13 @@ class MenuItemRemoteDataSourceImpl implements MenuItemRemoteDataSource {
     required bool enabled,
   }) async {
     try {
-      final response = await supabaseClient
-          .from('menu_items')
-          .update({'is_available': enabled})
-          .eq('id', menuItemId)
-          .select("*, categories!category_id(id, name), menu_item_variants(*)")
-          .single();
+      await _firestore
+          .collection('menu_items')
+          .doc(menuItemId)
+          .update({'is_available': enabled});
 
-      return MenuItemModel.fromJson(response);
+      final doc = await _firestore.collection('menu_items').doc(menuItemId).get();
+      return _mapToModel(doc.id, doc.data()!);
     } catch (e) {
       throw ServerException(e.toString());
     }
@@ -161,59 +138,58 @@ class MenuItemRemoteDataSourceImpl implements MenuItemRemoteDataSource {
     required List<Map<String, dynamic>> options,
   }) async {
     try {
-      // 1. Update main record
-      await supabaseClient.from('menu_items').update({
+      final catDoc = await _firestore.collection('categories').doc(categoryId).get();
+      final categoryName = catDoc.exists ? (catDoc.data()?['name'] ?? 'Unknown') : 'Unknown';
+
+      final variants = _processOptions(options);
+
+      final data = {
         'name': name,
         'price': price,
         'base_price': basePrice,
         'category_id': categoryId,
+        'category_name': categoryName,
         'unit': unit,
         'is_available': enabled,
-      }).eq('id', id);
+        'menu_item_variants': variants,
+        'updated_at': FieldValue.serverTimestamp(),
+      };
 
-      // 2. Delete existing variants
-      await supabaseClient
-          .from('menu_item_variants')
-          .delete()
-          .eq('menu_item_id', id);
+      await _firestore.collection('menu_items').doc(id).update(data);
 
-      // 3. Insert new variants
-      if (options.isNotEmpty) {
-        final List<Map<String, dynamic>> variantPayload = [];
-        for (final option in options) {
-          final optionName = option['option_name'] as String;
-          final variants = option['variants'] as List<dynamic>;
-
-          for (final variant in variants) {
-            variantPayload.add({
-              'id': _uuid.v4(),
-              'menu_item_id': id,
-              'option_name': optionName,
-              'variant_name': variant['name'] as String,
-              'price': (variant['price'] as num).toInt(),
-              'base_price': (variant['base_price'] as num?)?.toInt() ?? 0,
-              'unit': variant['unit'] as String,
-            });
-          }
-        }
-
-        if (variantPayload.isNotEmpty) {
-          await supabaseClient
-              .from('menu_item_variants')
-              .insert(variantPayload);
-        }
-      }
-
-      // 4. Return updated record
-      final response = await supabaseClient
-          .from('menu_items')
-          .select("*, categories!category_id(id, name), menu_item_variants(*)")
-          .eq('id', id)
-          .single();
-
-      return MenuItemModel.fromJson(response);
+      final doc = await _firestore.collection('menu_items').doc(id).get();
+      return _mapToModel(doc.id, doc.data()!);
     } catch (e) {
       throw ServerException(e.toString());
     }
+  }
+
+  List<Map<String, dynamic>> _processOptions(List<Map<String, dynamic>> options) {
+    final List<Map<String, dynamic>> variants = [];
+    for (final option in options) {
+      final optionName = option['option_name'] as String;
+      final variantList = option['variants'] as List<dynamic>;
+      for (final v in variantList) {
+        variants.add({
+          'option_name': optionName,
+          'variant_name': v['name'],
+          'price': (v['price'] as num).toInt(),
+          'base_price': (v['base_price'] as num?)?.toInt() ?? 0,
+          'unit': v['unit'],
+        });
+      }
+    }
+    return variants;
+  }
+
+  MenuItemModel _mapToModel(String id, Map<String, dynamic> data) {
+    return MenuItemModel.fromJson({
+      ...data,
+      'id': id,
+      'categories': {
+        'id': data['category_id'],
+        'name': data['category_name'],
+      },
+    });
   }
 }
