@@ -12,14 +12,14 @@ class CreateOrder implements UseCase<OrderEntity, CreateOrderParams> {
 
   const CreateOrder(this.orderRepository);
 
-  static const Set<String> supportedMethods = {'QRIS', 'CASH', 'NONE'};
+  static const Set<String> supportedMethods = {'QRIS', 'CASH', 'TRANSFER', 'CARD', 'NONE'};
 
   @override
   Future<Either<Failure, OrderEntity>> call(CreateOrderParams params) async {
     final normalizedMethod = params.method.trim().toUpperCase();
 
     if (!supportedMethods.contains(normalizedMethod)) {
-      return left(const Failure('Payment method must be QRIS or CASH.'));
+      return left(const Failure('Payment method must be one of: QRIS, CASH, TRANSFER, CARD.'));
     }
 
     if (params.items.isEmpty) {
@@ -64,6 +64,14 @@ class CreateOrder implements UseCase<OrderEntity, CreateOrderParams> {
     if (normalizedMethod == 'CASH' && params.amountPaid < params.total) {
       return left(
         const Failure('For CASH, amount paid cannot be less than total.'),
+      );
+    }
+
+    if ((normalizedMethod == 'TRANSFER' || normalizedMethod == 'CARD') &&
+        params.status == 'PAID' &&
+        params.amountPaid < params.total) {
+      return left(
+        Failure('For $normalizedMethod, amount paid cannot be less than total.'),
       );
     }
 

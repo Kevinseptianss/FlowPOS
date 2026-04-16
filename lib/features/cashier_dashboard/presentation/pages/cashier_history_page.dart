@@ -317,7 +317,9 @@ class _ModernHistoryOrderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isQris = order.payment?.method.toUpperCase() == 'QRIS';
+    final paymentMethod = (order.payment?.method ?? '').toUpperCase();
+    final bool isQris = paymentMethod == 'QRIS' || 
+                        (order.paymentLink != null && order.paymentLink!.isNotEmpty);
     
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -379,7 +381,9 @@ class _ModernHistoryOrderCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     _IconInfoPill(
                       icon: isQris ? Icons.qr_code_rounded : Icons.payments_rounded,
-                      label: order.payment?.method ?? 'CASH',
+                      label: (paymentMethod.isNotEmpty && paymentMethod != 'NONE')
+                          ? paymentMethod
+                          : (isQris ? 'QRIS' : 'CASH'),
                       color: isQris ? Colors.deepPurple : Colors.green,
                     ),
                   ],

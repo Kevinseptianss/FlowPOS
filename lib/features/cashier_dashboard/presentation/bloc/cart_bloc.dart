@@ -18,7 +18,10 @@ class CartBloc extends Bloc<CartEvent, CartState> {
     on<ReplaceCartItemsEvent>(_onReplaceCartItems);
   }
 
-  void _onReplaceCartItems(ReplaceCartItemsEvent event, Emitter<CartState> emit) {
+  void _onReplaceCartItems(
+    ReplaceCartItemsEvent event,
+    Emitter<CartState> emit,
+  ) {
     if (event.items.isEmpty) {
       emit(const CartEmpty());
     } else {

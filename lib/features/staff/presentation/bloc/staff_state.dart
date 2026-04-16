@@ -45,6 +45,14 @@ final class StaffCreated extends StaffState {
 
 final class StaffDeleted extends StaffState {}
 
+final class StaffSalaryUpdated extends StaffState {
+  final StaffProfile staff;
+  const StaffSalaryUpdated(this.staff);
+
+  @override
+  List<Object> get props => [staff];
+}
+
 final class UsernameChecked extends StaffState {
   final bool exists;
   const UsernameChecked(this.exists);

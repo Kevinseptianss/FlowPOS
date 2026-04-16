@@ -137,7 +137,10 @@ class _ModifierDialogState extends State<ModifierDialog> {
                               ),
                             ),
                           ),
-                          _buildQtyBtn(Icons.add, () => setState(() => quantity++)),
+                          _buildQtyBtn(
+                            Icons.add,
+                            () => setState(() => quantity++),
+                          ),
                         ],
                       ),
                     ),
@@ -155,7 +158,9 @@ class _ModifierDialogState extends State<ModifierDialog> {
                       height: 8,
                       margin: const EdgeInsets.symmetric(horizontal: 4),
                       decoration: BoxDecoration(
-                        color: isActive || isCompleted ? AppPallete.primary : AppPallete.divider,
+                        color: isActive || isCompleted
+                            ? AppPallete.primary
+                            : AppPallete.divider,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     );
@@ -245,7 +250,9 @@ class _ModifierDialogState extends State<ModifierDialog> {
                       elevation: 0,
                     ),
                     child: Text(
-                      _currentStep < totalSteps - 1 ? 'Lanjut' : 'Tambah Pesanan',
+                      _currentStep < totalSteps - 1
+                          ? 'Lanjut'
+                          : 'Tambah Pesanan',
                       style: GoogleFonts.outfit(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -261,7 +268,9 @@ class _ModifierDialogState extends State<ModifierDialog> {
     );
   }
 
-  Widget _buildCurrentStep(List<MapEntry<String, List<MenuItemVariant>>> steps) {
+  Widget _buildCurrentStep(
+    List<MapEntry<String, List<MenuItemVariant>>> steps,
+  ) {
     if (_currentStep < steps.length) {
       final step = steps[_currentStep];
       return Column(
@@ -279,11 +288,15 @@ class _ModifierDialogState extends State<ModifierDialog> {
           const SizedBox(height: 8),
           Text(
             'Silahkan pilih salah satu opsi di bawah ini.',
-            style: GoogleFonts.outfit(fontSize: 14, color: AppPallete.textSecondary),
+            style: GoogleFonts.outfit(
+              fontSize: 14,
+              color: AppPallete.textSecondary,
+            ),
           ),
           const SizedBox(height: 20),
           ...step.value.map((variant) {
-            final isSelected = selectedModifierByGroup[step.key]?.id == variant.id;
+            final isSelected =
+                selectedModifierByGroup[step.key]?.id == variant.id;
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: ModifierOptionRow(
@@ -295,12 +308,13 @@ class _ModifierDialogState extends State<ModifierDialog> {
                     if (isSelected) {
                       selectedModifierByGroup[step.key] = null;
                     } else {
-                      selectedModifierByGroup[steps[_currentStep].key] = SelectedModifier(
-                        id: variant.id,
-                        name: variant.variantName,
-                        optionName: variant.optionName,
-                      );
-                      
+                      selectedModifierByGroup[steps[_currentStep].key] =
+                          SelectedModifier(
+                            id: variant.id,
+                            name: variant.variantName,
+                            optionName: variant.optionName,
+                          );
+
                       // AUTO CONTINUE for faster service
                       // Add a tiny delay so the user sees the selection feedback
                       Future.delayed(const Duration(milliseconds: 200), () {
@@ -333,7 +347,10 @@ class _ModifierDialogState extends State<ModifierDialog> {
           const SizedBox(height: 8),
           Text(
             'Tambahkan catatan jika ada permintaan khusus.',
-            style: GoogleFonts.outfit(fontSize: 14, color: AppPallete.textSecondary),
+            style: GoogleFonts.outfit(
+              fontSize: 14,
+              color: AppPallete.textSecondary,
+            ),
           ),
           const SizedBox(height: 20),
           TextField(
@@ -342,14 +359,20 @@ class _ModifierDialogState extends State<ModifierDialog> {
             autofocus: true,
             decoration: InputDecoration(
               hintText: 'Contoh: Jangan pedas, tanpa seledri...',
-              hintStyle: GoogleFonts.outfit(color: AppPallete.textSecondary, fontSize: 14),
+              hintStyle: GoogleFonts.outfit(
+                color: AppPallete.textSecondary,
+                fontSize: 14,
+              ),
               filled: true,
               fillColor: AppPallete.background,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
                 borderSide: BorderSide.none,
               ),
-              prefixIcon: const Icon(Icons.edit_note_rounded, color: AppPallete.textSecondary),
+              prefixIcon: const Icon(
+                Icons.edit_note_rounded,
+                color: AppPallete.textSecondary,
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -370,7 +393,9 @@ class _ModifierDialogState extends State<ModifierDialog> {
     }
     Navigator.pop(context, {
       'totalPrice': totalPrice,
-      'selectedModifiers': Map<String, SelectedModifier?>.from(selectedModifierByGroup),
+      'selectedModifiers': Map<String, SelectedModifier?>.from(
+        selectedModifierByGroup,
+      ),
       'quantity': quantity,
       'variantId': primaryVariantId,
       'notes': _noteController.text.trim(),

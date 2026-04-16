@@ -89,7 +89,8 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
         'is_deleted': item.isDeleted,
       }).toList();
 
-      final Map<String, dynamic>? paymentData = status == 'PAID' || amountPaid > 0 ? {
+      // Even if UNPAID, we store the method for reporting/history purposes (e.g., QRIS)
+      final Map<String, dynamic>? paymentData = (status == 'PAID' || amountPaid > 0 || method != 'NONE') ? {
         'id': _firestore.collection('temp').doc().id,
         'method': method,
         'amount_paid': safeAmountPaid,
@@ -118,6 +119,11 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
 
       await docRef.set(orderData);
 
+      // --- DEDUCT STOCK IF PAID ---
+      if (status == 'PAID') {
+        await _updateStockForItems(items, orderId);
+      }
+
       // If status is PAID, we might want to clear other UNPAID orders for the same table
       if (status == 'PAID' && tableNumber > 0) {
         final batch = _firestore.batch();
@@ -138,6 +144,42 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
       return _mapToModel(orderId, orderData..['created_at'] = DateTime.now());
     } catch (e) {
       throw ServerException(e.toString());
+    }
+  }
+
+  Future<void> _updateStockForItems(List<OrderItem> items, String orderId) async {
+    for (var item in items) {
+      if (item.isDeleted) continue;
+
+      // Find the stock document for this menu_item and variant
+      final stockQuery = await _firestore.collection('stocks')
+          .where('menu_item_id', isEqualTo: item.menuItemId)
+          .where('variant_id', isEqualTo: item.variantId)
+          .limit(1)
+          .get();
+      
+      if (stockQuery.docs.isNotEmpty) {
+        final stockDoc = stockQuery.docs.first;
+        final stockId = stockDoc.id;
+        final currentQty = (stockDoc.data()['quantity'] as num?)?.toDouble() ?? 0;
+        final newQty = currentQty - item.quantity;
+
+        // Update stock
+        await stockDoc.reference.update({
+          'quantity': newQty,
+          'updated_at': FieldValue.serverTimestamp(),
+        });
+
+        // Log transaction
+        await _firestore.collection('stock_transactions').add({
+          'stock_id': stockId,
+          'type': 'OUT',
+          'reason': 'SALE',
+          'amount': item.quantity.toDouble(),
+          'reference_id': orderId,
+          'created_at': FieldValue.serverTimestamp(),
+        });
+      }
     }
   }
 
@@ -163,13 +205,22 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
       int totalRevenue = 0;
       int totalQrisRevenue = 0;
       int totalCashRevenue = 0;
+      int totalTransferRevenue = 0;
+      int totalCardRevenue = 0;
       int totalOrders = 0;
 
       for (var doc in snapshot.docs) {
         final data = doc.data();
-        if (data['status'] == 'VOIDED') continue;
+        final status = (data['status'] as String? ?? '').toUpperCase();
+        if (status == 'VOIDED') continue;
 
         totalOrders++;
+        
+        // Only count PAID or SETTLEMENT or SETTLED as revenue
+        if (status != 'PAID' && status != 'SETTLEMENT' && status != 'SETTLED' && status != 'TERBAYAR') {
+           continue; 
+        }
+
         final payment = data['payment'] as Map<String, dynamic>?;
         if (payment != null) {
           final amount = (payment['amount_due'] as num?)?.toInt() ?? 0;
@@ -180,6 +231,10 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
             totalQrisRevenue += amount;
           } else if (method == 'CASH') {
             totalCashRevenue += amount;
+          } else if (method == 'TRANSFER') {
+            totalTransferRevenue += amount;
+          } else if (method == 'CARD') {
+            totalCardRevenue += amount;
           }
         }
       }
@@ -188,6 +243,8 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
         totalRevenue: totalRevenue,
         totalQrisRevenue: totalQrisRevenue,
         totalCashRevenue: totalCashRevenue,
+        totalTransferRevenue: totalTransferRevenue,
+        totalCardRevenue: totalCardRevenue,
         totalOrders: totalOrders,
       );
     } catch (e) {
@@ -274,6 +331,24 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
           'created_at': FieldValue.serverTimestamp(),
         }
       });
+
+      // --- DEDUCT STOCK ON SETTLE ---
+      final orderDoc = await _firestore.collection('orders').doc(orderId).get();
+      if (orderDoc.exists) {
+        final data = orderDoc.data();
+        if (data != null && data['items'] != null) {
+          final itemsData = data['items'] as List;
+          final List<OrderItem> items = itemsData.map((item) => OrderItem(
+            menuItemId: item['menu_item_id'] ?? '',
+            menuName: item['menu_name'] ?? 'Unknown',
+            quantity: item['quantity'] ?? 0,
+            unitPrice: item['unit_price'] ?? 0,
+            variantId: item['variant_id'],
+          )).toList();
+          
+          await _updateStockForItems(items, orderId);
+        }
+      }
     } catch (e) {
       throw ServerException(e.toString());
     }
@@ -292,6 +367,12 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
     final paymentData = data['payment'] as Map<String, dynamic>?;
     final itemsData = data['items'] as List<dynamic>? ?? [];
 
+    DateTime parseDateTime(dynamic value) {
+      if (value is Timestamp) return value.toDate();
+      if (value is DateTime) return value;
+      return DateTime.now();
+    }
+
     return OrderModel(
       id: id,
       orderNumber: data['order_number'] ?? '',
@@ -300,7 +381,7 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
       tax: (data['tax'] as num?)?.toInt() ?? 0,
       serviceCharge: (data['service_charge'] as num?)?.toInt() ?? 0,
       total: (data['total'] as num?)?.toInt() ?? 0,
-      createdAt: (data['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt: parseDateTime(data['created_at']),
       status: data['status'] ?? 'UNPAID',
       customerName: data['customer_name'],
       paymentLink: data['payment_link'],
@@ -313,19 +394,26 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
         amountDue: (paymentData['amount_due'] as num?)?.toInt() ?? 0,
         changeGiven: (paymentData['change_given'] as num?)?.toInt() ?? 0,
       ) : null,
-      items: itemsData.map((item) => OrderItem(
-        id: item['id'],
-        menuItemId: item['menu_item_id'] ?? '',
-        menuName: item['menu_name'] ?? 'Unknown',
-        quantity: item['quantity'] ?? 0,
-        unitPrice: item['unit_price'] ?? 0,
-        variantId: item['variant_id'],
-        notes: item['notes'],
-        modifierSnapshot: item['modifier_snapshot'],
-        isDeleted: item['is_deleted'] ?? false,
-        deletedAt: (item['deleted_at'] as Timestamp?)?.toDate(),
-        deletedById: item['deleted_by_id'],
-      )).toList(),
+      items: itemsData.map((item) {
+        final deletedAtRaw = item['deleted_at'];
+        DateTime? deletedAt;
+        if (deletedAtRaw is Timestamp) deletedAt = deletedAtRaw.toDate();
+        if (deletedAtRaw is DateTime) deletedAt = deletedAtRaw;
+
+        return OrderItem(
+          id: item['id'],
+          menuItemId: item['menu_item_id'] ?? '',
+          menuName: item['menu_name'] ?? 'Unknown',
+          quantity: item['quantity'] ?? 0,
+          unitPrice: item['unit_price'] ?? 0,
+          variantId: item['variant_id'],
+          notes: item['notes'],
+          modifierSnapshot: item['modifier_snapshot'],
+          isDeleted: item['is_deleted'] ?? false,
+          deletedAt: deletedAt,
+          deletedById: item['deleted_by_id'],
+        );
+      }).toList(),
     );
   }
 }

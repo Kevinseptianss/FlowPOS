@@ -73,9 +73,9 @@ class _CashierIpadPageState extends State<CashierIpadPage> {
             if (userState is UserLoggedIn)
               Text(
                 'Cashier: ${userState.user.name}',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: AppPallete.onPrimary,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(color: AppPallete.onPrimary),
               ),
           ],
         ),
@@ -132,10 +132,7 @@ class _CashierIpadPageState extends State<CashierIpadPage> {
               },
             )
           else
-            _buildHeaderAction(
-              icon: Icons.logout_rounded,
-              onTap: _logout,
-            ),
+            _buildHeaderAction(icon: Icons.logout_rounded, onTap: _logout),
           const SizedBox(width: 8),
         ],
       ),
@@ -152,7 +149,9 @@ class _CashierIpadPageState extends State<CashierIpadPage> {
             listener: (context, state) {
               if (state is ShiftNone) {
                 Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => const OpenShiftPage()),
+                  MaterialPageRoute(
+                    builder: (context) => const OpenShiftPage(),
+                  ),
                   (route) => false,
                 );
               } else if (state is ShiftClosed) {
@@ -258,8 +257,10 @@ class _CashierIpadPageState extends State<CashierIpadPage> {
                           notes: item.notes,
                         ),
                       )
-                          .toList();
-                  context.read<CartBloc>().add(ReplaceCartItemsEvent(cartItems));
+                      .toList();
+                  context.read<CartBloc>().add(
+                    ReplaceCartItemsEvent(cartItems),
+                  );
                 } else if (tableState.selectedTableNumber > 0) {
                   context.read<CartBloc>().add(const ClearCartEvent());
                 }
@@ -292,7 +293,8 @@ class _CashierIpadPageState extends State<CashierIpadPage> {
         borderRadius: BorderRadius.circular(14),
         child: Container(
           padding: const EdgeInsets.all(12),
-          child: child ??
+          child:
+              child ??
               (icon != null
                   ? Icon(icon, color: Colors.white, size: 24)
                   : const SizedBox.shrink()),

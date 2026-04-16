@@ -20,6 +20,8 @@ class _AnalyticSectionState extends State<AnalyticSection> {
   int _totalOrders = 0;
   int _qrisRevenue = 0;
   int _cashRevenue = 0;
+  int _transferRevenue = 0;
+  int _cardRevenue = 0;
 
   @override
   void initState() {
@@ -42,6 +44,8 @@ class _AnalyticSectionState extends State<AnalyticSection> {
             _totalOrders = state.revenue.totalOrders;
             _qrisRevenue = state.revenue.totalQrisRevenue;
             _cashRevenue = state.revenue.totalCashRevenue;
+            _transferRevenue = state.revenue.totalTransferRevenue;
+            _cardRevenue = state.revenue.totalCardRevenue;
           });
         } else if (state is OrderFailure) {
           showSnackbar(context, state.message);
@@ -56,6 +60,7 @@ class _AnalyticSectionState extends State<AnalyticSection> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // ... existing widgets ...
               Row(
                 children: [
                   Expanded(
@@ -98,12 +103,16 @@ class _AnalyticSectionState extends State<AnalyticSection> {
               if (state is OrderRevenueLoading) ...[
                 const SizedBox(height: 12),
                 const LinearProgressIndicator(
-                  borderRadius: BorderRadius.all(Radius.circular(10)),
                   minHeight: 6,
                 ),
               ],
               const SizedBox(height: 24),
-              IncomeCard(qrisRevenue: _qrisRevenue, cashRevenue: _cashRevenue),
+              IncomeCard(
+                qrisRevenue: _qrisRevenue, 
+                cashRevenue: _cashRevenue,
+                transferRevenue: _transferRevenue,
+                cardRevenue: _cardRevenue,
+              ),
             ],
           );
         },

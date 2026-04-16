@@ -13,4 +13,5 @@ abstract interface class ShiftRepository {
     required double closingBalance,
   });
   Future<Either<Failure, ShiftEntity?>> getActiveShift(String cashierId);
+  Future<Either<Failure, List<ShiftEntity>>> getShiftsByRange(DateTime start, DateTime end);
 }

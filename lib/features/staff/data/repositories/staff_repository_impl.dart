@@ -20,7 +20,10 @@ class StaffRepositoryImpl implements StaffRepository {
   }
 
   @override
-  Future<Either<Failure, StaffProfile>> updateStaffRole(String staffId, String role) async {
+  Future<Either<Failure, StaffProfile>> updateStaffRole(
+    String staffId,
+    String role,
+  ) async {
     try {
       final staff = await remoteDataSource.updateStaffRole(staffId, role);
       return right(staff);
@@ -36,7 +39,11 @@ class StaffRepositoryImpl implements StaffRepository {
     String password,
   ) async {
     try {
-      final staff = await remoteDataSource.createStaff(name, username, password);
+      final staff = await remoteDataSource.createStaff(
+        name,
+        username,
+        password,
+      );
       return right(staff);
     } on ServerException catch (e) {
       return left(Failure(e.message));
@@ -58,6 +65,28 @@ class StaffRepositoryImpl implements StaffRepository {
     try {
       final exists = await remoteDataSource.checkUsername(username);
       return right(exists);
+    } on ServerException catch (e) {
+      return left(Failure(e.message));
+    }
+  }
+
+  @override
+  Future<Either<Failure, StaffProfile>> updateStaffSalary({
+    required String staffId,
+    int? salary,
+    String? salaryType,
+    int? hourlyRate,
+    int? minuteRate,
+  }) async {
+    try {
+      final staff = await remoteDataSource.updateStaffSalary(
+        staffId: staffId,
+        salary: salary,
+        salaryType: salaryType,
+        hourlyRate: hourlyRate,
+        minuteRate: minuteRate,
+      );
+      return right(staff);
     } on ServerException catch (e) {
       return left(Failure(e.message));
     }

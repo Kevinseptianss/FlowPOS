@@ -20,6 +20,19 @@ class ShiftBloc extends Bloc<ShiftEvent, ShiftState> {
     on<OpenShiftEvent>(_onOpenShift);
     on<CloseShiftEvent>(_onCloseShift);
     on<GetActiveShiftEvent>(_onGetActiveShift);
+    on<GetShiftsByRangeEvent>(_onGetShiftsByRange);
+  }
+
+  Future<void> _onGetShiftsByRange(
+    GetShiftsByRangeEvent event,
+    Emitter<ShiftState> emit,
+  ) async {
+    emit(ShiftLoading());
+    final res = await shiftRepository.getShiftsByRange(event.start, event.end);
+    res.fold(
+      (failure) => emit(ShiftFailure(failure.message)),
+      (shifts) => emit(ShiftLoaded(shifts)),
+    );
   }
 
   Future<void> _onGetActiveShift(

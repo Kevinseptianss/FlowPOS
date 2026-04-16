@@ -9,9 +9,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 class OwnerProductCreatePage extends StatefulWidget {
   const OwnerProductCreatePage({super.key});
 
-  static MaterialPageRoute route() => MaterialPageRoute(
-        builder: (context) => const OwnerProductCreatePage(),
-      );
+  static MaterialPageRoute route() =>
+      MaterialPageRoute(builder: (context) => const OwnerProductCreatePage());
 
   @override
   State<OwnerProductCreatePage> createState() => _OwnerProductCreatePageState();
@@ -58,7 +57,7 @@ class _OwnerProductCreatePageState extends State<OwnerProductCreatePage> {
             'nameController': TextEditingController(),
             'priceController': TextEditingController(),
             'unit': _selectedUnit,
-          }
+          },
         ],
       });
     });
@@ -86,10 +85,12 @@ class _OwnerProductCreatePageState extends State<OwnerProductCreatePage> {
 
   void _removeVariant(int optionIndex, int variantIndex) {
     setState(() {
-      _options[optionIndex]['variants'][variantIndex]['nameController'].dispose();
-      _options[optionIndex]['variants'][variantIndex]['priceController'].dispose();
+      _options[optionIndex]['variants'][variantIndex]['nameController']
+          .dispose();
+      _options[optionIndex]['variants'][variantIndex]['priceController']
+          .dispose();
       _options[optionIndex]['variants'].removeAt(variantIndex);
-      
+
       if (_options[optionIndex]['variants'].isEmpty) {
         _removeOption(optionIndex);
       }
@@ -120,7 +121,10 @@ class _OwnerProductCreatePageState extends State<OwnerProductCreatePage> {
             return {
               'option_name': option['nameController'].text.trim(),
               'variants': (option['variants'] as List).map((v) {
-                final priceText = v['priceController'].text.replaceAll(RegExp(r'[^0-9]'), '');
+                final priceText = v['priceController'].text.replaceAll(
+                  RegExp(r'[^0-9]'),
+                  '',
+                );
                 return {
                   'name': v['nameController'].text.trim(),
                   'price': int.parse(priceText.isEmpty ? '0' : priceText),
@@ -132,19 +136,22 @@ class _OwnerProductCreatePageState extends State<OwnerProductCreatePage> {
           }).toList()
         : <Map<String, dynamic>>[];
 
-    final mainPriceText = _priceController.text.replaceAll(RegExp(r'[^0-9]'), '');
+    final mainPriceText = _priceController.text.replaceAll(
+      RegExp(r'[^0-9]'),
+      '',
+    );
 
     context.read<MenuItemBloc>().add(
-          CreateMenuItemEvent(
-            name: _nameController.text.trim(),
-            price: int.parse(mainPriceText.isEmpty ? '0' : mainPriceText),
-            basePrice: 0,
-            categoryId: _selectedCategoryId!,
-            unit: _selectedUnit,
-            enabled: _isAvailable,
-            options: optionsData,
-          ),
-        );
+      CreateMenuItemEvent(
+        name: _nameController.text.trim(),
+        price: int.parse(mainPriceText.isEmpty ? '0' : mainPriceText),
+        basePrice: 0,
+        categoryId: _selectedCategoryId!,
+        unit: _selectedUnit,
+        enabled: _isAvailable,
+        options: optionsData,
+      ),
+    );
   }
 
   @override
@@ -203,10 +210,16 @@ class _OwnerProductCreatePageState extends State<OwnerProductCreatePage> {
                 const SizedBox(height: 20),
                 _buildModernField(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     child: Row(
                       children: [
-                        const Icon(Icons.inventory_2_outlined, color: AppPallete.textSecondary),
+                        const Icon(
+                          Icons.inventory_2_outlined,
+                          color: AppPallete.textSecondary,
+                        ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
@@ -215,7 +228,10 @@ class _OwnerProductCreatePageState extends State<OwnerProductCreatePage> {
                             children: [
                               const Text(
                                 'Status Produk',
-                                style: TextStyle(color: AppPallete.textSecondary, fontSize: 12),
+                                style: TextStyle(
+                                  color: AppPallete.textSecondary,
+                                  fontSize: 12,
+                                ),
                               ),
                               Text(
                                 _isAvailable ? 'Tersedia' : 'Tidak Tersedia',
@@ -245,7 +261,10 @@ class _OwnerProductCreatePageState extends State<OwnerProductCreatePage> {
                 _buildModernField(
                   child: TextFormField(
                     controller: _nameController,
-                    style: const TextStyle(color: AppPallete.textPrimary, fontSize: 16),
+                    style: const TextStyle(
+                      color: AppPallete.textPrimary,
+                      fontSize: 16,
+                    ),
                     decoration: const InputDecoration(
                       labelText: 'Nama Produk',
                       hintText: 'Masukkan nama produk',
@@ -268,7 +287,10 @@ class _OwnerProductCreatePageState extends State<OwnerProductCreatePage> {
                     controller: _priceController,
                     keyboardType: TextInputType.number,
                     inputFormatters: [CurrencyInputFormatter()],
-                    style: const TextStyle(color: AppPallete.textPrimary, fontSize: 16),
+                    style: const TextStyle(
+                      color: AppPallete.textPrimary,
+                      fontSize: 16,
+                    ),
                     decoration: const InputDecoration(
                       labelText: 'Harga Jual (Rp)',
                       hintText: 'Masukkan harga jual produk',
@@ -296,7 +318,10 @@ class _OwnerProductCreatePageState extends State<OwnerProductCreatePage> {
                     initialValue: _selectedUnit,
                     dropdownColor: Colors.white,
                     borderRadius: BorderRadius.circular(20),
-                    style: const TextStyle(color: AppPallete.textPrimary, fontSize: 16),
+                    style: const TextStyle(
+                      color: AppPallete.textPrimary,
+                      fontSize: 16,
+                    ),
                     decoration: const InputDecoration(
                       labelText: 'Jual per',
                       prefixIcon: Icon(Icons.scale_outlined),
@@ -305,18 +330,20 @@ class _OwnerProductCreatePageState extends State<OwnerProductCreatePage> {
                       focusedBorder: InputBorder.none,
                     ),
                     items: const [
-                      DropdownMenuItem(
-                        value: 'pcs',
-                        child: Text('pcs'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'berat',
-                        child: Text('berat'),
-                      ),
+                      DropdownMenuItem(value: 'pcs', child: Text('pcs')),
+                      DropdownMenuItem(value: 'berat', child: Text('berat')),
                     ],
                     onChanged: (value) {
                       if (value != null) {
-                        setState(() => _selectedUnit = value);
+                        setState(() {
+                          _selectedUnit = value;
+                          // Update all variants' units to match
+                          for (var option in _options) {
+                            for (var v in option['variants']) {
+                              v['unit'] = value;
+                            }
+                          }
+                        });
                       }
                     },
                   ),
@@ -335,9 +362,14 @@ class _OwnerProductCreatePageState extends State<OwnerProductCreatePage> {
                           initialValue: _selectedCategoryId,
                           dropdownColor: Colors.white,
                           borderRadius: BorderRadius.circular(20),
-                          style: const TextStyle(color: AppPallete.textPrimary, fontSize: 16),
-                          icon: const Icon(Icons.keyboard_arrow_down_rounded,
-                              color: AppPallete.primary),
+                          style: const TextStyle(
+                            color: AppPallete.textPrimary,
+                            fontSize: 16,
+                          ),
+                          icon: const Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            color: AppPallete.primary,
+                          ),
                           decoration: const InputDecoration(
                             labelText: 'Pilih Kategori',
                             prefixIcon: Icon(Icons.category_outlined),
@@ -356,8 +388,10 @@ class _OwnerProductCreatePageState extends State<OwnerProductCreatePage> {
                               value: '__add_new_category__',
                               child: Row(
                                 children: [
-                                  Icon(Icons.add_circle_outline,
-                                      color: AppPallete.primary),
+                                  Icon(
+                                    Icons.add_circle_outline,
+                                    color: AppPallete.primary,
+                                  ),
                                   SizedBox(width: 8),
                                   Text(
                                     'Tambah Kategori Baru',
@@ -432,22 +466,33 @@ class _OwnerProductCreatePageState extends State<OwnerProductCreatePage> {
                               Expanded(
                                 child: TextFormField(
                                   controller: option['nameController'],
-                                  style: const TextStyle(color: AppPallete.textPrimary, fontWeight: FontWeight.bold),
+                                  style: const TextStyle(
+                                    color: AppPallete.textPrimary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                   decoration: const InputDecoration(
                                     labelText: 'Nama Opsi (Contoh: Ukuran)',
                                     prefixIcon: Icon(Icons.settings_outlined),
                                   ),
-                                  validator: (value) => value == null || value.isEmpty ? 'Wajib' : null,
+                                  validator: (value) =>
+                                      value == null || value.isEmpty
+                                      ? 'Wajib'
+                                      : null,
                                 ),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.delete_sweep_outlined, color: AppPallete.error),
+                                icon: const Icon(
+                                  Icons.delete_sweep_outlined,
+                                  color: AppPallete.error,
+                                ),
                                 onPressed: () => _removeOption(optionIndex),
                               ),
                             ],
                           ),
                           const SizedBox(height: 20),
-                          ... (option['variants'] as List).asMap().entries.map((variantEntry) {
+                          ...(option['variants'] as List).asMap().entries.map((
+                            variantEntry,
+                          ) {
                             final variantIndex = variantEntry.key;
                             final variant = variantEntry.value;
                             return Padding(
@@ -459,47 +504,51 @@ class _OwnerProductCreatePageState extends State<OwnerProductCreatePage> {
                                       Expanded(
                                         child: TextFormField(
                                           controller: variant['nameController'],
-                                          style: const TextStyle(color: AppPallete.textPrimary, fontSize: 16),
-                                          decoration: const InputDecoration(labelText: 'Nama Varian'),
-                                          validator: (value) => value == null || value.isEmpty ? 'Wajib' : null,
+                                          style: const TextStyle(
+                                            color: AppPallete.textPrimary,
+                                            fontSize: 16,
+                                          ),
+                                          decoration: const InputDecoration(
+                                            labelText: 'Nama Varian',
+                                          ),
+                                          validator: (value) =>
+                                              value == null || value.isEmpty
+                                              ? 'Wajib'
+                                              : null,
                                         ),
                                       ),
                                       IconButton(
-                                        icon: const Icon(Icons.remove_circle_outline, color: AppPallete.error, size: 20),
-                                        onPressed: () => _removeVariant(optionIndex, variantIndex),
+                                        icon: const Icon(
+                                          Icons.remove_circle_outline,
+                                          color: AppPallete.error,
+                                          size: 20,
+                                        ),
+                                        onPressed: () => _removeVariant(
+                                          optionIndex,
+                                          variantIndex,
+                                        ),
                                       ),
                                     ],
                                   ),
                                   const SizedBox(height: 12),
                                   TextFormField(
                                     controller: variant['priceController'],
-                                    style: const TextStyle(color: AppPallete.textPrimary, fontSize: 16),
+                                    style: const TextStyle(
+                                      color: AppPallete.textPrimary,
+                                      fontSize: 16,
+                                    ),
                                     keyboardType: TextInputType.number,
                                     inputFormatters: [CurrencyInputFormatter()],
                                     decoration: const InputDecoration(
                                       labelText: 'Harga Jual Tambahan',
                                       prefixText: 'Rp ',
                                     ),
-                                    validator: (value) => value == null || value.isEmpty ? 'Wajib' : null,
+                                    validator: (value) =>
+                                        value == null || value.isEmpty
+                                        ? 'Wajib'
+                                        : null,
                                   ),
-                                  const SizedBox(height: 12),
-                                  DropdownButtonFormField<String>(
-                                    initialValue: variant['unit'],
-                                    dropdownColor: Colors.white,
-                                    style: const TextStyle(color: AppPallete.textPrimary, fontSize: 16),
-                                    decoration: const InputDecoration(
-                                      labelText: 'Unit',
-                                    ),
-                                    items: const [
-                                      DropdownMenuItem(value: 'pcs', child: Text('pcs')),
-                                      DropdownMenuItem(value: 'berat', child: Text('berat')),
-                                    ],
-                                    onChanged: (value) {
-                                      if (value != null) {
-                                        setState(() => variant['unit'] = value);
-                                      }
-                                    },
-                                  ),
+
                                   const Divider(height: 32, thickness: 0.5),
                                 ],
                               ),
@@ -510,7 +559,9 @@ class _OwnerProductCreatePageState extends State<OwnerProductCreatePage> {
                             onPressed: () => _addVariant(optionIndex),
                             icon: const Icon(Icons.add, size: 18),
                             label: const Text('Tambah Varian ke Opsi Ini'),
-                            style: TextButton.styleFrom(foregroundColor: AppPallete.primary),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppPallete.primary,
+                            ),
                           ),
                         ],
                       ),
@@ -525,7 +576,9 @@ class _OwnerProductCreatePageState extends State<OwnerProductCreatePage> {
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppPallete.primary,
                         side: const BorderSide(color: AppPallete.primary),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                   ),
@@ -541,13 +594,18 @@ class _OwnerProductCreatePageState extends State<OwnerProductCreatePage> {
                       foregroundColor: Colors.white,
                       elevation: 2,
                       shadowColor: AppPallete.primary.withAlpha(100),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                     ),
                     child: _isSubmitting
                         ? const CircularProgressIndicator(color: Colors.white)
                         : const Text(
                             'Simpan Produk',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                   ),
                 ),
@@ -637,8 +695,8 @@ class _OwnerProductCreatePageState extends State<OwnerProductCreatePage> {
                         _selectedCategoryId = '__add_new_category_loading__';
                       });
                       context.read<CategoryBloc>().add(
-                            CreateCategoryEvent(name: name),
-                          );
+                        CreateCategoryEvent(name: name),
+                      );
                       Navigator.pop(context);
                     }
                   },

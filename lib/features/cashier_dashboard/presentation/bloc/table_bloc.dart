@@ -5,7 +5,7 @@ part 'table_event.dart';
 part 'table_state.dart';
 
 class TableBloc extends Bloc<TableEvent, TableState> {
-  TableBloc() : super(const TableState(selectedTableNumber: 1)) {
+  TableBloc() : super(const TableState(selectedTableNumber: 0)) {
     on<SelectTableEvent>(_onSelectTable);
     on<UpdateOccupiedTablesEvent>(_onUpdateOccupiedTables);
   }

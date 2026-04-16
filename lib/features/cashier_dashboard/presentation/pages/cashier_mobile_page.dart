@@ -45,7 +45,7 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
 
     _categoryBloc.add(GetAllCategoriesEvent());
     _menuItemBloc.add(GetEnabledMenuItemsEvent());
-    
+
     final userState = context.read<UserBloc>().state;
     if (userState is UserLoggedIn) {
       _cashierId = userState.user.id;
@@ -95,7 +95,9 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
               listener: (context, state) {
                 if (state is ShiftNone) {
                   Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (context) => const OpenShiftPage()),
+                    MaterialPageRoute(
+                      builder: (context) => const OpenShiftPage(),
+                    ),
                     (route) => false,
                   );
                 } else if (state is ShiftClosed) {
@@ -143,12 +145,17 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
                                 ];
                                 return SingleChildScrollView(
                                   scrollDirection: Axis.horizontal,
-                                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                  ),
                                   child: Row(
                                     children: displayCategories.map((category) {
-                                      final isSelected = _selectedCategory == category.id;
+                                      final isSelected =
+                                          _selectedCategory == category.id;
                                       return Padding(
-                                        padding: const EdgeInsets.only(right: 8),
+                                        padding: const EdgeInsets.only(
+                                          right: 8,
+                                        ),
                                         child: ChoiceChip(
                                           label: Text(category.name),
                                           selected: isSelected,
@@ -159,17 +166,29 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
                                           },
                                           selectedColor: AppPallete.primary,
                                           labelStyle: GoogleFonts.outfit(
-                                            color: isSelected ? Colors.white : AppPallete.textPrimary,
-                                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                            color: isSelected
+                                                ? Colors.white
+                                                : AppPallete.textPrimary,
+                                            fontWeight: isSelected
+                                                ? FontWeight.w700
+                                                : FontWeight.w500,
                                           ),
                                           backgroundColor: Colors.white,
                                           elevation: isSelected ? 4 : 0,
-                                          shadowColor: AppPallete.primary.withAlpha(50),
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          shadowColor: AppPallete.primary
+                                              .withAlpha(50),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 8,
+                                          ),
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(12),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
                                             side: BorderSide(
-                                              color: isSelected ? AppPallete.primary : AppPallete.divider,
+                                              color: isSelected
+                                                  ? AppPallete.primary
+                                                  : AppPallete.divider,
                                             ),
                                           ),
                                         ),
@@ -193,47 +212,71 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
                           builder: (context, state) {
                             if (state is MenuItemLoading) {
                               return const SliverFillRemaining(
-                                child: Center(child: CircularProgressIndicator()),
+                                child: Center(
+                                  child: CircularProgressIndicator(),
+                                ),
                               );
                             } else if (state is MenuItemLoaded) {
                               var filteredItems = state.menuItems;
-                              
+
                               // Filter by Category
                               if (_selectedCategory != 'all') {
-                                filteredItems = filteredItems.where((item) => item.category.id == _selectedCategory).toList();
+                                filteredItems = filteredItems
+                                    .where(
+                                      (item) =>
+                                          item.category.id == _selectedCategory,
+                                    )
+                                    .toList();
                               }
-                              
+
                               // Filter by Search
                               if (searchQuery.isNotEmpty) {
-                                filteredItems = filteredItems.where((item) => item.name.toLowerCase().contains(searchQuery.toLowerCase())).toList();
+                                filteredItems = filteredItems
+                                    .where(
+                                      (item) => item.name
+                                          .toLowerCase()
+                                          .contains(searchQuery.toLowerCase()),
+                                    )
+                                    .toList();
                               }
 
                               if (filteredItems.isEmpty) {
                                 return const SliverFillRemaining(
-                                  child: Center(child: Text('Menu tidak ditemukan')),
+                                  child: Center(
+                                    child: Text('Menu tidak ditemukan'),
+                                  ),
                                 );
                               }
 
                               return SliverPadding(
-                                padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  8,
+                                  16,
+                                  260,
+                                ),
                                 sliver: SliverGrid(
-                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 2,
-                                    mainAxisSpacing: 16,
-                                    crossAxisSpacing: 16,
-                                    childAspectRatio: 0.75,
-                                  ),
-                                  delegate: SliverChildBuilderDelegate(
-                                    (context, index) {
-                                      final item = filteredItems[index];
-                                      return MenuItemCard(
-                                        name: item.name,
-                                        price: item.price,
-                                        onQuickAdd: () {
-                                          if (item.variants.isNotEmpty) {
-                                            _showItemDetail(item);
-                                          } else {
-                                            context.read<CartBloc>().add(AddToCartEvent(
+                                  gridDelegate:
+                                      const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 2,
+                                        mainAxisSpacing: 16,
+                                        crossAxisSpacing: 16,
+                                        childAspectRatio: 0.75,
+                                      ),
+                                  delegate: SliverChildBuilderDelegate((
+                                    context,
+                                    index,
+                                  ) {
+                                    final item = filteredItems[index];
+                                    return MenuItemCard(
+                                      name: item.name,
+                                      price: item.price,
+                                      onQuickAdd: () {
+                                        if (item.variants.isNotEmpty) {
+                                          _showItemDetail(item);
+                                        } else {
+                                          context.read<CartBloc>().add(
+                                            AddToCartEvent(
                                               menuItemId: item.id,
                                               name: item.name,
                                               basePrice: item.price,
@@ -241,14 +284,13 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
                                               selectedModifiers: const {},
                                               totalPrice: item.price,
                                               notes: '',
-                                            ));
-                                          }
-                                        },
-                                        onShowDetail: () => _showItemDetail(item),
-                                      );
-                                    },
-                                    childCount: filteredItems.length,
-                                  ),
+                                            ),
+                                          );
+                                        }
+                                      },
+                                      onShowDetail: () => _showItemDetail(item),
+                                    );
+                                  }, childCount: filteredItems.length),
                                 ),
                               );
                             }
@@ -267,9 +309,7 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
                   left: 0,
                   right: 0,
                   bottom: 104,
-                  child: FloatingCartBar(
-                    onTap: () => _showCartSheet(false),
-                  ),
+                  child: FloatingCartBar(onTap: () => _showCartSheet(false)),
                 ),
               ],
             ),
@@ -294,16 +334,19 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
     );
 
     if (result != null && mounted) {
-      cartBloc.add(AddToCartEvent(
-        menuItemId: item.id,
-        name: item.name,
-        basePrice: item.price,
-        quantity: (result['quantity'] as num).toInt(),
-        selectedModifiers: result['selectedModifiers'] as Map<String, SelectedModifier?>,
-        totalPrice: (result['totalPrice'] as num).toInt(),
-        variantId: result['variantId'] as String?,
-        notes: result['notes'] as String?,
-      ));
+      cartBloc.add(
+        AddToCartEvent(
+          menuItemId: item.id,
+          name: item.name,
+          basePrice: item.price,
+          quantity: (result['quantity'] as num).toInt(),
+          selectedModifiers:
+              result['selectedModifiers'] as Map<String, SelectedModifier?>,
+          totalPrice: (result['totalPrice'] as num).toInt(),
+          variantId: result['variantId'] as String?,
+          notes: result['notes'] as String?,
+        ),
+      );
     }
   }
 
@@ -389,36 +432,51 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
                       builder: (context, tableState) {
                         final tableNum = tableState.selectedTableNumber;
                         final isTakeaway = tableNum == 0;
-                        
+
                         return InkWell(
                           onTap: () async {
                             final result = await Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (context) => const SelectTableMobilePage(),
+                                builder: (context) =>
+                                    const SelectTableMobilePage(),
                               ),
                             );
 
                             if (result == 'PAYOUT' && mounted) {
-                              await Future.delayed(const Duration(milliseconds: 100));
+                              await Future.delayed(
+                                const Duration(milliseconds: 100),
+                              );
                               if (mounted) _showCartSheet(true);
                             } else if (result == 'ADD' && mounted) {
-                              await Future.delayed(const Duration(milliseconds: 150));
-                              if (mounted) context.read<CartBloc>().add(const ClearCartEvent());
+                              await Future.delayed(
+                                const Duration(milliseconds: 150),
+                              );
+                              if (mounted)
+                                context.read<CartBloc>().add(
+                                  const ClearCartEvent(),
+                                );
                             }
                           },
                           borderRadius: BorderRadius.circular(16),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.white.withAlpha(40),
                               borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.white.withAlpha(60)),
+                              border: Border.all(
+                                color: Colors.white.withAlpha(60),
+                              ),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  isTakeaway ? Icons.local_mall_rounded : Icons.table_restaurant_rounded,
+                                  isTakeaway
+                                      ? Icons.local_mall_rounded
+                                      : Icons.table_restaurant_rounded,
                                   size: 18,
                                   color: Colors.white,
                                 ),
@@ -457,7 +515,10 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
-                const Icon(Icons.search_rounded, color: AppPallete.textSecondary),
+                const Icon(
+                  Icons.search_rounded,
+                  color: AppPallete.textSecondary,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextField(
@@ -465,7 +526,9 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
                     onChanged: (val) => _searchQueryNotifier.value = val,
                     decoration: InputDecoration(
                       hintText: 'Cari menu...',
-                      hintStyle: GoogleFonts.outfit(color: AppPallete.textSecondary),
+                      hintStyle: GoogleFonts.outfit(
+                        color: AppPallete.textSecondary,
+                      ),
                       border: InputBorder.none,
                       enabledBorder: InputBorder.none,
                       focusedBorder: InputBorder.none,
@@ -512,7 +575,11 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
         borderRadius: BorderRadius.circular(14),
         child: Container(
           padding: const EdgeInsets.all(12),
-          child: child ?? (icon != null ? Icon(icon, color: Colors.white, size: 24) : const SizedBox.shrink()),
+          child:
+              child ??
+              (icon != null
+                  ? Icon(icon, color: Colors.white, size: 24)
+                  : const SizedBox.shrink()),
         ),
       ),
     );
@@ -524,7 +591,11 @@ class _SliverCategoryDelegate extends SliverPersistentHeaderDelegate {
   _SliverCategoryDelegate({required this.child});
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return child;
   }
 

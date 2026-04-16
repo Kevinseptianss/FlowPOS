@@ -1,5 +1,5 @@
 import 'package:flow_pos/core/theme/app_pallete.dart';
-import 'package:flow_pos/core/utils/show_snackbar.dart';
+import 'package:flow_pos/core/utils/show_alert.dart';
 import 'package:flow_pos/features/store_settings/presentation/bloc/store_settings_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -63,11 +63,20 @@ class _OwnerStoreSettingsPageState extends State<OwnerStoreSettingsPage> {
       body: BlocConsumer<StoreSettingsBloc, StoreSettingsState>(
         listener: (context, state) {
           if (state is StoreSettingsFailure) {
-            showSnackbar(context, state.message);
+            showFlowPOSAlert(
+              context: context, 
+              title: 'Kesalahan', 
+              message: state.message
+            );
           }
 
           if (state is StoreSettingsUpdated) {
-            showSnackbar(context, 'Profil toko berhasil diperbarui');
+            showFlowPOSAlert(
+              context: context, 
+              title: 'Berhasil', 
+              message: 'Profil toko berhasil diperbarui',
+              isError: false,
+            );
           }
 
           if (state is StoreSettingsLoaded || state is StoreSettingsUpdated) {

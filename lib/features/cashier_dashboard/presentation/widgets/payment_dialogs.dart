@@ -795,19 +795,18 @@ class _MidtransWebViewState extends State<MidtransWebView> {
             if (widget.onUrlChange != null) {
               widget.onUrlChange!(url);
             }
-            // Detect Status based on URL
             if (url.contains('/finish') || url.contains('/success')) {
               debugPrint('--- [WEBVIEW] Transaction SUCCESS detected ---');
               widget.onSuccess();
-              if (context.mounted) Navigator.pop(context);
+              // Removed auto-pop: wait for manual closure
             } else if (url.contains('/failed') || url.contains('/error')) {
               debugPrint('--- [WEBVIEW] Transaction FAILED detected ---');
               if (widget.onFailure != null) widget.onFailure!(url);
-              if (context.mounted) Navigator.pop(context);
+              // Removed auto-pop: wait for manual closure
             } else if (url.contains('/cancel')) {
               debugPrint('--- [WEBVIEW] Transaction CANCELLED detected ---');
               if (widget.onCancel != null) widget.onCancel!();
-              if (context.mounted) Navigator.pop(context);
+              // Removed auto-pop: wait for manual closure
             }
           },
           onWebResourceError: (WebResourceError error) {},

@@ -6,6 +6,10 @@ import 'package:flow_pos/features/order/domain/entities/order_entity.dart';
 import 'package:flow_pos/features/order/presentation/bloc/order_bloc.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_order_detail_page.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/widgets/order_card.dart';
+import 'package:flow_pos/features/staff/data/datasources/salary_remote_data_source.dart';
+import 'package:flow_pos/features/staff/data/models/salary_report_model.dart';
+import 'package:flow_pos/features/staff/presentation/bloc/staff_bloc.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -24,12 +28,18 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
   int _totalRevenue = 0;
   int _qrisRevenue = 0;
   int _cashRevenue = 0;
+  int _transferRevenue = 0;
+  int _cardRevenue = 0;
   int _totalOrders = 0;
+  int _totalSalary = 0;
+  List<SalaryReportModel> _finalizedSalaries = [];
 
   List<OrderEntity> _orders = [];
-  
+
   DateTime _startDate = DateTime.now();
   DateTime _endDate = DateTime.now();
+
+  final _salaryDataSource = SalaryRemoteDataSourceImpl(FirebaseFirestore.instance);
 
   @override
   void initState() {
@@ -39,11 +49,30 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
   }
 
   void _fetchData() {
-    _orderBloc.add(GetRevenueRangeEvent(
-      startDate: _startDate,
-      endDate: _endDate,
-    ));
+    _orderBloc.add(
+      GetRevenueRangeEvent(startDate: _startDate, endDate: _endDate),
+    );
     _orderBloc.add(GetAllOrdersEvent());
+    context.read<StaffBloc>().add(GetStaffEvent());
+    _fetchFinalizedSalaries();
+  }
+
+  Future<void> _fetchFinalizedSalaries() async {
+    try {
+      final reports = await _salaryDataSource.getSalaryReportsByRange(
+        DateTime(_startDate.year, _startDate.month, _startDate.day),
+        DateTime(_endDate.year, _endDate.month, _endDate.day, 23, 59, 59),
+      );
+      
+      if (mounted) {
+        setState(() {
+          _finalizedSalaries = reports;
+          _totalSalary = reports.fold(0, (sum, report) => sum + report.netPay);
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching salaries: $e');
+    }
   }
 
   void _onDateRangeTap() async {
@@ -77,13 +106,17 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<OrderBloc, OrderState>(
-      listener: (context, state) {
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<OrderBloc, OrderState>(
+          listener: (context, state) {
         if (state is OrderRevenueLoaded) {
           setState(() {
             _totalRevenue = state.revenue.totalRevenue;
             _qrisRevenue = state.revenue.totalQrisRevenue;
             _cashRevenue = state.revenue.totalCashRevenue;
+            _transferRevenue = state.revenue.totalTransferRevenue;
+            _cardRevenue = state.revenue.totalCardRevenue;
             _totalOrders = state.revenue.totalOrders;
           });
         } else if (state is OrdersLoaded) {
@@ -91,37 +124,57 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
             _orders = state.orders.where((order) {
               final isPaid = order.status == 'PAID';
               if (!isPaid) return false;
-              
+
               final date = order.createdAt;
-              final start = DateTime(_startDate.year, _startDate.month, _startDate.day);
-              final end = DateTime(_endDate.year, _endDate.month, _endDate.day, 23, 59, 59);
-              return date.isAfter(start.subtract(const Duration(seconds: 1))) && 
-                     date.isBefore(end.add(const Duration(seconds: 1)));
+              final start = DateTime(
+                _startDate.year,
+                _startDate.month,
+                _startDate.day,
+              );
+              final end = DateTime(
+                _endDate.year,
+                _endDate.month,
+                _endDate.day,
+                23,
+                59,
+                59,
+              );
+              return date.isAfter(start.subtract(const Duration(seconds: 1))) &&
+                  date.isBefore(end.add(const Duration(seconds: 1)));
             }).toList();
           });
-        } else if (state is OrderFailure) {
-          showSnackbar(context, state.message);
-        }
-      },
+          } else if (state is OrderFailure) {
+            showSnackbar(context, state.message);
+          }
+        },
+        ),
+        BlocListener<StaffBloc, StaffState>(
+          listener: (context, state) {
+            // No longer summing projected salaries here
+            // We fetch finalized reports in _fetchFinalizedSalaries()
+          },
+        ),
+      ],
       child: Scaffold(
         backgroundColor: AppPallete.background,
+        resizeToAvoidBottomInset: false,
         body: RefreshIndicator(
           onRefresh: () async => _fetchData(),
           child: CustomScrollView(
             slivers: [
               // Unified Header Section
               SliverToBoxAdapter(child: _buildHeader(context)),
-              
+
               const SliverToBoxAdapter(child: SizedBox(height: 20)),
-              
+
               // Secondary Analytics Grid
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 sliver: SliverToBoxAdapter(child: _buildAnalyticGrid(context)),
               ),
-              
+
               const SliverToBoxAdapter(child: SizedBox(height: 32)),
-              
+
               // Transaction History Section
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -139,7 +192,10 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: AppPallete.primary.withAlpha(20),
                           borderRadius: BorderRadius.circular(12),
@@ -157,15 +213,15 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
                   ),
                 ),
               ),
-              
+
               const SliverToBoxAdapter(child: SizedBox(height: 16)),
-              
+
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 sliver: _buildOrderHistorySliver(context),
               ),
-              
-              const SliverToBoxAdapter(child: SizedBox(height: 60)),
+
+              const SliverToBoxAdapter(child: SizedBox(height: 120)),
             ],
           ),
         ),
@@ -174,9 +230,10 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
   }
 
   Widget _buildHeader(BuildContext context) {
-    final dateRangeStr = _startDate.day == _endDate.day && 
-                         _startDate.month == _endDate.month && 
-                         _startDate.year == _endDate.year
+    final dateRangeStr =
+        _startDate.day == _endDate.day &&
+            _startDate.month == _endDate.month &&
+            _startDate.year == _endDate.year
         ? DatetimeFormatter.formatDateYear(_startDate)
         : '${DatetimeFormatter.formatDateYear(_startDate)} - ${DatetimeFormatter.formatDateYear(_endDate)}';
 
@@ -234,16 +291,20 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
                     ),
                     child: IconButton(
                       onPressed: _onDateRangeTap,
-                      icon: const Icon(Icons.calendar_today_rounded, color: Colors.white, size: 20),
+                      icon: const Icon(
+                        Icons.calendar_today_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Row(
@@ -252,7 +313,10 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
                   onTap: _onDateRangeTap,
                   borderRadius: BorderRadius.circular(20),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white.withAlpha(30),
                       borderRadius: BorderRadius.circular(25),
@@ -261,7 +325,11 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.timer_rounded, color: Colors.white, size: 14),
+                        const Icon(
+                          Icons.timer_rounded,
+                          color: Colors.white,
+                          size: 14,
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           dateRangeStr,
@@ -278,11 +346,11 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
               ],
             ),
           ),
-          
+
           const SizedBox(height: 28),
-          
+
           _buildHeroRevenueCard(context),
-          
+
           const SizedBox(height: 40),
         ],
       ),
@@ -290,6 +358,8 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
   }
 
   Widget _buildHeroRevenueCard(BuildContext context) {
+    final int netProfit = _totalRevenue - _totalSalary;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
@@ -311,7 +381,11 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.insights_rounded, color: AppPallete.primary.withAlpha(150), size: 16),
+                Icon(
+                  Icons.insights_rounded,
+                  color: AppPallete.primary.withAlpha(150),
+                  size: 16,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'TOTAL PENDAPATAN',
@@ -350,6 +424,72 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
                 );
               },
             ),
+            const SizedBox(height: 24),
+            
+            // Profit Breakdown
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+              decoration: BoxDecoration(
+                color: AppPallete.background.withAlpha(100),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppPallete.divider.withAlpha(50)),
+              ),
+              child: Column(
+                children: [
+                  _buildProfitDetailRow(
+                    label: 'Gaji Karyawan',
+                    value: '- ${formatRupiah(_totalSalary)}',
+                    color: Colors.redAccent,
+                    isBold: false,
+                  ),
+                  if (_finalizedSalaries.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withAlpha(50),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        children: _finalizedSalaries.map((s) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.person_outline_rounded, size: 12, color: AppPallete.textSecondary.withAlpha(150)),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    s.staffName,
+                                    style: GoogleFonts.outfit(fontSize: 11, color: AppPallete.textSecondary),
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                formatRupiah(s.netPay),
+                                style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: AppPallete.textPrimary.withAlpha(200)),
+                              ),
+                            ],
+                          ),
+                        )).toList(),
+                      ),
+                    ),
+                  ],
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8.0),
+                    child: Divider(height: 1, thickness: 1),
+                  ),
+                  _buildProfitDetailRow(
+                    label: 'LABA BERSIH',
+                    value: formatRupiah(netProfit),
+                    color: netProfit >= 0 ? AppPallete.success : Colors.red,
+                    isBold: true,
+                  ),
+                ],
+              ),
+            ),
+
             const SizedBox(height: 28),
             Container(
               padding: const EdgeInsets.all(20),
@@ -357,20 +497,45 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
                 color: AppPallete.background,
                 borderRadius: BorderRadius.circular(24),
               ),
-              child: Row(
+              child: Column(
                 children: [
-                  _buildPaymentSplitItem(
-                    label: 'QRIS',
-                    value: formatRupiah(_qrisRevenue),
-                    icon: Icons.qr_code_2_rounded,
-                    color: Colors.blueAccent,
+                  Row(
+                    children: [
+                      _buildPaymentSplitItem(
+                        label: 'QRIS',
+                        value: formatRupiah(_qrisRevenue),
+                        icon: Icons.qr_code_2_rounded,
+                        color: Colors.blueAccent,
+                      ),
+                      Container(width: 1, height: 40, color: AppPallete.divider, margin: const EdgeInsets.symmetric(horizontal: 10)),
+                      _buildPaymentSplitItem(
+                        label: 'TUNAI',
+                        value: formatRupiah(_cashRevenue),
+                        icon: Icons.payments_outlined,
+                        color: AppPallete.success,
+                      ),
+                    ],
                   ),
-                  Container(width: 1, height: 40, color: AppPallete.divider),
-                  _buildPaymentSplitItem(
-                    label: 'TUNAI',
-                    value: formatRupiah(_cashRevenue),
-                    icon: Icons.payments_outlined,
-                    color: AppPallete.success,
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: Divider(height: 1),
+                  ),
+                  Row(
+                    children: [
+                      _buildPaymentSplitItem(
+                        label: 'TRANSFER',
+                        value: formatRupiah(_transferRevenue),
+                        icon: Icons.account_balance_rounded,
+                        color: Colors.indigoAccent,
+                      ),
+                      Container(width: 1, height: 40, color: AppPallete.divider, margin: const EdgeInsets.symmetric(horizontal: 10)),
+                      _buildPaymentSplitItem(
+                        label: 'KARTU',
+                        value: formatRupiah(_cardRevenue),
+                        icon: Icons.credit_card_rounded,
+                        color: Colors.orangeAccent,
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -378,6 +543,35 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildProfitDetailRow({
+    required String label,
+    required String value,
+    required Color color,
+    required bool isBold,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.outfit(
+            fontSize: 13,
+            color: AppPallete.textSecondary,
+            fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+        Text(
+          value,
+          style: GoogleFonts.outfit(
+            fontSize: 14,
+            fontWeight: FontWeight.w900,
+            color: color,
+          ),
+        ),
+      ],
     );
   }
 
@@ -422,17 +616,18 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
 
   Widget _buildAnalyticGrid(BuildContext context) {
     final aov = _totalOrders == 0 ? 0 : (_totalRevenue ~/ _totalOrders);
-    
+
     final Map<String, int> productCounts = {};
     for (var order in _orders) {
       for (var item in order.items) {
-        productCounts[item.menuName] = (productCounts[item.menuName] ?? 0) + item.quantity;
+        productCounts[item.menuName] =
+            (productCounts[item.menuName] ?? 0) + item.quantity;
       }
     }
-    
+
     final sortedProducts = productCounts.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
-    
+
     final topProduct = sortedProducts.isEmpty ? '-' : sortedProducts.first.key;
 
     return Column(
@@ -473,7 +668,8 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
     );
   }
 
-  Widget _buildSimpleAnalyticCard(BuildContext context, {
+  Widget _buildSimpleAnalyticCard(
+    BuildContext context, {
     required String title,
     required String value,
     required IconData icon,
@@ -546,7 +742,7 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
             child: Center(child: CircularProgressIndicator()),
           );
         }
-        
+
         if (_orders.isEmpty) {
           return SliverToBoxAdapter(
             child: Container(
@@ -560,7 +756,11 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
                         color: AppPallete.divider.withAlpha(50),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(Icons.receipt_long_outlined, size: 64, color: AppPallete.divider),
+                      child: Icon(
+                        Icons.receipt_long_outlined,
+                        size: 64,
+                        color: AppPallete.divider,
+                      ),
                     ),
                     const SizedBox(height: 24),
                     Text(
@@ -588,25 +788,27 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
         }
 
         return SliverList(
-          delegate: SliverChildBuilderDelegate(
-            (context, index) {
-              final order = _orders[index];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: OrderCard(
-                  orderId: order.orderNumber,
-                  paymentType: order.payment?.method ?? (order.status == 'UNPAID' ? 'MEJA (PENDING)' : 'LUNAS'),
-                  datetime: DatetimeFormatter.formatIndonesian(order.createdAt, includeTime: true),
-                  totalItems: order.items.length,
-                  totalPayment: formatRupiah(order.total),
-                  onTap: () {
-                    Navigator.push(context, OwnerOrderDetailPage.route(order));
-                  },
+          delegate: SliverChildBuilderDelegate((context, index) {
+            final order = _orders[index];
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: OrderCard(
+                orderId: order.orderNumber,
+                paymentType:
+                    order.payment?.method ??
+                    (order.status == 'UNPAID' ? 'MEJA (PENDING)' : 'LUNAS'),
+                datetime: DatetimeFormatter.formatIndonesian(
+                  order.createdAt,
+                  includeTime: true,
                 ),
-              );
-            },
-            childCount: _orders.length,
-          ),
+                totalItems: order.items.length,
+                totalPayment: formatRupiah(order.total),
+                onTap: () {
+                  Navigator.push(context, OwnerOrderDetailPage.route(order));
+                },
+              ),
+            );
+          }, childCount: _orders.length),
         );
       },
     );

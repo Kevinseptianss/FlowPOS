@@ -14,55 +14,77 @@ class OwnerBottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      height: 72,
       decoration: BoxDecoration(
         color: AppPallete.surface,
+        borderRadius: BorderRadius.circular(36),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(10),
-            blurRadius: 20,
-            offset: const Offset(0, -4),
+            color: Colors.black.withAlpha(20),
+            blurRadius: 25,
+            spreadRadius: 2,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final itemWidth = constraints.maxWidth / 5;
+          
+          return Stack(
             children: [
-              _BottomNavItem(
-                icon: Icons.grid_view_rounded,
-                label: 'Utama',
-                isSelected: currentIndex == 0,
-                onTap: () => onIndexChanged(0),
+              // Sliding Highlight background
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 600),
+                curve: Curves.easeInOutQuart,
+                left: currentIndex * itemWidth + (itemWidth * 0.1),
+                top: 10,
+                child: Container(
+                  width: itemWidth * 0.8,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: AppPallete.primary.withAlpha(30),
+                    borderRadius: BorderRadius.circular(26),
+                  ),
+                ),
               ),
-              _BottomNavItem(
-                icon: Icons.inventory_2_outlined,
-                label: 'Produk',
-                isSelected: currentIndex == 1,
-                onTap: () => onIndexChanged(1),
-              ),
-              _BottomNavItem(
-                icon: Icons.inventory_outlined,
-                label: 'Stok',
-                isSelected: currentIndex == 2,
-                onTap: () => onIndexChanged(2),
-              ),
-              _BottomNavItem(
-                icon: Icons.storefront_outlined,
-                label: 'Toko',
-                isSelected: currentIndex == 3,
-                onTap: () => onIndexChanged(3),
-              ),
-              _BottomNavItem(
-                icon: Icons.settings_outlined,
-                label: 'Atur',
-                isSelected: currentIndex == 4,
-                onTap: () => onIndexChanged(4),
+              Row(
+                children: [
+                  _BottomNavItem(
+                    icon: Icons.grid_view_rounded,
+                    label: 'Utama',
+                    isSelected: currentIndex == 0,
+                    onTap: () => onIndexChanged(0),
+                  ),
+                  _BottomNavItem(
+                    icon: Icons.inventory_2_outlined,
+                    label: 'Produk',
+                    isSelected: currentIndex == 1,
+                    onTap: () => onIndexChanged(1),
+                  ),
+                  _BottomNavItem(
+                    icon: Icons.inventory_outlined,
+                    label: 'Stok',
+                    isSelected: currentIndex == 2,
+                    onTap: () => onIndexChanged(2),
+                  ),
+                  _BottomNavItem(
+                    icon: Icons.storefront_outlined,
+                    label: 'Toko',
+                    isSelected: currentIndex == 3,
+                    onTap: () => onIndexChanged(3),
+                  ),
+                  _BottomNavItem(
+                    icon: Icons.settings_outlined,
+                    label: 'Atur',
+                    isSelected: currentIndex == 4,
+                    onTap: () => onIndexChanged(4),
+                  ),
+                ],
               ),
             ],
-          ),
-        ),
+          );
+        },
       ),
     );
   }
@@ -86,35 +108,35 @@ class _BottomNavItem extends StatelessWidget {
     final inactiveColor = AppPallete.textSecondary;
     final activeColor = AppPallete.primary;
 
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color:
-                  isSelected ? activeColor.withAlpha(40) : Colors.transparent,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Icon(
-              icon,
-              color: isSelected ? activeColor : inactiveColor,
-              size: 24,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedScale(
+                duration: const Duration(milliseconds: 400),
+                scale: isSelected ? 1.15 : 1.0,
+                child: Icon(
+                  icon,
                   color: isSelected ? activeColor : inactiveColor,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  size: 24,
                 ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? activeColor : inactiveColor,
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

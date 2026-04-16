@@ -13,6 +13,7 @@ abstract interface class ShiftRemoteDataSource {
     required double closingBalance,
   });
   Future<ShiftModel?> getActiveShift(String cashierId);
+  Future<List<ShiftModel>> getShiftsByRange(DateTime start, DateTime end);
 }
 
 class ShiftRemoteDataSourceImpl implements ShiftRemoteDataSource {
@@ -101,6 +102,24 @@ class ShiftRemoteDataSourceImpl implements ShiftRemoteDataSource {
       
       final doc = await _firestore.collection('shifts').doc(shiftId).get();
       return ShiftModel.fromJson(doc.data()!..['id'] = shiftId);
+    } catch (e) {
+      throw ServerException(e.toString());
+    }
+  }
+
+  @override
+  Future<List<ShiftModel>> getShiftsByRange(DateTime start, DateTime end) async {
+    try {
+      final snapshot = await _firestore
+          .collection('shifts')
+          .where('opened_at', isGreaterThanOrEqualTo: start)
+          .where('opened_at', isLessThanOrEqualTo: end)
+          .orderBy('opened_at', descending: true)
+          .get();
+
+      return snapshot.docs
+          .map((doc) => ShiftModel.fromJson(doc.data()..['id'] = doc.id))
+          .toList();
     } catch (e) {
       throw ServerException(e.toString());
     }

@@ -8,4 +8,11 @@ abstract interface class StaffRepository {
   Future<Either<Failure, StaffProfile>> createStaff(String name, String username, String password);
   Future<Either<Failure, void>> deleteStaff(String staffId);
   Future<Either<Failure, bool>> checkUsername(String username);
+  Future<Either<Failure, StaffProfile>> updateStaffSalary({
+    required String staffId,
+    int? salary,
+    String? salaryType,
+    int? hourlyRate,
+    int? minuteRate,
+  });
 }

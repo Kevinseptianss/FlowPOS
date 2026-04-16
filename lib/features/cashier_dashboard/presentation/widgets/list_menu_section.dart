@@ -120,41 +120,51 @@ class _ListMenuSectionState extends State<ListMenuSection> {
                           name: item.name,
                           price: item.price,
                           onQuickAdd: () {
-                            context.read<CartBloc>().add(AddToCartEvent(
-                              menuItemId: item.id,
-                              name: item.name,
-                              basePrice: item.price,
-                              quantity: 1,
-                              selectedModifiers: const {},
-                              totalPrice: item.price,
-                              notes: '',
-                            ));
-                          },
-                          onShowDetail: () async {
-                            final cartBloc = context.read<CartBloc>();
-                            final result = await showModalBottomSheet<Map<String, dynamic>>(
-                              context: context,
-                              isScrollControlled: true,
-                              backgroundColor: Colors.transparent,
-                              builder: (context) => ModifierDialog(
-                                menuId: item.id,
-                                itemName: item.name,
-                                price: item.price,
-                                variants: item.variants,
-                              ),
-                            );
-
-                            if (result != null) {
-                              cartBloc.add(AddToCartEvent(
+                            context.read<CartBloc>().add(
+                              AddToCartEvent(
                                 menuItemId: item.id,
                                 name: item.name,
                                 basePrice: item.price,
-                                quantity: (result['quantity'] as num).toInt(),
-                                selectedModifiers: result['selectedModifiers'] as Map<String, SelectedModifier?>,
-                                totalPrice: (result['totalPrice'] as num).toInt(),
-                                variantId: result['variantId'] as String?,
-                                notes: result['notes'] as String?,
-                              ));
+                                quantity: 1,
+                                selectedModifiers: const {},
+                                totalPrice: item.price,
+                                notes: '',
+                              ),
+                            );
+                          },
+                          onShowDetail: () async {
+                            final cartBloc = context.read<CartBloc>();
+                            final result =
+                                await showModalBottomSheet<
+                                  Map<String, dynamic>
+                                >(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  backgroundColor: Colors.transparent,
+                                  builder: (context) => ModifierDialog(
+                                    menuId: item.id,
+                                    itemName: item.name,
+                                    price: item.price,
+                                    variants: item.variants,
+                                  ),
+                                );
+
+                            if (result != null) {
+                              cartBloc.add(
+                                AddToCartEvent(
+                                  menuItemId: item.id,
+                                  name: item.name,
+                                  basePrice: item.price,
+                                  quantity: (result['quantity'] as num).toInt(),
+                                  selectedModifiers:
+                                      result['selectedModifiers']
+                                          as Map<String, SelectedModifier?>,
+                                  totalPrice: (result['totalPrice'] as num)
+                                      .toInt(),
+                                  variantId: result['variantId'] as String?,
+                                  notes: result['notes'] as String?,
+                                ),
+                              );
                             }
                           },
                         );

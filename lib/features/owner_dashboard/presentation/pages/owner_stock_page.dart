@@ -34,13 +34,14 @@ class _OwnerStockPageState extends State<OwnerStockPage> {
       builder: (context, state) {
         return Scaffold(
           backgroundColor: const Color(0xFFF9FAFB),
+          resizeToAvoidBottomInset: false,
           body: LayoutBuilder(
             builder: (context, constraints) {
               final isMobile = constraints.maxWidth < 700;
-              
+
               return Stack(
                 children: [
-                   // --- BACKGROUND ACCENT ---
+                  // --- BACKGROUND ACCENT ---
                   Positioned(
                     top: -100,
                     right: -100,
@@ -70,14 +71,18 @@ class _OwnerStockPageState extends State<OwnerStockPage> {
                           _buildStockSliverList(
                             // APPLY FILTER HERE: Only show items that have been ordered before (via PO)
                             // or have current stock.
-                            state.stocks.where((s) => s.hasPurchaseOrder || s.quantity > 0).toList(), 
-                            isMobile
+                            state.stocks
+                                .where(
+                                  (s) => s.hasPurchaseOrder || s.quantity > 0,
+                                )
+                                .toList(),
+                            isMobile,
                           )
                         else
                           const SliverFillRemaining(
                             child: Center(child: CircularProgressIndicator()),
                           ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 100)),
+                        const SliverToBoxAdapter(child: SizedBox(height: 120)),
                       ],
                     ),
                   ),
@@ -91,14 +96,18 @@ class _OwnerStockPageState extends State<OwnerStockPage> {
     );
   }
 
-  Widget _buildSliverHeader(BuildContext context, bool isMobile, InventoryState state) {
+  Widget _buildSliverHeader(
+    BuildContext context,
+    bool isMobile,
+    InventoryState state,
+  ) {
     return SliverToBoxAdapter(
       child: Container(
         padding: EdgeInsets.fromLTRB(
-          isMobile ? 16 : 32, 
-          (isMobile ? 16 : 32) + MediaQuery.of(context).padding.top, 
-          isMobile ? 16 : 32, 
-          32
+          isMobile ? 16 : 32,
+          (isMobile ? 16 : 32) + MediaQuery.of(context).padding.top,
+          isMobile ? 16 : 32,
+          32,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -136,7 +145,8 @@ class _OwnerStockPageState extends State<OwnerStockPage> {
               _buildSearchField(double.infinity),
               const SizedBox(height: 24),
             ],
-            if (state is InventoryLoaded) _buildMainMetrics(state.stocks, isMobile),
+            if (state is InventoryLoaded)
+              _buildMainMetrics(state.stocks, isMobile),
           ],
         ),
       ),
@@ -164,8 +174,14 @@ class _OwnerStockPageState extends State<OwnerStockPage> {
         ),
         decoration: InputDecoration(
           hintText: 'Cari inventori...',
-          hintStyle: GoogleFonts.outfit(fontSize: 14, color: AppPallete.textSecondary),
-          prefixIcon: const Icon(Icons.search_rounded, color: AppPallete.primary),
+          hintStyle: GoogleFonts.outfit(
+            fontSize: 14,
+            color: AppPallete.textSecondary,
+          ),
+          prefixIcon: const Icon(
+            Icons.search_rounded,
+            color: AppPallete.primary,
+          ),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 14),
         ),
@@ -174,21 +190,43 @@ class _OwnerStockPageState extends State<OwnerStockPage> {
   }
 
   Widget _buildMainMetrics(List<Stock> stocks, bool isMobile) {
-    final lowStock = stocks.where((s) => s.quantity <= s.minThreshold && s.quantity > 0).length;
+    final lowStock = stocks
+        .where((s) => s.quantity <= s.minThreshold && s.quantity > 0)
+        .length;
     final outOfStock = stocks.where((s) => s.quantity <= 0).length;
 
     return Row(
       children: [
-        _buildMetricOrb('Active Item', stocks.length.toString(), Icons.layers_rounded, Colors.blue),
+        _buildMetricOrb(
+          'Active Item',
+          stocks.length.toString(),
+          Icons.layers_rounded,
+          Colors.blue,
+        ),
         const SizedBox(width: 12),
-        _buildMetricOrb('Low Stock', lowStock.toString(), Icons.auto_graph_rounded, Colors.orange),
+        _buildMetricOrb(
+          'Low Stock',
+          lowStock.toString(),
+          Icons.auto_graph_rounded,
+          Colors.orange,
+        ),
         const SizedBox(width: 12),
-        _buildMetricOrb('Critical', outOfStock.toString(), Icons.emergency_rounded, Colors.red),
+        _buildMetricOrb(
+          'Critical',
+          outOfStock.toString(),
+          Icons.emergency_rounded,
+          Colors.red,
+        ),
       ],
     );
   }
 
-  Widget _buildMetricOrb(String label, String value, IconData icon, Color color) {
+  Widget _buildMetricOrb(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Expanded(
       child: Container(
         height: 100,
@@ -249,139 +287,153 @@ class _OwnerStockPageState extends State<OwnerStockPage> {
     return SliverPadding(
       padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 32),
       sliver: SliverList(
-        delegate: SliverChildBuilderDelegate(
-          (context, index) {
-            final stock = stocks[index];
-            final divisor = stock.minThreshold <= 0 ? 15 : (stock.minThreshold * 3);
-            final percent = (stock.quantity / divisor).clamp(0.0, 1.0).toDouble();
-            final statusColor = stock.quantity <= 0 
-                ? Colors.red 
-                : (stock.quantity <= stock.minThreshold ? Colors.orange : Colors.green);
+        delegate: SliverChildBuilderDelegate((context, index) {
+          final stock = stocks[index];
+          final divisor = stock.minThreshold <= 0
+              ? 15
+              : (stock.minThreshold * 3);
+          final percent = (stock.quantity / divisor).clamp(0.0, 1.0).toDouble();
+          final statusColor = stock.quantity <= 0
+              ? Colors.red
+              : (stock.quantity <= stock.minThreshold
+                    ? Colors.orange
+                    : Colors.green);
 
-            return Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withAlpha(5),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+          return Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withAlpha(5),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => Navigator.push(
+                    context,
+                    OwnerStockDetailPage.route(stock),
                   ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(24),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () => Navigator.push(context, OwnerStockDetailPage.route(stock)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 50,
-                                height: 50,
-                                decoration: BoxDecoration(
-                                  color: AppPallete.primary.withAlpha(20),
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: const Icon(Icons.inventory_2_outlined, color: AppPallete.primary),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 50,
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: AppPallete.primary.withAlpha(20),
+                                borderRadius: BorderRadius.circular(16),
                               ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
+                              child: const Icon(
+                                Icons.inventory_2_outlined,
+                                color: AppPallete.primary,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    stock.itemName,
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppPallete.textPrimary,
+                                    ),
+                                  ),
+                                  if (stock.variantName != null)
                                     Text(
-                                      stock.itemName,
+                                      stock.variantName!,
                                       style: GoogleFonts.outfit(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppPallete.textPrimary,
+                                        fontSize: 12,
+                                        color: AppPallete.textSecondary,
                                       ),
                                     ),
-                                    if (stock.variantName != null)
-                                      Text(
-                                        stock.variantName!,
-                                        style: GoogleFonts.outfit(
-                                          fontSize: 12,
-                                          color: AppPallete.textSecondary,
-                                        ),
-                                      ),
+                                ],
+                              ),
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  '${stock.quantity.toInt()} Unit',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                    color: statusColor,
+                                  ),
+                                ),
+                                Text(
+                                  stock.quantity <= 0
+                                      ? 'Out of Stock'
+                                      : (stock.quantity <= stock.minThreshold
+                                            ? 'Running Low'
+                                            : 'Healthy'),
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: statusColor.withAlpha(150),
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        // --- STOCK HEALTH BAR ---
+                        Stack(
+                          children: [
+                            Container(
+                              height: 6,
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: AppPallete.divider,
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                            ),
+                            FractionallySizedBox(
+                              widthFactor: percent,
+                              child: Container(
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      statusColor.withAlpha(150),
+                                      statusColor,
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(3),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: statusColor.withAlpha(100),
+                                      blurRadius: 4,
+                                    ),
                                   ],
                                 ),
                               ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    '${stock.quantity.toInt()} Unit',
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w800,
-                                      color: statusColor,
-                                    ),
-                                  ),
-                                  Text(
-                                    stock.quantity <= 0 ? 'Out of Stock' : (stock.quantity <= stock.minThreshold ? 'Running Low' : 'Healthy'),
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                      color: statusColor.withAlpha(150),
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-                          // --- STOCK HEALTH BAR ---
-                          Stack(
-                            children: [
-                              Container(
-                                height: 6,
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  color: AppPallete.divider,
-                                  borderRadius: BorderRadius.circular(3),
-                                ),
-                              ),
-                              FractionallySizedBox(
-                                widthFactor: percent,
-                                child: Container(
-                                  height: 6,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [statusColor.withAlpha(150), statusColor],
-                                    ),
-                                    borderRadius: BorderRadius.circular(3),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: statusColor.withAlpha(100),
-                                        blurRadius: 4,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
-            );
-          },
-          childCount: stocks.length,
-        ),
+            ),
+          );
+        }, childCount: stocks.length),
       ),
     );
   }
@@ -398,8 +450,10 @@ class _OwnerStockPageState extends State<OwnerStockPage> {
           ),
         ],
       ),
+      margin: const EdgeInsets.only(bottom: 90),
       child: FloatingActionButton.extended(
-        onPressed: () => Navigator.push(context, OwnerPurchaseOrderPage.route()),
+        onPressed: () =>
+            Navigator.push(context, OwnerPurchaseOrderPage.route()),
         backgroundColor: AppPallete.primary,
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),

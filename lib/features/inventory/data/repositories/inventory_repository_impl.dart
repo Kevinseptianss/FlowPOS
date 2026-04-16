@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flow_pos/core/error/failure.dart';
 import 'package:flow_pos/features/inventory/data/datasources/inventory_remote_data_source.dart';
 import 'package:flow_pos/features/inventory/domain/entities/purchase_order.dart';
@@ -11,6 +12,13 @@ class InventoryRepositoryImpl implements InventoryRepository {
 
   InventoryRepositoryImpl(this.remoteDataSource);
 
+  DateTime _parseDate(dynamic date) {
+    if (date == null) return DateTime.now();
+    if (date is Timestamp) return date.toDate();
+    if (date is String) return DateTime.parse(date);
+    return DateTime.now();
+  }
+
   @override
   Future<Either<Failure, List<Stock>>> getStockLevels() async {
     try {
@@ -21,51 +29,55 @@ class InventoryRepositoryImpl implements InventoryRepository {
         final double quantity = (json['quantity'] ?? 0 as num).toDouble();
         final bool hasPO = (poItems != null && poItems.isNotEmpty);
 
-        String itemName = 'Unknown';
+        String itemName = 'Unknown Product';
         String? catId;
         int? sellingPrice;
         int? costPrice;
 
-        if (json['menu_items'] != null) {
-          itemName = json['menu_items']['name'] ?? 'Unknown';
-          catId = json['menu_items']['category_id'];
-          sellingPrice = json['menu_items']['price'];
-          costPrice = json['menu_items']['base_price'];
-        } else if (json['menu_item_variants'] != null && json['menu_item_variants']['menu_items'] != null) {
-          itemName = json['menu_item_variants']['menu_items']['name'] ?? 'Unknown';
-          catId = json['menu_item_variants']['menu_items']['category_id'];
-          sellingPrice = json['menu_item_variants']['menu_items']['price'];
-          costPrice = json['menu_item_variants']['menu_items']['base_price'];
+        // Try to get base info from menu_items snapshot in stock doc
+        final productInfo = json['menu_items'];
+        if (productInfo != null) {
+          itemName = productInfo['name']?.toString() ?? itemName;
+          catId = productInfo['category_id']?.toString();
+          sellingPrice = (productInfo['price'] as num?)?.toInt();
+          costPrice = (productInfo['base_price'] as num?)?.toInt();
         }
 
-        if (json['menu_item_variants'] != null) {
-          final option = json['menu_item_variants']['option_name'];
-          final variant = json['menu_item_variants']['variant_name'];
+        // Check for variant details
+        final variantInfo = json['menu_item_variants'];
+        if (variantInfo != null) {
+          final String? optionName = variantInfo['option_name']?.toString();
+          final String? variantName = (variantInfo['variant_name'] ?? variantInfo['name'])?.toString();
           
-          if (json['menu_item_variants']['base_price'] != null) {
-            costPrice = json['menu_item_variants']['base_price'];
+          if (variantInfo['base_price'] != null) {
+            costPrice = (variantInfo['base_price'] as num).toInt();
+          }
+          if (variantInfo['price'] != null) {
+            sellingPrice = (variantInfo['price'] as num).toInt();
           }
           
-          if (option != null && variant != null) {
-            itemName = '$itemName - $option - $variant';
-          } else if (variant != null) {
-            itemName = '$itemName - $variant';
+          if (optionName != null && variantName != null) {
+            itemName = '$itemName - $optionName - $variantName';
+          } else if (variantName != null) {
+            itemName = '$itemName - $variantName';
           }
-        } else if (itemName == 'Unknown' && json['menu_item_variants'] != null) {
-          itemName = json['menu_item_variants']['variant_name'] ?? json['menu_item_variants']['option_name'] ?? 'Unknown';
         }
         
+        final String sId = json['id']?.toString() ?? '';
+        final String mId = json['menu_item_id']?.toString() ?? '';
+        final String? vId = json['variant_id']?.toString();
+        
         stocks.add(Stock(
-          id: json['id'],
-          menuItemId: json['menu_item_id'],
-          variantId: json['variant_id'],
+          id: sId,
+          menuItemId: mId,
+          variantId: vId,
           quantity: quantity,
-          minThreshold: json['min_threshold'] ?? 5,
-          updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : DateTime.now(),
+          minThreshold: (json['min_threshold'] ?? 5 as num).toInt(),
+          updatedAt: _parseDate(json['updated_at']),
           hasPurchaseOrder: hasPO,
           itemName: itemName,
-          variantName: json['menu_item_variants'] != null 
-              ? (json['menu_item_variants']['option_name'] ?? json['menu_item_variants']['variant_name']) 
+          variantName: variantInfo != null 
+              ? (variantInfo['variant_name'] ?? variantInfo['option_name'] ?? variantInfo['name']) 
               : null,
           categoryId: catId,
           price: sellingPrice,
@@ -120,8 +132,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
         menuItemId: json['menu_item_id'],
         variantId: json['variant_id'],
         quantity: (json['quantity'] ?? 0 as num).toDouble(),
-        minThreshold: json['min_threshold'] ?? 5,
-        updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : DateTime.now(),
+        minThreshold: (json['min_threshold'] ?? 5 as num).toInt(),
+        updatedAt: _parseDate(json['updated_at']),
         hasPurchaseOrder: true,
         itemName: itemName,
         categoryId: catId,
@@ -147,8 +159,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
         supplierName: json['supplier_name'],
         totalAmount: json['total_amount'],
         status: json['status'],
-        createdAt: DateTime.parse(json['created_at']),
-        items: (json['purchase_order_items'] as List).map((i) => PurchaseOrderItem(
+        createdAt: _parseDate(json['created_at']),
+        items: (json['purchase_order_items'] as List? ?? []).map((i) => PurchaseOrderItem(
           id: i['id'],
           stockId: i['stock_id'],
           itemName: 'Item', // Name not easily available here without extra fetch
@@ -170,7 +182,7 @@ class InventoryRepositoryImpl implements InventoryRepository {
         supplierName: json['supplier_name'],
         totalAmount: json['total_amount'],
         status: json['status'],
-        createdAt: DateTime.parse(json['created_at']),
+        createdAt: _parseDate(json['created_at']),
       )).toList());
     } catch (e) {
       return left(Failure(e.toString()));
@@ -187,8 +199,8 @@ class InventoryRepositoryImpl implements InventoryRepository {
         supplierName: json['supplier_name'],
         totalAmount: json['total_amount'],
         status: json['status'],
-        createdAt: DateTime.parse(json['created_at']),
-        items: (json['purchase_order_items'] as List).map((i) {
+        createdAt: _parseDate(json['created_at']),
+        items: (json['purchase_order_items'] as List? ?? []).map((i) {
           String itName = 'Unknown Item';
           final stocks = i['stocks'];
           if (stocks != null) {
@@ -233,10 +245,11 @@ class InventoryRepositoryImpl implements InventoryRepository {
         reason: json['reason'],
         amount: (json['amount'] as num).toDouble(),
         referenceId: json['reference_id'],
-        createdAt: DateTime.parse(json['created_at']),
+        createdAt: _parseDate(json['created_at']),
       )).toList());
     } catch (e) {
       return left(Failure(e.toString()));
     }
   }
 }
+

@@ -45,3 +45,13 @@ class GetActiveShiftEvent extends ShiftEvent {
   @override
   List<Object> get props => [cashierId];
 }
+
+class GetShiftsByRangeEvent extends ShiftEvent {
+  final DateTime start;
+  final DateTime end;
+
+  const GetShiftsByRangeEvent({required this.start, required this.end});
+
+  @override
+  List<Object> get props => [start, end];
+}

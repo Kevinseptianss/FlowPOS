@@ -10,10 +10,14 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
 
+    function hasRole(role) {
+      return get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == role;
+    }
+
     // Profiles rules
     match /profiles/{userId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && isOwner(userId);
+      allow write: if isAuthenticated() && (isOwner(userId) || hasRole('owner'));
     }
 
     // Categories and Menu Items (Read for all auth, Write for Admin/Owner)
@@ -60,6 +64,11 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
     match /purchase_orders/{poId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Salary Management
+    match /salary_reports/{reportId} {
       allow read, write: if isAuthenticated();
     }
   }

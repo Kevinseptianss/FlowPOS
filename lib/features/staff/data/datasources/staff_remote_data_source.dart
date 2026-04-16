@@ -11,6 +11,13 @@ abstract interface class StaffRemoteDataSource {
   Future<StaffModel> createStaff(String name, String username, String password);
   Future<void> deleteStaff(String staffId);
   Future<bool> checkUsername(String username);
+  Future<StaffModel> updateStaffSalary({
+    required String staffId,
+    int? salary,
+    String? salaryType,
+    int? hourlyRate,
+    int? minuteRate,
+  });
 }
 
 class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
@@ -26,7 +33,9 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
           .orderBy('name', descending: false)
           .get();
 
-      return snapshot.docs.map((data) => StaffModel.fromJson(data.data())).toList();
+      return snapshot.docs
+          .map((data) => StaffModel.fromJson(data.data()))
+          .toList();
     } catch (e) {
       debugPrint('StaffRemoteDataSource.getStaff error: $e');
       throw ServerException(e.toString());
@@ -36,8 +45,10 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
   @override
   Future<StaffModel> updateStaffRole(String staffId, String role) async {
     try {
-      await _firestore.collection('profiles').doc(staffId).update({'role': role});
-      
+      await _firestore.collection('profiles').doc(staffId).update({
+        'role': role,
+      });
+
       final doc = await _firestore.collection('profiles').doc(staffId).get();
       return StaffModel.fromJson(doc.data()!);
     } catch (e) {
@@ -47,11 +58,15 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
   }
 
   @override
-  Future<StaffModel> createStaff(String name, String username, String password) async {
+  Future<StaffModel> createStaff(
+    String name,
+    String username,
+    String password,
+  ) async {
     FirebaseApp? secondaryApp;
     try {
       final email = '${username.trim().toLowerCase()}@flowpos.local';
-      
+
       // Secondary app initialization to create user without logging out current user
       secondaryApp = await Firebase.initializeApp(
         name: 'SecondaryApp',
@@ -72,6 +87,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
         'username': username.trim().toLowerCase(),
         'email': email,
         'role': 'cashier',
+        'is_active': true,
         'created_at': FieldValue.serverTimestamp(),
       };
 
@@ -89,10 +105,11 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
   @override
   Future<void> deleteStaff(String staffId) async {
     try {
-      // In Firebase, we can't easily delete an Auth user from the client side
-      // unless it's the current user. We'll disable them by removing their profile
-      // or marking them as inactive.
-      await _firestore.collection('profiles').doc(staffId).delete();
+      // Soft delete: mark as inactive instead of deleting document
+      await _firestore.collection('profiles').doc(staffId).update({
+        'is_active': false,
+        'updated_at': FieldValue.serverTimestamp(),
+      });
     } catch (e) {
       debugPrint('StaffRemoteDataSource.deleteStaff error: $e');
       throw ServerException(e.toString());
@@ -108,10 +125,35 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
           .limit(1)
           .get();
 
-      return snapshot.docs.isEmpty;
+      return snapshot.docs.isNotEmpty;
     } catch (e) {
       debugPrint('StaffRemoteDataSource.checkUsername error: $e');
-      return false; 
+      return false;
+    }
+  }
+
+  @override
+  Future<StaffModel> updateStaffSalary({
+    required String staffId,
+    int? salary,
+    String? salaryType,
+    int? hourlyRate,
+    int? minuteRate,
+  }) async {
+    try {
+      final updates = <String, dynamic>{};
+      if (salary != null) updates['salary'] = salary;
+      if (salaryType != null) updates['salary_type'] = salaryType;
+      if (hourlyRate != null) updates['hourly_rate'] = hourlyRate;
+      if (minuteRate != null) updates['minute_rate'] = minuteRate;
+
+      await _firestore.collection('profiles').doc(staffId).update(updates);
+
+      final doc = await _firestore.collection('profiles').doc(staffId).get();
+      return StaffModel.fromJson(doc.data()!);
+    } catch (e) {
+      debugPrint('StaffRemoteDataSource.updateStaffSalary error: $e');
+      throw ServerException(e.toString());
     }
   }
 }

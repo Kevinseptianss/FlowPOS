@@ -140,7 +140,11 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
                         color: AppPallete.primary.withAlpha(20),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.bluetooth_searching_rounded, color: AppPallete.primary, size: 28),
+                      child: const Icon(
+                        Icons.bluetooth_searching_rounded,
+                        color: AppPallete.primary,
+                        size: 28,
+                      ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -177,7 +181,11 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.print_disabled_rounded, size: 64, color: AppPallete.textSecondary.withAlpha(50)),
+                            Icon(
+                              Icons.print_disabled_rounded,
+                              size: 64,
+                              color: AppPallete.textSecondary.withAlpha(50),
+                            ),
                             const SizedBox(height: 16),
                             Text(
                               'Tidak ada printer ditemukan',
@@ -201,7 +209,8 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
                     : ListView.separated(
                         padding: const EdgeInsets.all(24),
                         itemCount: devices.length,
-                        separatorBuilder: (context, index) => const SizedBox(height: 12),
+                        separatorBuilder: (context, index) =>
+                            const SizedBox(height: 12),
                         itemBuilder: (context, index) {
                           final device = devices[index];
                           return InkWell(
@@ -221,12 +230,16 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
                                       color: AppPallete.primary.withAlpha(10),
                                       borderRadius: BorderRadius.circular(14),
                                     ),
-                                    child: const Icon(Icons.print_rounded, color: AppPallete.primary),
+                                    child: const Icon(
+                                      Icons.print_rounded,
+                                      color: AppPallete.primary,
+                                    ),
                                   ),
                                   const SizedBox(width: 16),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           device.name,
@@ -246,7 +259,10 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
                                       ],
                                     ),
                                   ),
-                                  const Icon(Icons.chevron_right_rounded, color: AppPallete.textSecondary),
+                                  const Icon(
+                                    Icons.chevron_right_rounded,
+                                    color: AppPallete.textSecondary,
+                                  ),
                                 ],
                               ),
                             ),
@@ -328,7 +344,9 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
     final now = DateFormat('dd MMM yyyy, HH:mm').format(DateTime.now());
 
     final profile = await CapabilityProfile.load();
-    final paperSize = settings.charsPerLine >= 42 ? PaperSize.mm80 : PaperSize.mm58;
+    final paperSize = settings.charsPerLine >= 42
+        ? PaperSize.mm80
+        : PaperSize.mm58;
     final generator = Generator(paperSize, profile);
     final divider = '-' * settings.charsPerLine;
     List<int> bytes = [];
@@ -387,7 +405,9 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
   }) async {
     final settings = _printerLocalService.getSettings();
     final profile = await CapabilityProfile.load();
-    final paperSize = settings.charsPerLine >= 42 ? PaperSize.mm80 : PaperSize.mm58;
+    final paperSize = settings.charsPerLine >= 42
+        ? PaperSize.mm80
+        : PaperSize.mm58;
     final generator = Generator(paperSize, profile);
     final divider = '-' * settings.charsPerLine;
     List<int> bytes = [];
@@ -538,7 +558,9 @@ class ThermalReceiptPrinterServiceImpl implements ThermalReceiptPrinterService {
   }) async {
     final settings = _printerLocalService.getSettings();
     final profile = await CapabilityProfile.load();
-    final paperSize = settings.charsPerLine >= 42 ? PaperSize.mm80 : PaperSize.mm58;
+    final paperSize = settings.charsPerLine >= 42
+        ? PaperSize.mm80
+        : PaperSize.mm58;
     final generator = Generator(paperSize, profile);
     final divider = '-' * settings.charsPerLine;
     List<int> bytes = [];

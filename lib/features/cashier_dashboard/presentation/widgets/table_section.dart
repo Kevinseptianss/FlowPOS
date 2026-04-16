@@ -27,9 +27,12 @@ class TableSection extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Table Map', style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              )),
+              Text(
+                'Table Map',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
               _LegendItem(),
             ],
           ),
@@ -40,15 +43,19 @@ class TableSection extends StatelessWidget {
               return BlocBuilder<OrderBloc, OrderState>(
                 builder: (context, orderState) {
                   final tableNumber = tableState.selectedTableNumber;
-                  final isOccupied = tableState.occupiedTableNumbers.contains(tableNumber);
-                  final guestName = tableState.occupiedTableNames[tableNumber] ?? 'Empty';
-                  
+                  final isOccupied = tableState.occupiedTableNumbers.contains(
+                    tableNumber,
+                  );
+                  final guestName =
+                      tableState.occupiedTableNames[tableNumber] ?? 'Empty';
+
                   int? totalAmount;
                   int? itemCount;
-                  
+
                   if (orderState is OrdersLoaded && isOccupied) {
                     final order = orderState.orders.firstWhere(
-                      (o) => o.tableNumber == tableNumber && o.status == 'UNPAID',
+                      (o) =>
+                          o.tableNumber == tableNumber && o.status == 'UNPAID',
                       orElse: () => orderState.orders.first, // fallback
                     );
                     if (order.tableNumber == tableNumber) {
@@ -62,10 +69,13 @@ class TableSection extends StatelessWidget {
                     padding: const EdgeInsets.all(12),
                     margin: const EdgeInsets.only(bottom: 16),
                     decoration: BoxDecoration(
-                      color: isOccupied ? Colors.orange.shade50 : Colors.blue.shade50,
+                      color: isOccupied
+                          ? Colors.orange.shade50
+                          : Colors.blue.shade50,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: (isOccupied ? Colors.orange : Colors.blue).withAlpha(100),
+                        color: (isOccupied ? Colors.orange : Colors.blue)
+                            .withAlpha(100),
                       ),
                     ),
                     child: Row(
@@ -78,7 +88,10 @@ class TableSection extends StatelessWidget {
                           ),
                           child: Text(
                             'T$tableNumber',
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -86,19 +99,32 @@ class TableSection extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              isOccupied ? 'Occupied - $guestName' : 'Table Available',
+                              isOccupied
+                                  ? 'Occupied - $guestName'
+                                  : 'Table Available',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: isOccupied ? Colors.orange.shade900 : Colors.blue.shade900,
+                                color: isOccupied
+                                    ? Colors.orange.shade900
+                                    : Colors.blue.shade900,
                               ),
                             ),
                             if (isOccupied && totalAmount != null)
                               Text(
                                 '$itemCount items • total: Rp ${totalAmount.toString()}', // Simple format for now
-                                style: TextStyle(fontSize: 12, color: Colors.orange.shade800),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.orange.shade800,
+                                ),
                               )
                             else
-                              const Text('Ready for new customer', style: TextStyle(fontSize: 12, color: Colors.blueGrey)),
+                              const Text(
+                                'Ready for new customer',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.blueGrey,
+                                ),
+                              ),
                           ],
                         ),
                       ],
@@ -115,10 +141,14 @@ class TableSection extends StatelessWidget {
                   return Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: List.generate(24, (index) { // Increased to 24 tables
+                    children: List.generate(24, (index) {
+                      // Increased to 24 tables
                       final tableNumber = index + 1;
-                      final isSelected = state.selectedTableNumber == tableNumber;
-                      final isOccupied = state.occupiedTableNumbers.contains(tableNumber);
+                      final isSelected =
+                          state.selectedTableNumber == tableNumber;
+                      final isOccupied = state.occupiedTableNumbers.contains(
+                        tableNumber,
+                      );
                       final tableName = state.occupiedTableNames[tableNumber];
 
                       Color baseColor = AppPallete.background;
@@ -142,31 +172,48 @@ class TableSection extends StatelessWidget {
 
                       return InkWell(
                         onTap: () {
-                          context.read<TableBloc>().add(SelectTableEvent(tableNumber));
-                          
+                          context.read<TableBloc>().add(
+                            SelectTableEvent(tableNumber),
+                          );
+
                           // SYNC CART manually for iPad/Tab when switching tables
                           final orderState = context.read<OrderBloc>().state;
                           if (orderState is OrdersLoaded) {
-                            final matchingOrders = orderState.orders.where((o) =>
-                              o.tableNumber == tableNumber &&
-                              o.status.trim().toUpperCase() == 'UNPAID'
-                            ).toList();
-                            
+                            final matchingOrders = orderState.orders
+                                .where(
+                                  (o) =>
+                                      o.tableNumber == tableNumber &&
+                                      o.status.trim().toUpperCase() == 'UNPAID',
+                                )
+                                .toList();
+
                             if (matchingOrders.isNotEmpty) {
-                              final cartItems = matchingOrders.expand((o) => o.items.where((i) => !i.isDeleted)).map((item) => Cart(
-                                id: const Uuid().v4(),
-                                menuItemId: item.menuItemId,
-                                name: item.menuName,
-                                basePrice: item.unitPrice,
-                                quantity: item.quantity,
-                                selectedModifiers: const {},
-                                totalPrice: item.unitPrice * item.quantity,
-                                variantId: item.variantId,
-                                notes: item.notes,
-                              )).toList();
-                              context.read<CartBloc>().add(ReplaceCartItemsEvent(cartItems));
+                              final cartItems = matchingOrders
+                                  .expand(
+                                    (o) => o.items.where((i) => !i.isDeleted),
+                                  )
+                                  .map(
+                                    (item) => Cart(
+                                      id: const Uuid().v4(),
+                                      menuItemId: item.menuItemId,
+                                      name: item.menuName,
+                                      basePrice: item.unitPrice,
+                                      quantity: item.quantity,
+                                      selectedModifiers: const {},
+                                      totalPrice:
+                                          item.unitPrice * item.quantity,
+                                      variantId: item.variantId,
+                                      notes: item.notes,
+                                    ),
+                                  )
+                                  .toList();
+                              context.read<CartBloc>().add(
+                                ReplaceCartItemsEvent(cartItems),
+                              );
                             } else {
-                              context.read<CartBloc>().add(const ClearCartEvent());
+                              context.read<CartBloc>().add(
+                                const ClearCartEvent(),
+                              );
                             }
                           }
                         },
@@ -194,7 +241,9 @@ class TableSection extends StatelessWidget {
                               ),
                               if (isOccupied)
                                 Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 2,
+                                  ),
                                   child: Text(
                                     tableName ?? 'G',
                                     maxLines: 1,
@@ -237,9 +286,16 @@ class _LegendItem extends StatelessWidget {
   Widget _dot(Color color, String label) {
     return Row(
       children: [
-        Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
         const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 10, color: AppPallete.textSecondary)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 10, color: AppPallete.textSecondary),
+        ),
       ],
     );
   }

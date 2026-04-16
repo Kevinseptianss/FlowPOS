@@ -1,3 +1,4 @@
+import 'package:flow_pos/core/theme/app_pallete.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_dashboard_ipad_page.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_dashboard_mobile_page.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_products_page.dart';
@@ -31,33 +32,51 @@ class _OwnerDashboardPageState extends State<OwnerDashboardPage> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 600;
 
+    if (isMobile) {
+      return Scaffold(
+        resizeToAvoidBottomInset: false,
+        backgroundColor: AppPallete.background,
+        body: SafeArea(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Sub-page view
+              _pages[_currentIndex],
+              
+              // Floating Navigation Bar
+              Positioned(
+                left: 20,
+                right: 20,
+                bottom: 20,
+                child: OwnerBottomNavBar(
+                  currentIndex: _currentIndex,
+                  onIndexChanged: (index) {
+                    setState(() {
+                      _currentIndex = index;
+                    });
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       body: Row(
         children: [
-          if (!isMobile)
-            OwnerSidebar(
-              currentIndex: _currentIndex,
-              onIndexChanged: (index) {
-                setState(() {
-                  _currentIndex = index;
-                });
-              },
-            ),
-          Expanded(
-            child: _pages[_currentIndex],
+          OwnerSidebar(
+            currentIndex: _currentIndex,
+            onIndexChanged: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
           ),
+          Expanded(child: _pages[_currentIndex]),
         ],
       ),
-      bottomNavigationBar: isMobile
-          ? OwnerBottomNavBar(
-              currentIndex: _currentIndex,
-              onIndexChanged: (index) {
-                setState(() {
-                  _currentIndex = index;
-                });
-              },
-            )
-          : null,
     );
   }
 }

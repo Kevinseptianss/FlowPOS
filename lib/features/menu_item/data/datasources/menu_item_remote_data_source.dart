@@ -1,3 +1,4 @@
+import 'package:uuid/uuid.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flow_pos/core/error/server_exception.dart';
 import 'package:flow_pos/features/menu_item/data/models/menu_item_model.dart';
@@ -102,6 +103,42 @@ class MenuItemRemoteDataSourceImpl implements MenuItemRemoteDataSource {
 
       await docRef.set(data);
 
+      // --- CREATE STOCK RECORDS ---
+      if (variants.isNotEmpty) {
+        for (final v in variants) {
+          final stockRef = _firestore.collection('stocks').doc();
+          await stockRef.set({
+            'menu_item_id': docRef.id,
+            'variant_id': v['id'],
+            'quantity': 0,
+            'min_threshold': 5,
+            'updated_at': FieldValue.serverTimestamp(),
+            'menu_items': {
+              'name': name,
+              'category_id': categoryId,
+              'price': price,
+              'base_price': basePrice,
+            },
+            'menu_item_variants': v,
+          });
+        }
+      } else {
+        final stockRef = _firestore.collection('stocks').doc();
+        await stockRef.set({
+          'menu_item_id': docRef.id,
+          'variant_id': null,
+          'quantity': 0,
+          'min_threshold': 5,
+          'updated_at': FieldValue.serverTimestamp(),
+          'menu_items': {
+            'name': name,
+            'category_id': categoryId,
+            'price': price,
+            'base_price': basePrice,
+          },
+        });
+      }
+
       return _mapToModel(docRef.id, data);
     } catch (e) {
       throw ServerException(e.toString());
@@ -157,6 +194,36 @@ class MenuItemRemoteDataSourceImpl implements MenuItemRemoteDataSource {
 
       await _firestore.collection('menu_items').doc(id).update(data);
 
+      // --- SYNC STOCK RECORDS ---
+      // For simplicity, we search for stocks with this menu_item_id and update their denormalized data
+      final stockSnapshot = await _firestore.collection('stocks')
+          .where('menu_item_id', isEqualTo: id)
+          .get();
+      
+      for (var stockDoc in stockSnapshot.docs) {
+        final stockData = stockDoc.data();
+        final vId = stockData['variant_id'];
+        
+        final updateData = {
+          'menu_items': {
+            'name': name,
+            'category_id': categoryId,
+            'price': price,
+            'base_price': basePrice,
+          },
+          'updated_at': FieldValue.serverTimestamp(),
+        };
+
+        if (vId != null) {
+          final variant = variants.firstWhere((v) => v['id'] == vId, orElse: () => {});
+          if (variant.isNotEmpty) {
+            updateData['menu_item_variants'] = variant;
+          }
+        }
+        
+        await stockDoc.reference.update(updateData);
+      }
+
       final doc = await _firestore.collection('menu_items').doc(id).get();
       return _mapToModel(doc.id, doc.data()!);
     } catch (e) {
@@ -165,12 +232,14 @@ class MenuItemRemoteDataSourceImpl implements MenuItemRemoteDataSource {
   }
 
   List<Map<String, dynamic>> _processOptions(List<Map<String, dynamic>> options) {
+    const uuid = Uuid();
     final List<Map<String, dynamic>> variants = [];
     for (final option in options) {
       final optionName = option['option_name'] as String;
       final variantList = option['variants'] as List<dynamic>;
       for (final v in variantList) {
         variants.add({
+          'id': v['id'] ?? uuid.v4(),
           'option_name': optionName,
           'variant_name': v['name'],
           'price': (v['price'] as num).toInt(),

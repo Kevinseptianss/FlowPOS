@@ -22,22 +22,29 @@ class StaffBloc extends Bloc<StaffEvent, StaffState> {
           .debounceTime(const Duration(milliseconds: 500))
           .flatMap(mapper),
     );
+    on<UpdateStaffSalaryEvent>(_onUpdateStaffSalary);
   }
 
-  Future<void> _onGetStaff(GetStaffEvent event, Emitter<StaffState> emit) async {
+  Future<void> _onGetStaff(
+    GetStaffEvent event,
+    Emitter<StaffState> emit,
+  ) async {
     emit(StaffLoading());
     final res = await staffRepository.getStaff();
-    res.fold(
-      (failure) {
-        debugPrint('StaffBloc._onGetStaff failure: ${failure.message}');
-        emit(StaffFailure(failure.message));
-      },
-      (staff) => emit(StaffLoaded(staff)),
-    );
+    res.fold((failure) {
+      debugPrint('StaffBloc._onGetStaff failure: ${failure.message}');
+      emit(StaffFailure(failure.message));
+    }, (staff) => emit(StaffLoaded(staff)));
   }
 
-  Future<void> _onUpdateStaffRole(UpdateStaffRoleEvent event, Emitter<StaffState> emit) async {
-    final res = await staffRepository.updateStaffRole(event.staffId, event.role);
+  Future<void> _onUpdateStaffRole(
+    UpdateStaffRoleEvent event,
+    Emitter<StaffState> emit,
+  ) async {
+    final res = await staffRepository.updateStaffRole(
+      event.staffId,
+      event.role,
+    );
     res.fold(
       (failure) {
         debugPrint('StaffBloc._onUpdateStaffRole failure: ${failure.message}');
@@ -50,7 +57,10 @@ class StaffBloc extends Bloc<StaffEvent, StaffState> {
     );
   }
 
-  Future<void> _onCreateStaff(CreateStaffEvent event, Emitter<StaffState> emit) async {
+  Future<void> _onCreateStaff(
+    CreateStaffEvent event,
+    Emitter<StaffState> emit,
+  ) async {
     emit(StaffLoading());
     final res = await staffRepository.createStaff(
       event.name,
@@ -69,7 +79,10 @@ class StaffBloc extends Bloc<StaffEvent, StaffState> {
     );
   }
 
-  Future<void> _onDeleteStaff(DeleteStaffEvent event, Emitter<StaffState> emit) async {
+  Future<void> _onDeleteStaff(
+    DeleteStaffEvent event,
+    Emitter<StaffState> emit,
+  ) async {
     emit(StaffLoading());
     final res = await staffRepository.deleteStaff(event.staffId);
     res.fold(
@@ -84,18 +97,41 @@ class StaffBloc extends Bloc<StaffEvent, StaffState> {
     );
   }
 
-  Future<void> _onCheckUsername(CheckUsernameEvent event, Emitter<StaffState> emit) async {
+  Future<void> _onCheckUsername(
+    CheckUsernameEvent event,
+    Emitter<StaffState> emit,
+  ) async {
     if (event.username.isEmpty) {
       emit(StaffInitial());
       return;
     }
     final res = await staffRepository.checkUsername(event.username);
+    res.fold((failure) {
+      debugPrint('StaffBloc._onCheckUsername failure: ${failure.message}');
+      emit(StaffFailure(failure.message));
+    }, (exists) => emit(UsernameChecked(exists)));
+  }
+
+  Future<void> _onUpdateStaffSalary(
+    UpdateStaffSalaryEvent event,
+    Emitter<StaffState> emit,
+  ) async {
+    final res = await staffRepository.updateStaffSalary(
+      staffId: event.staffId,
+      salary: event.salary,
+      salaryType: event.salaryType,
+      hourlyRate: event.hourlyRate,
+      minuteRate: event.minuteRate,
+    );
     res.fold(
       (failure) {
-        debugPrint('StaffBloc._onCheckUsername failure: ${failure.message}');
+        debugPrint('StaffBloc._onUpdateStaffSalary failure: ${failure.message}');
         emit(StaffFailure(failure.message));
       },
-      (exists) => emit(UsernameChecked(exists)),
+      (staff) {
+        emit(StaffSalaryUpdated(staff));
+        add(GetStaffEvent()); // Refresh list
+      },
     );
   }
 }

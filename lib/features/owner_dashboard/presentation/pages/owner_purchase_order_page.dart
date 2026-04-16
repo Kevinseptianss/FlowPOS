@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flow_pos/core/theme/app_pallete.dart';
 import 'package:flow_pos/core/utils/format_rupiah.dart';
+import 'package:flow_pos/core/utils/show_alert.dart';
 import 'package:flow_pos/core/utils/show_snackbar.dart';
 import 'package:flow_pos/core/utils/currency_input_formatter.dart';
 import 'package:flow_pos/features/inventory/domain/entities/stock.dart';
@@ -40,7 +41,11 @@ class _OwnerPurchaseOrderPageState extends State<OwnerPurchaseOrderPage> {
           showSnackbar(context, 'Purchase Order Berhasil Diarsipkan!');
           Navigator.pop(context);
         } else if (state is InventoryFailure) {
-          showSnackbar(context, state.message);
+          showFlowPOSAlert(
+            context: context, 
+            title: 'Kesalahan', 
+            message: state.message
+          );
         }
       },
       child: Scaffold(
@@ -402,7 +407,7 @@ class _OwnerPurchaseOrderPageState extends State<OwnerPurchaseOrderPage> {
                   ? (_selectedItems.isNotEmpty ? () => setState(() => _currentStep = 1) : null) 
                   : _submitPO,
               child: Text(
-                _currentStep == 0 ? 'LANJUTKAN (${_selectedItems.length} ITEM)' : 'ARCHIVE PURCHASE ORDER',
+                _currentStep == 0 ? 'LANJUTKAN (${_selectedItems.length} ITEM)' : 'SIMPAN PO',
                 style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: Colors.white),
               ),
             ),
@@ -564,7 +569,11 @@ class _OwnerPurchaseOrderPageState extends State<OwnerPurchaseOrderPage> {
 
   void _submitPO() {
     if (_supplierController.text.isEmpty || _selectedItems.isEmpty) {
-      showSnackbar(context, 'Lengkapi data vendor dan item pengadaan.');
+      showFlowPOSAlert(
+        context: context, 
+        title: 'Data Tidak Lengkap', 
+        message: 'Mohon lengkapi nama vendor dan pilih minimal satu item pengadaan.'
+      );
       return;
     }
 

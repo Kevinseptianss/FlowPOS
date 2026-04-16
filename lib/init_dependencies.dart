@@ -77,6 +77,6 @@ import 'package:flow_pos/features/shift/domain/repositories/shift_repository.dar
 import 'package:flow_pos/features/shift/presentation/bloc/shift_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-// Supabase removed
+// Firebase initialized via GetIt in part file
 
 part 'init_dependencies.main.dart';

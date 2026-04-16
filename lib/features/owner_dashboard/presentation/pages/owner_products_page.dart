@@ -36,6 +36,7 @@ class _OwnerProductsPageState extends State<OwnerProductsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
+      resizeToAvoidBottomInset: false,
       body: LayoutBuilder(
         builder: (context, constraints) {
           final isMobile = constraints.maxWidth < 700;
@@ -69,7 +70,7 @@ class _OwnerProductsPageState extends State<OwnerProductsPage> {
                     _buildSliverHeader(context, isMobile, topPadding),
                     _buildSearchAndFilterSliver(isMobile),
                     _buildProductSliverList(isMobile),
-                    const SliverToBoxAdapter(child: SizedBox(height: 100)),
+                    const SliverToBoxAdapter(child: SizedBox(height: 120)),
                   ],
                 ),
               ),
@@ -482,6 +483,7 @@ class _OwnerProductsPageState extends State<OwnerProductsPage> {
           ),
         ],
       ),
+      margin: const EdgeInsets.only(bottom: 90),
       child: FloatingActionButton.extended(
         onPressed: () => Navigator.push(
           context,

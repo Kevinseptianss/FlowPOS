@@ -26,6 +26,10 @@ class ListOrderSection extends StatelessWidget {
   final bool isMobileCheckoutFlow;
   final bool isPayoutMode;
 
+  static String? _pendingQrisOrderId;
+  static int? _pendingQrisAmount;
+  static OrderEntity? _pendingOrderEntity;
+
   const ListOrderSection({
     super.key,
     this.isMobileCheckoutFlow = false,
@@ -100,6 +104,8 @@ class ListOrderSection extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          if (_pendingQrisOrderId != null)
+                            _buildPendingQrisStatus(context),
                           Row(
                             children: [
                               const Icon(
@@ -507,43 +513,31 @@ class ListOrderSection extends StatelessWidget {
 
     showSnackbar(rootNavigator.context, 'Order created successfully!');
 
-    if (isMobileCheckoutFlow) {
-      // DO NOT pop if we are in the middle of a QRIS payment initiation
-      if (order.status == 'UNPAID' && order.payment?.method == 'QRIS') {
-         debugPrint('--- [FLOWPOS] Keeping checkout screen open for QRIS WebView ---');
-      } else {
-         Navigator.of(context).pop();
-      }
-    }
-
-    if (!rootNavigator.mounted) {
-      cartBloc.add(const ClearCartEvent());
-      return;
-    }
-
-    // Block receipt printing for UNPAID QRIS orders
+    // 1. Show print prompt if PAID
     bool shouldPrint = false;
     if (order.status == 'PAID') {
       shouldPrint = isMobileCheckoutFlow
           ? await _showMobilePrintPrompt(rootNavigator)
           : await _showIpadPrintPrompt(rootNavigator);
     }
-    if (order.payment?.method == 'QRIS' && order.status == 'UNPAID') {
-      debugPrint('--- [FLOWPOS ALERT] ---');
-      debugPrint('Blocking print for UNPAID QRIS initiation.');
-      debugPrint('-----------------------');
-      return; // Block print for QRIS initiation
-    }
-    
-    debugPrint('--- [FLOWPOS ALERT] ---');
-    debugPrint('Proceeding with print. Status: ${order.status}, Method: ${order.payment?.method}');
-    debugPrint('-----------------------');
 
+    // 2. Perform Print if requested
     if (shouldPrint && rootNavigator.mounted) {
       await _printInvoice(rootNavigator, order);
     }
 
+    // 3. Clear Cart
     cartBloc.add(const ClearCartEvent());
+
+    // 4. Close checkout screen if necessary
+    if (isMobileCheckoutFlow) {
+      final isQris = (order.payment?.method == 'QRIS') || 
+                     (order.paymentLink != null && order.paymentLink!.isNotEmpty);
+
+      if (order.status == 'PAID' || (order.status == 'UNPAID' && !isQris)) {
+        Navigator.of(context).pop();
+      }
+    }
   }
 
   Future<bool> _showMobilePrintPrompt(NavigatorState rootNavigator) async {
@@ -561,7 +555,6 @@ class ListOrderSection extends StatelessWidget {
       message: 'Apakah Anda ingin mencetak struk transaksi ini sekarang?',
     );
   }
-
 
   Future<bool> _showModernPrintSheet(
     NavigatorState rootNavigator, {
@@ -780,7 +773,7 @@ class ListOrderSection extends StatelessWidget {
     final Completer<String> dbOrderIdCompleter = Completer<String>();
 
     final now = DateTime.now();
-    final tempOrderId = 'QRIS-${now.millisecondsSinceEpoch}';
+    final tempOrderId = 'QRIS-${now.millisecondsSinceEpoch}-${(100 + (DateTime.now().microsecond % 900))}';
     OrderEntity? createdOrder;
 
     // Listen to the bloc stream to catch the Created event for our tempOrderId
@@ -788,7 +781,7 @@ class ListOrderSection extends StatelessWidget {
       if (state is OrderCreated && state.order.orderNumber == tempOrderId) {
         createdOrder = state.order;
         if (!dbOrderIdCompleter.isCompleted) {
-dbOrderIdCompleter.complete(state.order.id);
+          dbOrderIdCompleter.complete(state.order.id);
         }
       }
     });
@@ -823,9 +816,13 @@ dbOrderIdCompleter.complete(state.order.id);
             );
           },
           onSuccess: () async {
-            debugPrint('--- [QRIS DEBUG] WebView onSuccess() CALLBACK TRIGGERED ---');
+            debugPrint(
+              '--- [QRIS DEBUG] WebView onSuccess() CALLBACK TRIGGERED ---',
+            );
             try {
-              final dbId = await dbOrderIdCompleter.future.timeout(const Duration(seconds: 20));
+              final dbId = await dbOrderIdCompleter.future.timeout(
+                const Duration(seconds: 20),
+              );
               if (context.mounted) {
                 context.read<OrderBloc>().add(
                   SettleOrderEvent(
@@ -837,17 +834,15 @@ dbOrderIdCompleter.complete(state.order.id);
                   ),
                 );
                 if (createdOrder != null) {
-                  final updatedOrder = createdOrder!.copyWith(status: 'PAID');
-                  if (context.mounted) {
-                    await _printInvoice(Navigator.of(context, rootNavigator: true), updatedOrder);
-                  }
+                  _pendingQrisOrderId = dbId;
+                  _pendingQrisAmount = total;
+                  _pendingOrderEntity = createdOrder;
                 }
               }
             } catch (e) {
               debugPrint('--- [QRIS DEBUG] Settlement error: $e ---');
             } finally {
-              subscription.cancel();
-              if (dialogCtx.mounted) Navigator.pop(dialogCtx);
+              // Removed auto-pop: wait for manual closure
             }
           },
           onFailure: (reason) {
@@ -860,14 +855,13 @@ dbOrderIdCompleter.complete(state.order.id);
                 ),
               );
             }
-            subscription.cancel();
-            if (dialogCtx.mounted) Navigator.pop(dialogCtx);
+            // Removed auto-pop: wait for manual closure
           },
           onCancel: () {
             debugPrint('--- [QRIS DEBUG] Payment CANCELLED by user ---');
-            subscription.cancel();
-            if (dialogCtx.mounted) Navigator.pop(dialogCtx);
+            // Removed auto-pop: wait for manual closure
           },
+          subscription: subscription,
         );
       },
     );
@@ -895,6 +889,7 @@ dbOrderIdCompleter.complete(state.order.id);
             context,
             'TRANSFER',
             total,
+            status: 'PAID',
             taxPercentage: taxPercentage,
             serviceChargePercentage: serviceChargePercentage,
             customerName: customerName,
@@ -994,7 +989,8 @@ dbOrderIdCompleter.complete(state.order.id);
     }
 
     final now = DateTime.now();
-    final orderNumberToUse = orderNumber ??
+    final orderNumberToUse =
+        orderNumber ??
         'ORD-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}-${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}';
 
     final orderItems = cartState.items.map((cartItem) {
@@ -1191,6 +1187,119 @@ dbOrderIdCompleter.complete(state.order.id);
     final modifiersUnitPrice = perUnitPrice - item.basePrice;
     return modifiersUnitPrice < 0 ? 0 : modifiersUnitPrice;
   }
+
+  Widget _buildPendingQrisStatus(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppPallete.warning.withAlpha(20),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppPallete.warning.withAlpha(50)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.qr_code_scanner, color: AppPallete.warning, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'QRIS Pending',
+                  style: GoogleFonts.outfit(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+                Text(
+                  'Order: ${_pendingQrisOrderId!.substring(0, 8)}...',
+                  style: GoogleFonts.outfit(
+                    fontSize: 10,
+                    color: AppPallete.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 4),
+          SizedBox(
+            height: 32,
+            child: ElevatedButton(
+              onPressed: () => _handleManualStatusCheck(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppPallete.warning,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                elevation: 0,
+              ),
+              child: Text(
+                'Cek',
+                style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: () {
+              _pendingQrisOrderId = null;
+              _pendingQrisAmount = null;
+              _pendingOrderEntity = null;
+              (context as Element).markNeedsBuild();
+            },
+            icon: const Icon(Icons.close, size: 14),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            color: AppPallete.textSecondary,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleManualStatusCheck(BuildContext context) async {
+    if (_pendingQrisOrderId == null) return;
+
+    showSnackbar(context, 'Mengecek status pembayaran...');
+    final midtrans = context.read<MidtransService>();
+    final result = await midtrans.checkTransactionStatus(_pendingQrisOrderId!);
+
+    if (result['success']) {
+      final status = result['status'];
+      if (status == 'settlement' || status == 'capture') {
+        showSnackbar(context, 'Pembayaran Berhasil!');
+        
+        // Settle in Firebase
+        if (context.mounted) {
+          context.read<OrderBloc>().add(
+                SettleOrderEvent(
+                  orderId: _pendingQrisOrderId!,
+                  method: 'QRIS',
+                  amountPaid: _pendingQrisAmount ?? 0,
+                  amountDue: _pendingQrisAmount ?? 0,
+                  changeGiven: 0,
+                ),
+              );
+          
+          if (_pendingOrderEntity != null) {
+            final navigator = Navigator.of(context, rootNavigator: true);
+            await _printInvoice(navigator, _pendingOrderEntity!.copyWith(status: 'PAID'));
+          }
+
+          _pendingQrisOrderId = null;
+          _pendingQrisAmount = null;
+          _pendingOrderEntity = null;
+          (context as Element).markNeedsBuild();
+        }
+      } else {
+        showSnackbar(context, 'Status: $status. Belum lunas.');
+      }
+    } else {
+      showSnackbar(context, 'Gagal cek status: ${result['message']}');
+    }
+  }
 }
 
 /// New Internal Helper Widget to manage the QRIS Flow UI without pop/push races
@@ -1199,6 +1308,7 @@ class _QRISFlowManager extends StatefulWidget {
   final String orderId;
   final int total;
   final Function(String) onSnapUrlReady;
+  final StreamSubscription subscription;
   final VoidCallback onSuccess;
   final Function(String) onFailure;
   final VoidCallback onCancel;
@@ -1208,6 +1318,7 @@ class _QRISFlowManager extends StatefulWidget {
     required this.orderId,
     required this.total,
     required this.onSnapUrlReady,
+    required this.subscription,
     required this.onSuccess,
     required this.onFailure,
     required this.onCancel,
@@ -1225,6 +1336,7 @@ class _QRISFlowManagerState extends State<_QRISFlowManager> {
   @override
   void dispose() {
     debugPrint('--- [QRIS DEBUG] _QRISFlowManager DISPOSED ---');
+    widget.subscription.cancel();
     super.dispose();
   }
 

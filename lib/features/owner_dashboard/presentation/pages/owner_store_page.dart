@@ -4,6 +4,7 @@ import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_shift
 import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_staff_page.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_store_settings_page.dart';
 import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_payment_settings_page.dart';
+import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_staff_salary_page.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -100,7 +101,18 @@ class OwnerStorePage extends StatelessWidget {
                       color: Colors.orange,
                       onTap: () => Navigator.push(context, OwnerShiftHistoryPage.route()),
                     ),
+                    _buildFeatureCard(
+                      context,
+                      title: 'Gaji Karyawan',
+                      subtitle: 'Atur gaji bulanan staff Anda',
+                      icon: Icons.paid_rounded,
+                      color: Colors.redAccent,
+                      onTap: () => Navigator.push(context, OwnerStaffSalaryPage.route()),
+                    ),
                   ]),
+                ),
+                SliverToBoxAdapter(
+                  child: SizedBox(height: 120),
                 ),
               ],
             ),

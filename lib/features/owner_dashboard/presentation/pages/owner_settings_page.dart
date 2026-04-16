@@ -308,7 +308,7 @@ class OwnerSettingsPage extends StatelessWidget {
         }
       },
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -358,6 +358,7 @@ class OwnerSettingsPage extends StatelessWidget {
             ),
 
             // Only Akun section remains here
+            const SizedBox(height: 120),
           ],
         ),
       ),

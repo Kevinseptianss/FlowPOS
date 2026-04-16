@@ -60,4 +60,17 @@ class ShiftRepositoryImpl implements ShiftRepository {
       return left(Failure(e.message));
     }
   }
+
+  @override
+  Future<Either<Failure, List<ShiftEntity>>> getShiftsByRange(
+    DateTime start,
+    DateTime end,
+  ) async {
+    try {
+      final shifts = await remoteDataSource.getShiftsByRange(start, end);
+      return right(shifts);
+    } on ServerException catch (e) {
+      return left(Failure(e.message));
+    }
+  }
 }

@@ -242,7 +242,7 @@ class _CashierPageState extends State<CashierPage> {
               );
             } else if (state is OrderCreated) {
               context.read<OrderBloc>().add(GetAllOrdersEvent());
-              context.read<CartBloc>().add(const ClearCartEvent());
+              // Cart will now be cleared after the print prompt in list_order_section
             } else if (state is OrderFailure) {
               showSnackbar(context, state.message);
             }

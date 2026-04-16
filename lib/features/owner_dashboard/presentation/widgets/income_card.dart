@@ -5,11 +5,15 @@ import 'package:flutter/material.dart';
 class IncomeCard extends StatelessWidget {
   final int qrisRevenue;
   final int cashRevenue;
+  final int transferRevenue;
+  final int cardRevenue;
 
   const IncomeCard({
     super.key,
     required this.qrisRevenue,
     required this.cashRevenue,
+    required this.transferRevenue,
+    required this.cardRevenue,
   });
 
   @override
@@ -39,29 +43,63 @@ class IncomeCard extends StatelessWidget {
                 ),
           ),
           const SizedBox(height: 20),
-          Row(
+          Column(
             children: [
-              Expanded(
-                child: _PaymentMethodStat(
-                  icon: Icons.qr_code_2_rounded,
-                  label: 'QRIS',
-                  value: formatRupiah(qrisRevenue),
-                  color: Colors.blueAccent,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: _PaymentMethodStat(
+                      icon: Icons.qr_code_2_rounded,
+                      label: 'QRIS',
+                      value: formatRupiah(qrisRevenue),
+                      color: Colors.blueAccent,
+                    ),
+                  ),
+                  Container(
+                    width: 1,
+                    height: 40,
+                    margin: const EdgeInsets.symmetric(horizontal: 24),
+                    color: AppPallete.divider,
+                  ),
+                  Expanded(
+                    child: _PaymentMethodStat(
+                      icon: Icons.payments_outlined,
+                      label: 'Tunai',
+                      value: formatRupiah(cashRevenue),
+                      color: AppPallete.success,
+                    ),
+                  ),
+                ],
               ),
-              Container(
-                width: 1,
-                height: 40,
-                margin: const EdgeInsets.symmetric(horizontal: 24),
-                color: AppPallete.divider,
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: Divider(height: 1),
               ),
-              Expanded(
-                child: _PaymentMethodStat(
-                  icon: Icons.payments_outlined,
-                  label: 'Tunai',
-                  value: formatRupiah(cashRevenue),
-                  color: AppPallete.success,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: _PaymentMethodStat(
+                      icon: Icons.account_balance_rounded,
+                      label: 'Transfer',
+                      value: formatRupiah(transferRevenue),
+                      color: Colors.indigoAccent,
+                    ),
+                  ),
+                  Container(
+                    width: 1,
+                    height: 40,
+                    margin: const EdgeInsets.symmetric(horizontal: 24),
+                    color: AppPallete.divider,
+                  ),
+                  Expanded(
+                    child: _PaymentMethodStat(
+                      icon: Icons.credit_card_rounded,
+                      label: 'Kartu',
+                      value: formatRupiah(cardRevenue),
+                      color: Colors.orangeAccent,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

@@ -8,6 +8,14 @@ class StaffProfile extends Equatable {
   final String? username;
   final DateTime? createdAt;
 
+  final bool? _isActive;
+  bool get isActive => _isActive ?? true;
+
+  final int? salary;
+  final String? salaryType; // 'fixed' or 'shift'
+  final int? hourlyRate;
+  final int? minuteRate;
+
   const StaffProfile({
     required this.id,
     required this.email,
@@ -15,8 +23,24 @@ class StaffProfile extends Equatable {
     required this.role,
     this.username,
     this.createdAt,
-  });
+    this.salary,
+    this.salaryType = 'fixed',
+    this.hourlyRate,
+    this.minuteRate,
+    bool? isActive,
+  }) : _isActive = isActive ?? true;
 
   @override
-  List<Object?> get props => [id, email, name, role, createdAt];
+  List<Object?> get props => [
+        id,
+        email,
+        name,
+        role,
+        createdAt,
+        _isActive,
+        salary,
+        salaryType,
+        hourlyRate,
+        minuteRate,
+      ];
 }

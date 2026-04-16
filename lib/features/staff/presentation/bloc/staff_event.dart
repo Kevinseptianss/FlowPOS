@@ -4,7 +4,7 @@ sealed class StaffEvent extends Equatable {
   const StaffEvent();
 
   @override
-  List<Object> get props => [];
+  List<Object?> get props => [];
 }
 
 class GetStaffEvent extends StaffEvent {}
@@ -46,4 +46,23 @@ class CheckUsernameEvent extends StaffEvent {
 
   @override
   List<Object> get props => [username];
+}
+
+class UpdateStaffSalaryEvent extends StaffEvent {
+  final String staffId;
+  final int? salary;
+  final String? salaryType;
+  final int? hourlyRate;
+  final int? minuteRate;
+
+  const UpdateStaffSalaryEvent({
+    required this.staffId,
+    this.salary,
+    this.salaryType,
+    this.hourlyRate,
+    this.minuteRate,
+  });
+
+  @override
+  List<Object?> get props => [staffId, salary, salaryType, hourlyRate, minuteRate];
 }
