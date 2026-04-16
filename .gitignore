@@ -51,3 +51,8 @@ android/get_keys.dart
 android/get_keys_clean.dart
 android/key_output.txt
 android/output.txt
+
+# Firebase secrets
+lib/firebase_options.dart
+
+android/app/google-services.json
