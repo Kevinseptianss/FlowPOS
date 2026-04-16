@@ -83,11 +83,14 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
         'menu_name': item.menuName,
         'quantity': item.quantity,
         'unit_price': item.unitPrice,
+        'cost_price': item.costPrice,
         'variant_id': item.variantId,
         'notes': item.notes,
         'modifier_snapshot': item.modifierSnapshot,
         'is_deleted': item.isDeleted,
       }).toList();
+
+      final totalHpp = items.where((i) => !i.isDeleted).fold<int>(0, (sum, item) => sum + (item.costPrice));
 
       // Even if UNPAID, we store the method for reporting/history purposes (e.g., QRIS)
       final Map<String, dynamic>? paymentData = (status == 'PAID' || amountPaid > 0 || method != 'NONE') ? {
@@ -112,6 +115,7 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
         'customer_name': customerName,
         'payment_link': paymentLink,
         'shift_id': shiftId,
+        'total_hpp': totalHpp,
         'items': itemsData,
         'payment': paymentData,
         'created_at': FieldValue.serverTimestamp(),
@@ -203,6 +207,7 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
           .get();
 
       int totalRevenue = 0;
+      int totalHpp = 0;
       int totalQrisRevenue = 0;
       int totalCashRevenue = 0;
       int totalTransferRevenue = 0;
@@ -217,7 +222,12 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
         totalOrders++;
         
         // Only count PAID or SETTLEMENT or SETTLED as revenue
-        if (status != 'PAID' && status != 'SETTLEMENT' && status != 'SETTLED' && status != 'TERBAYAR') {
+        if (status != 'PAID' && 
+            status != 'SETTLEMENT' && 
+            status != 'SETTLED' && 
+            status != 'TERBAYAR' &&
+            status != 'CAPTURE' &&
+            status != 'SUCCESS') {
            continue; 
         }
 
@@ -227,13 +237,14 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
           final method = (payment['method'] as String? ?? '').toUpperCase();
 
           totalRevenue += amount;
+          totalHpp += (data['total_hpp'] as num?)?.toInt() ?? 0;
           if (method == 'QRIS') {
             totalQrisRevenue += amount;
-          } else if (method == 'CASH') {
+          } else if (method == 'CASH' || method == 'TUNAI') {
             totalCashRevenue += amount;
           } else if (method == 'TRANSFER') {
             totalTransferRevenue += amount;
-          } else if (method == 'CARD') {
+          } else if (method == 'CARD' || method == 'KARTU') {
             totalCardRevenue += amount;
           }
         }
@@ -241,6 +252,7 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
 
       return MonthlyRevenue(
         totalRevenue: totalRevenue,
+        totalHpp: totalHpp,
         totalQrisRevenue: totalQrisRevenue,
         totalCashRevenue: totalCashRevenue,
         totalTransferRevenue: totalTransferRevenue,
@@ -406,6 +418,7 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
           menuName: item['menu_name'] ?? 'Unknown',
           quantity: item['quantity'] ?? 0,
           unitPrice: item['unit_price'] ?? 0,
+          costPrice: item['cost_price'] ?? 0,
           variantId: item['variant_id'],
           notes: item['notes'],
           modifierSnapshot: item['modifier_snapshot'],

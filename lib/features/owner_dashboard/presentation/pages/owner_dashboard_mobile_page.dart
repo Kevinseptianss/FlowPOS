@@ -13,6 +13,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flow_pos/features/expense/presentation/bloc/expense_bloc.dart';
+import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_expense_page.dart';
+import 'package:flow_pos/features/owner_dashboard/presentation/pages/owner_expense_category_page.dart';
 
 class OwnerDashboardMobilePage extends StatefulWidget {
   const OwnerDashboardMobilePage({super.key});
@@ -26,20 +29,29 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
   late final OrderBloc _orderBloc;
 
   int _totalRevenue = 0;
+  int _totalHpp = 0;
   int _qrisRevenue = 0;
   int _cashRevenue = 0;
   int _transferRevenue = 0;
   int _cardRevenue = 0;
   int _totalOrders = 0;
   int _totalSalary = 0;
+  int _totalExpenses = 0;
   List<SalaryReportModel> _finalizedSalaries = [];
 
   List<OrderEntity> _orders = [];
 
-  DateTime _startDate = DateTime.now();
-  DateTime _endDate = DateTime.now();
+  DateTime _startDate =
+      DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+  DateTime _endDate =
+      DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
 
-  final _salaryDataSource = SalaryRemoteDataSourceImpl(FirebaseFirestore.instance);
+  int get grossProfit => _totalRevenue - _totalHpp;
+  int get netProfit => grossProfit - _totalSalary - _totalExpenses;
+
+  final _salaryDataSource = SalaryRemoteDataSourceImpl(
+    FirebaseFirestore.instance,
+  );
 
   @override
   void initState() {
@@ -49,12 +61,21 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
   }
 
   void _fetchData() {
+    final start = DateTime(_startDate.year, _startDate.month, _startDate.day, 0, 0, 0);
+    final end = DateTime(_endDate.year, _endDate.month, _endDate.day, 23, 59, 59);
     _orderBloc.add(
-      GetRevenueRangeEvent(startDate: _startDate, endDate: _endDate),
+      GetRevenueRangeEvent(startDate: start, endDate: end),
     );
     _orderBloc.add(GetAllOrdersEvent());
     context.read<StaffBloc>().add(GetStaffEvent());
     _fetchFinalizedSalaries();
+    _fetchExpenses();
+  }
+
+  void _fetchExpenses() {
+    final start = DateTime(_startDate.year, _startDate.month, _startDate.day, 0, 0, 0);
+    final end = DateTime(_endDate.year, _endDate.month, _endDate.day, 23, 59, 59);
+    context.read<ExpenseBloc>().add(GetExpensesEvent(start: start, end: end));
   }
 
   Future<void> _fetchFinalizedSalaries() async {
@@ -104,6 +125,80 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
     }
   }
 
+  void _showMoreMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: AppPallete.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(color: AppPallete.divider, borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(height: 24),
+            _buildMenuItem(
+              icon: Icons.payments_outlined,
+              label: 'Buku Kas & Pengeluaran',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const OwnerExpensePage()));
+              },
+              color: AppPallete.primary,
+            ),
+            const SizedBox(height: 12),
+            _buildMenuItem(
+              icon: Icons.category_outlined,
+              label: 'Pengaturan Kategori Kas',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const OwnerExpenseCategoryPage()));
+              },
+              color: Colors.orange,
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMenuItem({required IconData icon, required String label, required VoidCallback onTap, required Color color}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppPallete.background,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppPallete.divider),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: color.withAlpha(20), shape: BoxShape.circle),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(label, style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AppPallete.textPrimary)),
+            ),
+            Icon(Icons.chevron_right_rounded, color: AppPallete.textSecondary, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return MultiBlocListener(
@@ -113,6 +208,7 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
         if (state is OrderRevenueLoaded) {
           setState(() {
             _totalRevenue = state.revenue.totalRevenue;
+            _totalHpp = state.revenue.totalHpp;
             _qrisRevenue = state.revenue.totalQrisRevenue;
             _cashRevenue = state.revenue.totalCashRevenue;
             _transferRevenue = state.revenue.totalTransferRevenue;
@@ -122,7 +218,12 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
         } else if (state is OrdersLoaded) {
           setState(() {
             _orders = state.orders.where((order) {
-              final isPaid = order.status == 'PAID';
+              final status = order.status.toUpperCase();
+              final isPaid = status == 'PAID' || 
+                           status == 'SETTLEMENT' || 
+                           status == 'SETTLED' || 
+                           status == 'TERBAYAR';
+              
               if (!isPaid) return false;
 
               final date = order.createdAt;
@@ -152,6 +253,17 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
           listener: (context, state) {
             // No longer summing projected salaries here
             // We fetch finalized reports in _fetchFinalizedSalaries()
+          },
+        ),
+        BlocListener<ExpenseBloc, ExpenseState>(
+          listener: (context, state) {
+            if (state is ExpensesLoaded) {
+              setState(() {
+                _totalExpenses = state.expenses
+                    .where((e) => e.cashActionType == 'CASH_OUT')
+                    .fold(0, (sum, e) => sum + e.amount);
+              });
+            }
           },
         ),
       ],
@@ -283,20 +395,40 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
                       ),
                     ],
                   ),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white.withAlpha(30),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white.withAlpha(40)),
-                    ),
-                    child: IconButton(
-                      onPressed: _onDateRangeTap,
-                      icon: const Icon(
-                        Icons.calendar_today_rounded,
-                        color: Colors.white,
-                        size: 20,
+                  Row(
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withAlpha(30),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.white.withAlpha(40)),
+                        ),
+                        child: IconButton(
+                          onPressed: () => _showMoreMenu(context),
+                          icon: const Icon(
+                            Icons.more_vert_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withAlpha(30),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.white.withAlpha(40)),
+                        ),
+                        child: IconButton(
+                          onPressed: _onDateRangeTap,
+                          icon: const Icon(
+                            Icons.calendar_today_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -436,9 +568,40 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
               ),
               child: Column(
                 children: [
+                   _buildProfitDetailRow(
+                    label: 'Pendapatan Kotor',
+                    value: formatRupiah(_totalRevenue),
+                    color: AppPallete.textPrimary,
+                    isBold: false,
+                  ),
+                  const SizedBox(height: 8),
+                  _buildProfitDetailRow(
+                    label: 'Harga Pokok (HPP)',
+                    value: '- ${formatRupiah(_totalHpp)}',
+                    color: Colors.orange.shade800,
+                    isBold: false,
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8.0),
+                    child: Divider(height: 1, thickness: 1, indent: 40, endIndent: 0),
+                  ),
+                  _buildProfitDetailRow(
+                    label: 'LABA KOTOR',
+                    value: formatRupiah(grossProfit),
+                    color: AppPallete.textPrimary,
+                    isBold: true,
+                  ),
+                  const SizedBox(height: 16),
                   _buildProfitDetailRow(
                     label: 'Gaji Karyawan',
                     value: '- ${formatRupiah(_totalSalary)}',
+                    color: Colors.redAccent,
+                    isBold: false,
+                  ),
+                  const SizedBox(height: 8),
+                  _buildProfitDetailRow(
+                    label: 'Pengeluaran Toko',
+                    value: '- ${formatRupiah(_totalExpenses)}',
                     color: Colors.redAccent,
                     isBold: false,
                   ),
@@ -478,7 +641,7 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
                   ],
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 8.0),
-                    child: Divider(height: 1, thickness: 1),
+                    child: Divider(height: 1, thickness: 2),
                   ),
                   _buildProfitDetailRow(
                     label: 'LABA BERSIH',
@@ -790,6 +953,9 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
         return SliverList(
           delegate: SliverChildBuilderDelegate((context, index) {
             final order = _orders[index];
+            final orderHpp = order.items
+                .where((i) => !i.isDeleted)
+                .fold<int>(0, (sum, i) => sum + i.costPrice);
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: OrderCard(
@@ -803,6 +969,8 @@ class _OwnerDashboardMobilePageState extends State<OwnerDashboardMobilePage> {
                 ),
                 totalItems: order.items.length,
                 totalPayment: formatRupiah(order.total),
+                totalHpp: formatRupiah(orderHpp),
+                grossProfit: formatRupiah(order.total - orderHpp),
                 onTap: () {
                   Navigator.push(context, OwnerOrderDetailPage.route(order));
                 },

@@ -70,6 +70,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
         menuItemId: event.menuItemId,
         name: event.name,
         basePrice: event.basePrice,
+        costPrice: event.costPrice,
         quantity: event.quantity,
         selectedModifiers: event.selectedModifiers,
         totalPrice: event.totalPrice,

@@ -15,13 +15,14 @@ Future<void> initDependencies() async {
   _initInventory();
   _initStaff();
   _initShift();
+  _initExpense();
 
   try {
     debugPrint('Initializing Firebase...');
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     ).timeout(const Duration(seconds: 15));
-    
+
     serviceLocator.registerLazySingleton(() => FirebaseAuth.instance);
     serviceLocator.registerLazySingleton(() => FirebaseFirestore.instance);
     serviceLocator.registerLazySingleton(() => FirebaseStorage.instance);
@@ -37,10 +38,15 @@ Future<void> initDependencies() async {
     serviceLocator.registerLazySingleton<Box<dynamic>>(() => cashierShiftBox);
 
     final qrisBox = await Hive.openBox<String>('qris_cache');
-    serviceLocator.registerLazySingleton<Box<String>>(() => qrisBox, instanceName: 'qris_cache');
+    serviceLocator.registerLazySingleton<Box<String>>(
+      () => qrisBox,
+      instanceName: 'qris_cache',
+    );
 
     final printerLocalService = await PrinterLocalService.init();
-    serviceLocator.registerLazySingleton<PrinterLocalService>(() => printerLocalService);
+    serviceLocator.registerLazySingleton<PrinterLocalService>(
+      () => printerLocalService,
+    );
   } catch (e) {
     debugPrint('Hive Initialization Error: $e');
     rethrow;
@@ -257,9 +263,7 @@ void _initStaff() {
   serviceLocator
     // Datasources
     ..registerFactory<StaffRemoteDataSource>(
-      () => StaffRemoteDataSourceImpl(
-        serviceLocator<FirebaseFirestore>(),
-      ),
+      () => StaffRemoteDataSourceImpl(serviceLocator<FirebaseFirestore>()),
     )
     // Repositories
     ..registerFactory<StaffRepository>(
@@ -284,6 +288,24 @@ void _initShift() {
       () => ShiftBloc(
         shiftRepository: serviceLocator(),
         shiftLocalService: serviceLocator(),
+      ),
+    );
+}
+
+void _initExpense() {
+  serviceLocator
+    // Datasources
+    ..registerFactory<ExpenseRemoteDataSource>(
+      () => ExpenseRemoteDataSourceImpl(serviceLocator()),
+    )
+    // Repositories
+    ..registerFactory<ExpenseRepository>(
+      () => ExpenseRepositoryImpl(serviceLocator()),
+    )
+    // Bloc
+    ..registerLazySingleton(
+      () => ExpenseBloc(
+        repository: serviceLocator(),
       ),
     );
 }

@@ -10,6 +10,7 @@ class ModifierDialog extends StatefulWidget {
   final String menuId;
   final String itemName;
   final int price;
+  final int basePrice; // NEW: Main item cost
   final List<MenuItemVariant> variants;
 
   const ModifierDialog({
@@ -17,6 +18,7 @@ class ModifierDialog extends StatefulWidget {
     required this.menuId,
     required this.itemName,
     required this.price,
+    required this.basePrice,
     required this.variants,
   });
 
@@ -47,6 +49,17 @@ class _ModifierDialogState extends State<ModifierDialog> {
     return total;
   }
 
+  int _calculateModifiersCost() {
+    int total = 0;
+    for (var group in selectedModifierByGroup.values) {
+      if (group != null) {
+        final variant = widget.variants.firstWhere((v) => v.id == group.id);
+        total += variant.basePrice;
+      }
+    }
+    return total;
+  }
+
   @override
   Widget build(BuildContext context) {
     final groupedOptions = <String, List<MenuItemVariant>>{};
@@ -58,7 +71,9 @@ class _ModifierDialogState extends State<ModifierDialog> {
     final totalSteps = steps.length + 1; // +1 for Notes
 
     final modifiersTotal = _calculateModifiersPrice();
+    final modifiersCost = _calculateModifiersCost();
     final totalPrice = (widget.price + modifiersTotal) * quantity;
+    final totalCost = (widget.basePrice + modifiersCost) * quantity;
 
     return Container(
       decoration: const BoxDecoration(
@@ -237,7 +252,7 @@ class _ModifierDialogState extends State<ModifierDialog> {
                       if (_currentStep < totalSteps - 1) {
                         setState(() => _currentStep++);
                       } else {
-                        _finishSelection(totalPrice);
+                        _finishSelection(totalPrice, totalCost);
                       }
                     },
                     style: ElevatedButton.styleFrom(
@@ -381,7 +396,7 @@ class _ModifierDialogState extends State<ModifierDialog> {
     }
   }
 
-  void _finishSelection(int totalPrice) {
+  void _finishSelection(int totalPrice, int totalCost) {
     String? primaryVariantId;
     if (selectedModifierByGroup.isNotEmpty) {
       for (var group in selectedModifierByGroup.values) {
@@ -393,6 +408,7 @@ class _ModifierDialogState extends State<ModifierDialog> {
     }
     Navigator.pop(context, {
       'totalPrice': totalPrice,
+      'totalCost': totalCost,
       'selectedModifiers': Map<String, SelectedModifier?>.from(
         selectedModifierByGroup,
       ),

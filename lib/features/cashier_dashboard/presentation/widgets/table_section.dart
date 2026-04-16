@@ -198,6 +198,7 @@ class TableSection extends StatelessWidget {
                                       menuItemId: item.menuItemId,
                                       name: item.menuName,
                                       basePrice: item.unitPrice,
+                                      costPrice: item.costPrice,
                                       quantity: item.quantity,
                                       selectedModifiers: const {},
                                       totalPrice:

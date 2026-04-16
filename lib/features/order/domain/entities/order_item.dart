@@ -5,6 +5,7 @@ class OrderItem extends Equatable {
   final String menuName;
   final int quantity;
   final int unitPrice;
+  final int costPrice; // NEW: For HPP tracking
   final String? variantId; // NEW: For stock tracking
   final String? notes;
   final String? modifierSnapshot;
@@ -18,6 +19,7 @@ class OrderItem extends Equatable {
     required this.menuName,
     required this.quantity,
     required this.unitPrice,
+    this.costPrice = 0,
     this.variantId,
     this.notes,
     this.modifierSnapshot,
@@ -33,6 +35,7 @@ class OrderItem extends Equatable {
     menuName,
     quantity,
     unitPrice,
+    costPrice,
     variantId,
     notes,
     modifierSnapshot,

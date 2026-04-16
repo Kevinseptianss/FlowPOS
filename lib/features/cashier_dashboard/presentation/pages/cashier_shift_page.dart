@@ -16,6 +16,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flow_pos/features/expense/presentation/bloc/expense_bloc.dart';
+import 'package:flow_pos/features/expense/domain/entities/expense_entity.dart';
+import 'package:flow_pos/features/cashier_dashboard/presentation/widgets/cash_action_dialog.dart';
 
 class CashierShiftPage extends StatefulWidget {
   const CashierShiftPage({super.key});
@@ -150,11 +153,46 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
           .toList()
         ..sort((a, b) => b.quantity.compareTo(a.quantity));
 
+      // Fetch expenses for this shift
+      final expenseSnapshot = await _firestore
+          .collection('expenses')
+          .where('shift_id', isEqualTo: shiftId)
+          .orderBy('created_at', descending: true)
+          .get();
+
+      final expenses = expenseSnapshot.docs.map((doc) {
+        final d = doc.data();
+        return ExpenseEntity(
+          id: doc.id,
+          amount: (d['amount'] as num).toInt(),
+          categoryId: d['category_id'] as String,
+          categoryName: d['category_name'] as String,
+          note: d['note'] as String,
+          type: d['type'] as String,
+          cashActionType: d['cash_action_type'] as String,
+          staffId: d['staff_id'] as String,
+          staffName: d['staff_name'] as String,
+          shiftId: d['shift_id'] as String?,
+          createdAt: (d['created_at'] as Timestamp).toDate(),
+          isAdjustment: d['is_adjustment'] as bool? ?? false,
+        );
+      }).toList();
+
+      var totalCashIn = 0;
+      var totalCashOut = 0;
+      for (final ex in expenses) {
+        if (ex.cashActionType == 'CASH_IN') totalCashIn += ex.amount;
+        if (ex.cashActionType == 'CASH_OUT') totalCashOut += ex.amount;
+      }
+
       return _CurrentShiftStats(
         totalCashSales: totalCashSales,
         totalQrisSales: totalQrisSales,
         totalTransactions: totalTransactions,
         soldProducts: soldProducts,
+        totalCashIn: totalCashIn,
+        totalCashOut: totalCashOut,
+        expenses: expenses,
       );
     } catch (e) {
       debugPrint('Error fetching active shift stats: $e');
@@ -365,6 +403,17 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
               }
             },
           ),
+          BlocListener<ExpenseBloc, ExpenseState>(
+            listener: (context, state) {
+              if (state is ExpenseCreated) {
+                final activeShift = _cashierShiftLocalService.getActiveShift(userId);
+                final shiftId = activeShift?['shiftId'] as String?;
+                if (shiftId != null) {
+                  _refreshCurrentShiftStats(userId, shiftId);
+                }
+              }
+            },
+          ),
         ],
         child: BlocBuilder<UserBloc, UserState>(
           builder: (context, state) {
@@ -391,6 +440,9 @@ class _CashierShiftPageState extends State<CashierShiftPage> {
                       duration: _formatDuration(DateTime.parse(activeShift['openedAtUtc'] as String).toLocal()),
                       statsFuture: _currentShiftStatsFuture,
                       onCloseShift: (expected) => _showCloseShiftDialog(context, user.id, expected),
+                      staffId: user.id,
+                      staffName: user.name,
+                      shiftId: shiftId!,
                     ),
                   ] else
                     _NoActiveShiftCard(),
@@ -473,13 +525,46 @@ class _ActiveShiftHero extends StatelessWidget {
   final Future<_CurrentShiftStats?>? statsFuture;
   final Function(int expectedCash) onCloseShift;
 
+  final String staffId;
+  final String staffName;
+  final String shiftId;
+
   const _ActiveShiftHero({
     required this.openedAt,
     required this.openingBalance,
     required this.duration,
     required this.statsFuture,
     required this.onCloseShift,
+    required this.staffId,
+    required this.staffName,
+    required this.shiftId,
   });
+
+  void _showCashActionDialog(BuildContext context, String type) async {
+    final result = await showGeneralDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Cash Action',
+      pageBuilder: (context, anim1, anim2) => const SizedBox(),
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            scale: animation,
+            child: CashActionDialog(
+              staffId: staffId,
+              staffName: staffName,
+              shiftId: shiftId,
+            ),
+          ),
+        );
+      },
+    );
+
+    if (result == true) {
+      // Refresh will be handled by BlocListener in parent
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -488,7 +573,9 @@ class _ActiveShiftHero extends StatelessWidget {
       builder: (context, snapshot) {
         final stats = snapshot.data;
         final cashSales = stats?.totalCashSales ?? 0;
-        final expectedCash = openingBalance + cashSales;
+        final cashIn = stats?.totalCashIn ?? 0;
+        final cashOut = stats?.totalCashOut ?? 0;
+        final expectedCash = openingBalance + cashSales + cashIn - cashOut;
 
         return Column(
           children: [
@@ -535,11 +622,43 @@ class _ActiveShiftHero extends StatelessWidget {
                       _ShiftStatMini(label: 'SALDO AWAL', value: formatRupiah(openingBalance)),
                     ],
                   ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _ShiftStatMini(label: 'TOTAL KAS MASUK (+)', value: formatRupiah(stats?.totalCashIn ?? 0), color: Colors.greenAccent),
+                      _ShiftStatMini(label: 'TOTAL KAS KELUAR (-)', value: formatRupiah(stats?.totalCashOut ?? 0), color: Colors.redAccent),
+                    ],
+                  ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: _CashActionButton(
+                    label: 'Kas Masuk',
+                    icon: Icons.add_circle_outline_rounded,
+                    color: AppPallete.success,
+                    onTap: () => _showCashActionDialog(context, 'CASH_IN'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _CashActionButton(
+                    label: 'Kas Keluar',
+                    icon: Icons.remove_circle_outline_rounded,
+                    color: AppPallete.error,
+                    onTap: () => _showCashActionDialog(context, 'CASH_OUT'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
             _StatsGrid(stats: stats),
+            const SizedBox(height: 16),
+            _CashLedgerSection(expenses: stats?.expenses ?? []),
             const SizedBox(height: 16),
             _SoldItemsSection(soldItems: stats?.soldProducts ?? []),
             const SizedBox(height: 24),
@@ -568,7 +687,8 @@ class _ActiveShiftHero extends StatelessWidget {
 class _ShiftStatMini extends StatelessWidget {
   final String label;
   final String value;
-  const _ShiftStatMini({required this.label, required this.value});
+  final Color? color;
+  const _ShiftStatMini({required this.label, required this.value, this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -576,7 +696,7 @@ class _ShiftStatMini extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: GoogleFonts.outfit(color: Colors.white60, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
-        Text(value, style: GoogleFonts.outfit(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900)),
+        Text(value, style: GoogleFonts.outfit(color: color ?? Colors.white, fontSize: 16, fontWeight: FontWeight.w900)),
       ],
     );
   }
@@ -685,6 +805,133 @@ class _SoldItemsSection extends StatelessWidget {
   }
 }
 
+class _CashActionButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _CashActionButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        decoration: BoxDecoration(
+          color: color.withAlpha(15),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withAlpha(50), width: 1.5),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 28),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: GoogleFonts.outfit(
+                color: color,
+                fontWeight: FontWeight.w900,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CashLedgerSection extends StatelessWidget {
+  final List<ExpenseEntity> expenses;
+  const _CashLedgerSection({required this.expenses});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppPallete.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppPallete.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Buku Kas (Ledger)', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: AppPallete.textPrimary)),
+              Icon(Icons.history_rounded, size: 20, color: AppPallete.textSecondary),
+            ],
+          ),
+          const SizedBox(height: 20),
+          if (expenses.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: Text('Belum ada transaksi kas.', style: GoogleFonts.outfit(fontSize: 13, color: AppPallete.textSecondary)),
+              ),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: expenses.length,
+              separatorBuilder: (_, __) => const Divider(height: 24),
+              itemBuilder: (context, index) {
+                final ex = expenses[index];
+                final isOut = ex.cashActionType == 'CASH_OUT';
+                return Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: (isOut ? AppPallete.error : AppPallete.success).withAlpha(20),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        isOut ? Icons.arrow_outward_rounded : Icons.arrow_back_rounded,
+                        color: (isOut ? AppPallete.error : AppPallete.success),
+                        size: 16,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(ex.categoryName, style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13)),
+                          Text(ex.note, style: GoogleFonts.outfit(color: AppPallete.textSecondary, fontSize: 11)),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      '${isOut ? "-" : "+"} ${formatRupiah(ex.amount)}',
+                      style: GoogleFonts.outfit(
+                        fontWeight: FontWeight.w900,
+                        color: isOut ? AppPallete.error : AppPallete.success,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _NoActiveShiftCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -713,7 +960,19 @@ class _CurrentShiftStats {
   final int totalQrisSales;
   final int totalTransactions;
   final List<_SoldProductSummary> soldProducts;
-  const _CurrentShiftStats({required this.totalCashSales, required this.totalQrisSales, required this.totalTransactions, required this.soldProducts});
+  final int totalCashIn;
+  final int totalCashOut;
+  final List<ExpenseEntity> expenses;
+
+  const _CurrentShiftStats({
+    required this.totalCashSales,
+    required this.totalQrisSales,
+    required this.totalTransactions,
+    required this.soldProducts,
+    required this.totalCashIn,
+    required this.totalCashOut,
+    required this.expenses,
+  });
 }
 
 class _SoldProductSummary {

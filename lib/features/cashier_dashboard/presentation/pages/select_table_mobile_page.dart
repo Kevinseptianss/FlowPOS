@@ -514,6 +514,7 @@ class SelectTableMobilePage extends StatelessWidget {
                             menuItemId: item.menuItemId,
                             name: item.menuName,
                             basePrice: item.unitPrice,
+                            costPrice: (item.costPrice as num).toInt(),
                             quantity: item.quantity,
                             selectedModifiers: const {},
                             totalPrice: item.unitPrice * item.quantity,

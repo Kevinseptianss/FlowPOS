@@ -75,6 +75,10 @@ import 'package:flow_pos/features/shift/data/datasources/shift_remote_data_sourc
 import 'package:flow_pos/features/shift/data/repositories/shift_repository_impl.dart';
 import 'package:flow_pos/features/shift/domain/repositories/shift_repository.dart';
 import 'package:flow_pos/features/shift/presentation/bloc/shift_bloc.dart';
+import 'package:flow_pos/features/expense/data/datasources/expense_remote_data_source.dart';
+import 'package:flow_pos/features/expense/data/repositories/expense_repository_impl.dart';
+import 'package:flow_pos/features/expense/domain/repositories/expense_repository.dart';
+import 'package:flow_pos/features/expense/presentation/bloc/expense_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 // Firebase initialized via GetIt in part file

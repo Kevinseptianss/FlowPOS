@@ -5,7 +5,8 @@ class Cart extends Equatable {
   final String id;
   final String menuItemId;
   final String name;
-  final int basePrice;
+  final int basePrice; // Selling Price (per product)
+  final int costPrice; // Cost Price (HPP per product)
   final int quantity;
   final Map<String, SelectedModifier?> selectedModifiers;
   final int totalPrice;
@@ -18,6 +19,7 @@ class Cart extends Equatable {
     required this.menuItemId,
     required this.name,
     required this.basePrice,
+    required this.costPrice,
     required this.quantity,
     required this.selectedModifiers,
     required this.totalPrice,
@@ -31,6 +33,7 @@ class Cart extends Equatable {
     String? menuItemId,
     String? name,
     int? basePrice,
+    int? costPrice,
     int? quantity,
     Map<String, SelectedModifier?>? selectedModifiers,
     int? totalPrice,
@@ -43,6 +46,7 @@ class Cart extends Equatable {
       menuItemId: menuItemId ?? this.menuItemId,
       name: name ?? this.name,
       basePrice: basePrice ?? this.basePrice,
+      costPrice: costPrice ?? this.costPrice,
       quantity: quantity ?? this.quantity,
       selectedModifiers: selectedModifiers ?? this.selectedModifiers,
       totalPrice: totalPrice ?? this.totalPrice,
@@ -58,6 +62,7 @@ class Cart extends Equatable {
     menuItemId,
     name,
     basePrice,
+    costPrice,
     quantity,
     selectedModifiers,
     totalPrice,

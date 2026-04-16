@@ -125,6 +125,7 @@ class _ListMenuSectionState extends State<ListMenuSection> {
                                 menuItemId: item.id,
                                 name: item.name,
                                 basePrice: item.price,
+                                costPrice: item.basePrice,
                                 quantity: 1,
                                 selectedModifiers: const {},
                                 totalPrice: item.price,
@@ -145,16 +146,18 @@ class _ListMenuSectionState extends State<ListMenuSection> {
                                     menuId: item.id,
                                     itemName: item.name,
                                     price: item.price,
+                                    basePrice: item.basePrice,
                                     variants: item.variants,
                                   ),
                                 );
-
+ 
                             if (result != null) {
                               cartBloc.add(
                                 AddToCartEvent(
                                   menuItemId: item.id,
                                   name: item.name,
                                   basePrice: item.price,
+                                  costPrice: (result['totalCost'] as num).toInt(),
                                   quantity: (result['quantity'] as num).toInt(),
                                   selectedModifiers:
                                       result['selectedModifiers']

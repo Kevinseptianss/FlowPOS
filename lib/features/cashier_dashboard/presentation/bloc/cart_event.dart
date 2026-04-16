@@ -11,6 +11,7 @@ final class AddToCartEvent extends CartEvent {
   final String menuItemId;
   final String name;
   final int basePrice;
+  final int costPrice;
   final int quantity;
   final Map<String, SelectedModifier?> selectedModifiers;
   final int totalPrice;
@@ -21,6 +22,7 @@ final class AddToCartEvent extends CartEvent {
     required this.menuItemId,
     required this.name,
     required this.basePrice,
+    required this.costPrice,
     required this.quantity,
     required this.selectedModifiers,
     required this.totalPrice,
@@ -33,6 +35,7 @@ final class AddToCartEvent extends CartEvent {
     menuItemId,
     name,
     basePrice,
+    costPrice,
     quantity,
     selectedModifiers,
     totalPrice,

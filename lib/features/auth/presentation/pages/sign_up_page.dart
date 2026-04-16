@@ -76,181 +76,399 @@ class _SignUpPageState extends State<SignUpPage> {
           }
         },
         builder: (context, state) {
-          if (state is AuthLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
+          final isLoading = state is AuthLoading;
 
-          return SafeArea(
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
-                    decoration: const BoxDecoration(
-                      color: AppPallete.primary,
-                      borderRadius: BorderRadius.vertical(
-                        bottom: Radius.circular(28),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Buat Akun',
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(
-                                color: AppPallete.onPrimary,
-                                fontWeight: FontWeight.w800,
-                              ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          _ownerExists 
-                            ? 'Akun Owner Sudah Terdaftar'
-                            : 'Siapkan akun pemilik Anda dalam hitungan menit.',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: AppPallete.onPrimary),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: AppPallete.surface,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: AppPallete.divider),
-                      ),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Daftar',
-                              style: Theme.of(context).textTheme.titleLarge
-                                  ?.copyWith(
-                                    color: AppPallete.textPrimary,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                            ),
-                            const SizedBox(height: 16),
-                            AuthTextField(
-                              controller: _nameController,
-                              label: 'Nama',
-                            ),
-                            const SizedBox(height: 12),
-                            AuthTextField(
-                              controller: _emailController,
-                              label: 'Email / Username',
-                            ),
-                            const SizedBox(height: 12),
-                            AuthTextField(
-                              controller: _passwordController,
-                              label: 'Kata Sandi',
-                              isPassword: true,
-                            ),
-                            const SizedBox(height: 12),
-                            AuthTextField(
-                              controller: _confirmPasswordController,
-                              label: 'Konfirmasi Kata Sandi',
-                              isPassword: true,
-                              validator: (value) {
-                                if (value != _passwordController.text) {
-                                  return 'Kata sandi tidak cocok';
-                                }
-
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 18),
-                            if (_ownerExists)
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.red.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.red.withOpacity(0.3)),
-                                ),
-                                child: Text(
-                                  'Aplikasi sudah memiliki Owner. Silakan hubungi Owner untuk mendapatkan akses sebagai Staff.',
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Colors.red[700],
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            if (!_ownerExists)
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton(
-                                  onPressed: _isCheckingOwner ? null : () {
-                                    if (_formKey.currentState?.validate() ??
-                                        false) {
-                                      context.read<AuthBloc>().add(
-                                        SignUpEvent(
-                                          name: _nameController.text,
-                                          email: _emailController.text,
-                                          password: _passwordController.text,
-                                          role: 'owner',
-                                        ),
-                                      );
-                                    }
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppPallete.primary,
-                                    foregroundColor: AppPallete.onPrimary,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 14,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                  child: _isCheckingOwner 
-                                    ? const SizedBox(
-                                        height: 20, 
-                                        width: 20, 
-                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)
-                                      )
-                                    : const Text('Buat Akun'),
-                                ),
-                              ),
-                            const SizedBox(height: 12),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  'Sudah punya akun?',
-                                  style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(color: AppPallete.textPrimary),
-                                ),
-                                TextButton(
-                                  onPressed: () {
-                                    Navigator.pop(context);
-                                  },
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: AppPallete.secondary,
-                                  ),
-                                  child: const Text('Masuk'),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth > 800) {
+                return _TabletSignUpLayout(
+                  isLoading: isLoading,
+                  isCheckingOwner: _isCheckingOwner,
+                  ownerExists: _ownerExists,
+                  nameController: _nameController,
+                  emailController: _emailController,
+                  passwordController: _passwordController,
+                  confirmPasswordController: _confirmPasswordController,
+                  formKey: _formKey,
+                );
+              }
+              return _MobileSignUpLayout(
+                isLoading: isLoading,
+                isCheckingOwner: _isCheckingOwner,
+                ownerExists: _ownerExists,
+                nameController: _nameController,
+                emailController: _emailController,
+                passwordController: _passwordController,
+                confirmPasswordController: _confirmPasswordController,
+                formKey: _formKey,
+              );
+            },
           );
         },
+      ),
+    );
+  }
+}
+
+class _MobileSignUpLayout extends StatelessWidget {
+  final bool isLoading;
+  final bool isCheckingOwner;
+  final bool ownerExists;
+  final TextEditingController nameController;
+  final TextEditingController emailController;
+  final TextEditingController passwordController;
+  final TextEditingController confirmPasswordController;
+  final GlobalKey<FormState> formKey;
+
+  const _MobileSignUpLayout({
+    required this.isLoading,
+    required this.isCheckingOwner,
+    required this.ownerExists,
+    required this.nameController,
+    required this.emailController,
+    required this.passwordController,
+    required this.confirmPasswordController,
+    required this.formKey,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: SingleChildScrollView(
+        child: Column(
+          children: [
+            _BrandingHeader(ownerExists: ownerExists),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+              child: _SignUpForm(
+                isLoading: isLoading,
+                isCheckingOwner: isCheckingOwner,
+                ownerExists: ownerExists,
+                nameController: nameController,
+                emailController: emailController,
+                passwordController: passwordController,
+                confirmPasswordController: confirmPasswordController,
+                formKey: formKey,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TabletSignUpLayout extends StatelessWidget {
+  final bool isLoading;
+  final bool isCheckingOwner;
+  final bool ownerExists;
+  final TextEditingController nameController;
+  final TextEditingController emailController;
+  final TextEditingController passwordController;
+  final TextEditingController confirmPasswordController;
+  final GlobalKey<FormState> formKey;
+
+  const _TabletSignUpLayout({
+    required this.isLoading,
+    required this.isCheckingOwner,
+    required this.ownerExists,
+    required this.nameController,
+    required this.emailController,
+    required this.passwordController,
+    required this.confirmPasswordController,
+    required this.formKey,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        // Left Side: Branding Hero
+        const Expanded(
+          child: _BrandingHeroSection(),
+        ),
+        // Right Side: SignUp Form
+        Expanded(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 40),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 450),
+                child: _SignUpForm(
+                  isLoading: isLoading,
+                  isCheckingOwner: isCheckingOwner,
+                  ownerExists: ownerExists,
+                  nameController: nameController,
+                  emailController: emailController,
+                  passwordController: passwordController,
+                  confirmPasswordController: confirmPasswordController,
+                  formKey: formKey,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BrandingHeader extends StatelessWidget {
+  final bool ownerExists;
+  const _BrandingHeader({required this.ownerExists});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+      decoration: const BoxDecoration(
+        color: AppPallete.primary,
+        borderRadius: BorderRadius.vertical(
+          bottom: Radius.circular(28),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Buat Akun',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: AppPallete.onPrimary,
+                  fontWeight: FontWeight.w800,
+                ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            ownerExists ? 'Akun Owner Sudah Terdaftar' : 'Siapkan akun pemilik Anda dalam hitungan menit.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppPallete.onPrimary),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BrandingHeroSection extends StatelessWidget {
+  const _BrandingHeroSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppPallete.primary,
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.asset(
+            'assets/images/login_hero.png',
+            fit: BoxFit.cover,
+          ),
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppPallete.primary.withAlpha(200),
+                  Colors.transparent,
+                ],
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(60),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text(
+                  'FlowPOS',
+                  style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -1,
+                      ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Solusi Point of Sale modern untuk bisnis masa depan. Daftar sekarang dan mulai transformasi operasional Anda.',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        color: Colors.white.withAlpha(230),
+                        height: 1.4,
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SignUpForm extends StatelessWidget {
+  final bool isLoading;
+  final bool isCheckingOwner;
+  final bool ownerExists;
+  final TextEditingController nameController;
+  final TextEditingController emailController;
+  final TextEditingController passwordController;
+  final TextEditingController confirmPasswordController;
+  final GlobalKey<FormState> formKey;
+
+  const _SignUpForm({
+    required this.isLoading,
+    required this.isCheckingOwner,
+    required this.ownerExists,
+    required this.nameController,
+    required this.emailController,
+    required this.passwordController,
+    required this.confirmPasswordController,
+    required this.formKey,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: AppPallete.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppPallete.divider),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(10),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Form(
+        key: formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Daftar',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: AppPallete.textPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 24),
+            AuthTextField(
+              controller: nameController,
+              label: 'Nama',
+            ),
+            const SizedBox(height: 16),
+            AuthTextField(
+              controller: emailController,
+              label: 'Email / Username',
+            ),
+            const SizedBox(height: 16),
+            AuthTextField(
+              controller: passwordController,
+              label: 'Kata Sandi',
+              isPassword: true,
+            ),
+            const SizedBox(height: 16),
+            AuthTextField(
+              controller: confirmPasswordController,
+              label: 'Konfirmasi Kata Sandi',
+              isPassword: true,
+              validator: (value) {
+                if (value != passwordController.text) {
+                  return 'Kata sandi tidak cocok';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 24),
+            if (ownerExists)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.red.withOpacity(0.3)),
+                ),
+                child: Text(
+                  'Aplikasi sudah memiliki Owner. Silakan hubungi Owner untuk mendapatkan akses sebagai Staff.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.red[700],
+                        fontWeight: FontWeight.w600,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            if (!ownerExists)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: (isCheckingOwner || isLoading)
+                      ? null
+                      : () {
+                          if (formKey.currentState?.validate() ?? false) {
+                            context.read<AuthBloc>().add(
+                                  SignUpEvent(
+                                    name: nameController.text,
+                                    email: emailController.text,
+                                    password: passwordController.text,
+                                    role: 'owner',
+                                  ),
+                                );
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppPallete.primary,
+                    foregroundColor: AppPallete.onPrimary,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 18,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: (isCheckingOwner || isLoading)
+                      ? const SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text(
+                          'Buat Akun',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                ),
+              ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Sudah punya akun?',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppPallete.textPrimary),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppPallete.secondary,
+                  ),
+                  child: const Text('Masuk'),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

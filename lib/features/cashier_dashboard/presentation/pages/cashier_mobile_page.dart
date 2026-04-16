@@ -280,6 +280,7 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
                                               menuItemId: item.id,
                                               name: item.name,
                                               basePrice: item.price,
+                                              costPrice: item.basePrice,
                                               quantity: 1,
                                               selectedModifiers: const {},
                                               totalPrice: item.price,
@@ -329,6 +330,7 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
         menuId: item.id,
         itemName: item.name,
         price: item.price,
+        basePrice: item.basePrice,
         variants: item.variants,
       ),
     );
@@ -339,6 +341,7 @@ class _CashierMobilePageState extends State<CashierMobilePage> {
           menuItemId: item.id,
           name: item.name,
           basePrice: item.price,
+          costPrice: (result['totalCost'] as num).toInt(),
           quantity: (result['quantity'] as num).toInt(),
           selectedModifiers:
               result['selectedModifiers'] as Map<String, SelectedModifier?>,

@@ -8,6 +8,8 @@ class OrderCard extends StatelessWidget {
   final String datetime;
   final int totalItems;
   final String totalPayment;
+  final String? totalHpp; // NEW
+  final String? grossProfit; // NEW
   final VoidCallback? onTap;
 
   const OrderCard({
@@ -17,6 +19,8 @@ class OrderCard extends StatelessWidget {
     required this.datetime,
     required this.totalItems,
     required this.totalPayment,
+    this.totalHpp,
+    this.grossProfit,
     this.onTap,
   });
 
@@ -83,6 +87,24 @@ class OrderCard extends StatelessWidget {
                         fontWeight: FontWeight.w500,
                       ),
                     ),
+                    if (totalHpp != null && grossProfit != null) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          _buildMiniBadge(
+                            label: 'HPP',
+                            value: totalHpp!,
+                            color: Colors.orange.shade800,
+                          ),
+                          const SizedBox(width: 8),
+                          _buildMiniBadge(
+                            label: 'Profit',
+                            value: grossProfit!,
+                            color: AppPallete.success,
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -119,6 +141,42 @@ class OrderCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildMiniBadge({
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withAlpha(20),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withAlpha(40)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '$label: ',
+            style: GoogleFonts.outfit(
+              fontSize: 9,
+              color: color.withAlpha(200),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            value,
+            style: GoogleFonts.outfit(
+              fontSize: 9,
+              color: color,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
       ),
     );
   }
