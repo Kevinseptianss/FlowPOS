@@ -53,13 +53,15 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       ),
     );
 
-    result.fold(
-      (l) => emit(AuthFailure(l.message)),
+    await result.fold(
+      (l) async => emit(AuthFailure(l.message)),
       (r) async {
         // Automatically logged in after sign up by Firebase, 
         // but we log out to force manual login as requested.
         await _logout(NoParams());
-        emit(AuthSignUpSuccess());
+        if (!emit.isDone) {
+          emit(AuthSignUpSuccess());
+        }
       },
     );
   }

@@ -46,3 +46,8 @@ app.*.map.json
 
 # Secrets key
 lib/core/secrets/
+# Sensitive android keys and scripts
+android/get_keys.dart
+android/get_keys_clean.dart
+android/key_output.txt
+android/output.txt
